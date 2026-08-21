@@ -1,0 +1,26 @@
+Scope of the MIT license in this repository
+===========================================
+
+The MIT license in LICENSE covers the TOOLS in this repository -- the Python
+source under tools/, and the two metadata files under dump/.
+
+It does not, and cannot, grant any rights to:
+
+  * Gyakuten Kenji 2 (Nintendo DS, 2011)
+  * Ace Attorney Investigations Collection (2024)
+  * any text, graphics, audio or data from either
+
+All of which remain (c) Capcom.
+
+Nor does it cover the AAI2 Final v2 fan translation, which is the work of its
+own authors. This project is built entirely on top of their patch -- their
+variable-width font engine, their English graphics and their menus -- and their
+ATTENTION notice is left intact in every build.
+
+No game data is distributed in this repository. Building requires your own
+legally obtained copy of both games, and the resulting ROM must not be
+redistributed: it contains both Capcom's copyrighted localization and the fan
+translation's assets.
+
+If you want Capcom's translation, buy the Collection. It is very good, and it
+is the reason this project can exist at all.
