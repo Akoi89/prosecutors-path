@@ -58,6 +58,9 @@ pip install UnityPy Pillow
 python tools/build.py --fan-rom "...nds" --collection "..."
 ```
 
+See [BUILDING.md](BUILDING.md) to rebuild `gk2port.exe`, to regenerate the metadata
+files that ship in `dump/`, or for the one known gap in the control-code table.
+
 ### Rebuilding without the Collection installed
 
 The Collection is only read during *extraction*. Once `dump/` exists it holds everything
@@ -228,6 +231,7 @@ apart. Set `RETITLE = True` in `tools/inject.py` if you disagree.
 | `dstext.py` | Text conversion: fullwidth mapping, pixel wrapping, page breaks, control-code arity |
 | `build.py` | One-shot entry point: extract everything, then inject. This is what `gk2port.exe` runs |
 | `jp_profile.py` | Regenerates `dump/jp_structure.json`, the shipped structural counts from the JP script |
+| `ctrl_args.py` | Regenerates `dump/ctrl_args.json`; `--check` diffs a fresh derivation against it |
 | `inject.py` | Mapping, structural guards, ROM rebuild |
 | `loc_patch.py` | Evidence, profiles and Logic cards from the Unity Localization tables |
 | `build_map.py` / `map_ids.py` | Fuzzy n-gram matching of DS entries to Collection files |
