@@ -20,7 +20,7 @@ sha256sum out/check.nds
 ```
 
 Every refactor in this repo's history was gated on that hash staying at
-`22f93c96415516c926beb1857c5ee26eca3f7f93337c0fabcc5b0ec8a4d76ab3`. If yours moves,
+`76a5d740268e914f5cdacf1cb7c7362e500bf3db02c4af3db821242ffb9bdb02`. If yours moves,
 you changed behaviour — find out why before committing.
 
 ---
@@ -79,46 +79,35 @@ That ROM is required only to regenerate these files, never to build.
 
 ---
 
-## Known gap: nine control codes
+## Fixed: nine control codes that were missing arities
 
-`tools/ctrl_args.py --check` reports this, so it is worth explaining rather than
-leaving as a surprise:
+`dump/ctrl_args.json` originally held 325 codes. The corpus contains nine more that
+plainly take arguments, and because they were absent, `dstext.DEFAULT_ARGS` treated
+them as arity 0 and sent 1,498 argument bytes down the text path — where 39 of them
+(in `E0B0`, `E162`, `E16E`, `E183`) fell in `0x21`–`0x7E` and were rewritten to
+fullwidth, so the engine received altered argument values.
 
-```
-shipped 325 codes, derived 342, 325 in common
-disagreements on shared codes: 0
-codes with arguments that the shipped table omits: 9
-  E0B0:8, E145:3, E162:1, E16E:1, E183:1, E192:2, E193:2, E1C2:1, E243:3
-```
+The table now has all 342. What made the fix safe to apply:
 
-The derivation reproduces the shipped table exactly on every code they share. But
-the corpus contains nine further codes that clearly take arguments —
-`{E0B0}<01><18><01><19>…` is not text — which the shipped table omits, so
-`dstext.DEFAULT_ARGS` treats them as arity 0 and their arguments fall through the
-text path.
+- **Zero variance in run length.** All 52 occurrences of `E0B0` are followed by
+  exactly 8 non-control units; all 245 of `E145` by exactly 3. Not a minimum — an
+  invariant. Arity-0 codes sitting in prose produce wildly varying run lengths.
+- **The arguments are small binary values** (`0x00`–`0x1B` mostly), never letters.
+- **All nine occur only at the tail of a string**, after the final message box:
+  `{E243}<01><02><03>` is the last four units, `{E0B0}<01><14>…` is a nine-unit
+  string. So the over-estimation failure mode that once made `{E04C}` swallow words
+  is structurally impossible here — there is no dialogue after them to swallow.
+- **Verified by diffing rendered text** between the two tables: 10,697 strings
+  identical, 8 changed, and every change is the removal of stray argument bytes that
+  had been leaking into view (`' !!'` → `'!!'`, `'2 2 2 2'` → `'2222'`). No dialogue
+  was lost.
 
-Measured consequences, across every entry the injector touches:
+Every guard count is unchanged (404 entries, 112 relaid strings, 11 shape rejections),
+all six structural checks still pass, and coverage stays at 85.7%.
 
-- **1,498 argument bytes are treated as text.** They still reach the ROM in the
-  right order, so the engine reads them correctly, but they occupy pixel width in
-  the line-wrapping model. Lines containing these codes wrap earlier than they
-  should.
-- **39 of those bytes (2.6%, in `E0B0`, `E162`, `E16E`, `E183`) fall in `0x21`–`0x7E`
-  and are rewritten to fullwidth** by `dstext._fw()`. Those arguments reach the
-  engine with altered values.
-- **No argument run is ever split by a line or page break** — 0 of 575. Breaks are
-  only inserted at word boundaries, and an argument run forms a single atomic token,
-  so this failure mode is structurally impossible rather than merely unobserved.
-
-Correcting it is a one-line change (regenerate the table), and it **does** change the
-built ROM. The shipped table is deliberately frozen at the state that has been played
-and verified in-game. Treat fixing this as a real change: regenerate, rebuild, and
-play through Episode 1 before trusting it.
-
-The risk on the other side is not zero either. Arity is inferred from a minimum, and
-a minimum can over-estimate — that is exactly how `{E04C}` and `{E04D}` once came out
-as 9 and 20 and started swallowing words. The 85% letter test guards against it, but
-a code with few occurrences could still slip through.
+`tools/ctrl_args.py --check` now reports no gap. If it ever reports one again, the
+same evidence gate applies: demand zero run-length variance, binary-looking arguments,
+and a rendered-text diff that loses nothing.
 
 ---
 
