@@ -24,7 +24,7 @@ translation, for reasons documented in [What doesn't port, and why](#what-doesnt
 | | |
 |---|---|
 | **Gyakuten Kenji 2 (AAI2 Final v2)** | The fan-patched DS ROM. It supplies the variable-width font and English graphics — without it, nothing renders |
-| **Ace Attorney Investigations Collection** | Any platform. The script lives in the Unity Addressables bundles |
+| **Ace Attorney Investigations Collection** | The **PC** build — tested on Steam. The script lives in the Unity Addressables bundles under `GK12_Data/StreamingAssets/aa/` |
 | **Gyakuten Kenji 2 (Japan)** | The retail Japanese DS ROM. Used as the *alignment reference* — see below. Not optional |
 | **Python 3.9+** | Only if building from source. `pip install UnityPy Pillow` |
 
@@ -42,6 +42,11 @@ gk2port.exe --fan-rom "GK2 (AAI2 Final v2).nds" --jp-rom "Gyakuten Kenji 2 (Japa
 It extracts everything it needs into `dump/` beside itself and writes the finished ROM
 to `out/`. Takes a couple of minutes. `--collection` accepts the game folder, the
 `StreamingAssets/aa` folder, or the platform folder inside it.
+
+> **Console builds are untested.** The bundle lookup matches by name prefix and does
+> not care which platform folder it finds, so a Switch or PS4 dump you have already
+> extracted yourself may well work — point `--collection` at the extracted folder. But
+> nothing here has been run against one, so treat it as unknown rather than supported.
 
 Windows SmartScreen will warn about an unrecognised publisher — the binary is unsigned,
 because code-signing certificates cost money. Verify the checksum on the release page,
