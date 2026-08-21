@@ -233,14 +233,44 @@ apart. Set `RETITLE = True` in `tools/inject.py` if you disagree.
 
 ## Credits
 
-The **AAI2 fan translation team** did the hard part. This project is built entirely on
-top of their work — their variable-width font engine, their English graphics, their
-menus, their ROM. Without the Final v2 patch there is nothing to inject *into*, and no
-font capable of rendering the result.
+The **AAI2 fan translation team** did the hard part:
+
+> **[Gyakuten Kenji 2 — AAI2 Final v2](https://www.romhacking.net/translations/2260/)**
+> on romhacking.net
+
+This project is built entirely on top of their work — their variable-width font engine,
+their English graphics, their menus, their ROM. Without the Final v2 patch there is
+nothing to inject *into*, and no font capable of rendering the result. They also solved
+problems this project simply inherits, like fitting English into a script laid out for
+Japanese, and reworking the engine's string offsets to buy back address space.
+
+If you have not played their translation, play it. It stood alone for over a decade and
+it is genuinely good. This project is a different thing, not a better one — it swaps in
+Capcom's wording for people who want to read the official script on hardware.
 
 Their ATTENTION notice is left intact in every build, and should stay that way.
 
 *Gyakuten Kenji 2* and the *Ace Attorney Investigations Collection* are © Capcom.
+
+## How this was built
+
+The tooling in this repository was written with **LLM assistance** — specifically Claude
+(Opus 5), driven through Claude Code, over a series of sessions.
+
+That is worth stating plainly, because it shapes what you should trust here. The format
+reverse-engineering is grounded in measurements over the real files rather than in
+recollection, and the numbers quoted throughout — 20,516 of 26,172 newlines, 54 of 429
+relaid entries, 85.7% coverage — are all reproducible by running the tools. Every build
+is verified byte-for-byte against previous ones.
+
+But the bugs that mattered were found by **playing the game**, not by the model. The
+freeze in Episode 1, the ragged line wrapping, the clipped text, the duplicated
+conversation — each surfaced from a human sitting in front of an emulator with a
+screenshot, and several of them contradicted what the model believed at the time. The
+project's own history is a decent argument for that division of labour.
+
+Treat the code as reviewable rather than authoritative. It is 1,400 lines and MIT
+licensed; read it before you trust it with a ROM you care about.
 
 ## Legal
 

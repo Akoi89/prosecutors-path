@@ -13,9 +13,13 @@ It does not, and cannot, grant any rights to:
 All of which remain (c) Capcom.
 
 Nor does it cover the AAI2 Final v2 fan translation, which is the work of its
-own authors. This project is built entirely on top of their patch -- their
-variable-width font engine, their English graphics and their menus -- and their
-ATTENTION notice is left intact in every build.
+own authors:
+
+    https://www.romhacking.net/translations/2260/
+
+This project is built entirely on top of their patch -- their variable-width
+font engine, their English graphics and their menus -- and their ATTENTION
+notice is left intact in every build.
 
 No game data is distributed in this repository. Building requires your own
 legally obtained copy of both games, and the resulting ROM must not be
