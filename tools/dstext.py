@@ -21,7 +21,8 @@ rather than filled greedily. Greedy filling turns a 4-line thought into 3 lines 
 one-word orphan ("...intend to draw logical)" / "(conclusions...)"); balancing gives
 2 + 2, which is how the original script reads.
 """
-import json, os, unicodedata
+import json, os, sys, unicodedata
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 SPACE = 0xFF3F
 # Calibrated from an in-game screenshot: a line measuring 208px in this model was
@@ -73,8 +74,8 @@ APOS = 0x201D
 DQ_OPEN = 0x201C
 DQ_CLOSE = 0x201D
 
-ARGS = {int(k, 16): v for k, v in
-        json.load(open(os.path.join(os.path.dirname(__file__), '..', 'dump', 'ctrl_args.json'))).items()}
+from paths import data as _data
+ARGS = {int(k, 16): v for k, v in json.load(open(_data('ctrl_args.json'))).items()}
 DEFAULT_ARGS = 0
 
 def _w(ch):

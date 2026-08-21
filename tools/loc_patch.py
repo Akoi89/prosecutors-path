@@ -13,7 +13,8 @@ from build_spt import build_ds
 import dstext
 
 CTRL = lambda v: 0xE000 <= v <= 0xF8FF
-_D = os.path.join(os.path.dirname(__file__), '..', 'dump')
+from paths import work as _work
+_D = _work('dump')
 # DS-only tail the Collection dropped; the fan patch renders it this way.
 SUFFIX_JA = '《詳細》で見られる。'
 SUFFIX_EN = 'Touch the Check Button for details.'
