@@ -59,7 +59,20 @@ pip install UnityPy Pillow
 python tools/build.py --fan-rom "...nds" --jp-rom "...nds" --collection "..."
 ```
 
-Or run the injection alone against an existing `dump/` tree:
+### Rebuilding without the Collection installed
+
+The Collection is only read during *extraction*. Once `dump/` exists it holds everything
+the injection needs, so you can free the 7 GB install and still rebuild forever:
+
+```
+gk2port.exe --fan-rom "GK2 (AAI2 Final v2).nds" --skip-extract
+```
+
+That needs the fan ROM and `dump/` (~140 MB) and nothing else — not the Collection, not
+even the Japanese ROM, since the injection reads `dump/ds_jp/jpn/spt.bin` rather than the
+ROM itself. Verified byte-identical to a full run.
+
+Or run the injection alone:
 
 ```bash
 python tools/inject.py "Gyakuten Kenji 2 (AAI2 Final v2).nds" -o out/GK2-official.nds
