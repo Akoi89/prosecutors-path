@@ -25,17 +25,36 @@ translation, for reasons documented in [What doesn't port, and why](#what-doesnt
 |---|---|
 | **Gyakuten Kenji 2 (AAI2 Final v2)** | The fan-patched DS ROM. It supplies the variable-width font and English graphics — without it, nothing renders |
 | **Ace Attorney Investigations Collection** | Any platform. The script lives in the Unity Addressables bundles |
-| **Python 3.9+** | `pip install UnityPy Pillow` |
+| **Gyakuten Kenji 2 (Japan)** | The retail Japanese DS ROM. Used as the *alignment reference* — see below. Not optional |
+| **Python 3.9+** | Only if building from source. `pip install UnityPy Pillow` |
 
 ## Usage
 
-Extract the Collection's script bundles into `dump/`:
+### Windows, no Python needed
 
-```bash
-python tools/dump_textassets.py "/path/to/Collection/StreamingAssets/aa" dump
+Download `gk2port.exe` from [Releases](https://github.com/Akoi89/prosecutors-path/releases),
+put it in a folder of its own, and run it from a terminal:
+
+```
+gk2port.exe --fan-rom "GK2 (AAI2 Final v2).nds" --jp-rom "Gyakuten Kenji 2 (Japan).nds" --collection "C:\Program Files (x86)\Steam\steamapps\common\Ace Attorney Investigations Collection"
 ```
 
-Then build:
+It extracts everything it needs into `dump/` beside itself and writes the finished ROM
+to `out/`. Takes a couple of minutes. `--collection` accepts the game folder, the
+`StreamingAssets/aa` folder, or the platform folder inside it.
+
+Windows SmartScreen will warn about an unrecognised publisher — the binary is unsigned,
+because code-signing certificates cost money. Verify the checksum on the release page,
+or build from source below.
+
+### From source
+
+```bash
+pip install UnityPy Pillow
+python tools/build.py --fan-rom "...nds" --jp-rom "...nds" --collection "..."
+```
+
+Or run the injection alone against an existing `dump/` tree:
 
 ```bash
 python tools/inject.py "Gyakuten Kenji 2 (AAI2 Final v2).nds" -o out/GK2-official.nds
@@ -185,7 +204,8 @@ apart. Set `RETITLE = True` in `tools/inject.py` if you disagree.
 | `spt.py` | SPT container parser, both variants, with offset-scale detection |
 | `build_spt.py` | SPT writer |
 | `dstext.py` | Text conversion: fullwidth mapping, pixel wrapping, page breaks, control-code arity |
-| `inject.py` | End-to-end build — mapping, guards, ROM rebuild |
+| `build.py` | One-shot entry point: extract everything, then inject. This is what `gk2port.exe` runs |
+| `inject.py` | Mapping, structural guards, ROM rebuild |
 | `loc_patch.py` | Evidence, profiles and Logic cards from the Unity Localization tables |
 | `build_map.py` / `map_ids.py` | Fuzzy n-gram matching of DS entries to Collection files |
 | `lz11.py` / `nitro.py` | Nintendo LZ11 and NCGR/NCLR/NSCR/NCER/NANR |
