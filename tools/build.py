@@ -101,17 +101,28 @@ def main(argv=None):
                     'into the Nintendo DS ROM.')
     ap.add_argument('--fan-rom', required=True,
                     help='the AAI2 Final v2 fan-patched DS ROM')
-    ap.add_argument('--jp-rom', required=True,
-                    help='the retail Japanese DS ROM (the alignment reference)')
-    ap.add_argument('--collection', required=True,
-                    help='Ace Attorney Investigations Collection install folder')
+    ap.add_argument('--jp-rom',
+                    help='the retail Japanese DS ROM (the alignment reference). '
+                         'Not needed with --skip-extract')
+    ap.add_argument('--collection',
+                    help='Ace Attorney Investigations Collection install folder. '
+                         'Not needed with --skip-extract')
     ap.add_argument('-o', '--out', default=None, help='output ROM path')
     ap.add_argument('--skip-extract', action='store_true',
-                    help='reuse an existing dump/ tree')
+                    help='reuse an existing dump/ tree. Once dump/ exists it holds '
+                         'everything the injection needs, so neither the Collection '
+                         'nor the Japanese ROM has to stay on disk')
     a = ap.parse_args(argv)
 
-    for label, path in (('fan ROM', a.fan_rom), ('JP ROM', a.jp_rom),
-                        ('Collection', a.collection)):
+    # Only the extraction step touches the Collection and the JP ROM; the injection
+    # reads dump/ds_jp/jpn/spt.bin, not the ROM, and never opens a bundle.
+    need = [('fan ROM', a.fan_rom)]
+    if not a.skip_extract:
+        for label, val in (('--jp-rom', a.jp_rom), ('--collection', a.collection)):
+            if not val:
+                raise SystemExit('%s is required unless you pass --skip-extract' % label)
+        need += [('JP ROM', a.jp_rom), ('Collection', a.collection)]
+    for label, path in need:
         if not os.path.exists(path):
             raise SystemExit('%s not found: %s' % (label, path))
 
@@ -134,6 +145,14 @@ def main(argv=None):
         step(4, total, 'Extracting the localization string tables')
         extract_loc(bdir, dumpdir)
     else:
+        missing = [d for d in ('ds_fan', 'ds_jp', 'eng', 'eng_trial', 'jpn', 'jpn_trial')
+                   if not os.path.isdir(os.path.join(dumpdir, d))]
+        missing += [f for f in ('loc_en.json', 'loc_ja.json')
+                    if not os.path.exists(os.path.join(dumpdir, f))]
+        if missing:
+            raise SystemExit('--skip-extract, but %s is missing: %s. '
+                             'Run once without --skip-extract to build it.'
+                             % (dumpdir, ', '.join(missing)))
         print('[--skip-extract] reusing', dumpdir, flush=True)
 
     step(5, total, 'Injecting\n')
