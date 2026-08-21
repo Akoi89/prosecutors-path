@@ -7,7 +7,7 @@ the trailer word are carried over from the DS entry. An entry is only touched wh
 its string count matches the Collection file's exactly.
 """
 import sys, os, io, json, struct, collections
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 from spt import all_strings, parse
 from build_spt import build_ds, build_archive
@@ -15,15 +15,11 @@ from dstext import convert
 from episode_titles import retitle
 from loc_patch import load_lookup, patch_entry
 from map_ids import ds_entries
+from paths import work, data
 
 # Codes that end a message box (the box-count fingerprint used for alignment checks).
 BOXEND = {0xE102, 0xE104, 0xE106, 0xE185, 0xE081}
 
-# Paths. Override on the command line:
-#   python tools/inject.py <fan-patched-rom.nds> [-o output.nds]
-_A = [a for a in sys.argv[1:] if not a.startswith('-')]
-BASE = _A[0] if _A else os.environ.get(
-    'GK2_ROM', 'Gyakuten Kenji 2 (AAI2 Final v2).nds')
 # Capcom renamed every episode (Turnabout Target -> Turnabout Trigger, The Imprisoned
 # Turnabout -> The Captive Turnabout, ...). Those names live in DS[460] strings 24-93,
 # which is only the SAVE/LOAD slot list - the episode-select screen shows them as a
@@ -31,8 +27,6 @@ BASE = _A[0] if _A else os.environ.get(
 # Switching only the save slots puts two different names for the same episode one menu
 # apart, so leave the fan's names until the bitmap can be redrawn to match.
 RETITLE = False
-OUT = (sys.argv[sys.argv.index('-o') + 1] if '-o' in sys.argv[:-1]
-       else 'out/GK2 (Official English, DS port).nds')
 
 def file_id(rom, want):
     fnt = struct.unpack_from('<I', rom, 0x40)[0]
@@ -68,11 +62,14 @@ def eng_path(name, src):
             p = os.path.join(f, c + '.bin')
             if os.path.exists(p): return p
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-def main():
-    os.chdir(ROOT)
-    m = json.load(open('dump/ds_to_collection_final.json'))
+def main(base=None, out=None):
+    os.chdir(work())
+    BASE = base or os.environ.get('GK2_ROM',
+                                  'Gyakuten Kenji 2 (AAI2 Final v2).nds')
+    OUT = out or os.path.join('out', 'GK2 (Official English, DS port).nds')
+    # ships with the tool (inside the bundle when frozen), unlike everything
+    # else under dump/, which the user extracts from their own copies
+    m = json.load(open(data('ds_to_collection_final.json')))
     jp = dict(ds_entries('dump/ds_jp/jpn/spt.bin'))
     raw = open('dump/ds_fan/jpn/spt.bin', 'rb').read()
     ntbl = struct.unpack_from('<I', raw, 0)[0] // 8
@@ -243,4 +240,7 @@ def main():
     open(OUT, 'wb').write(bytes(rom))
     print('wrote %s  (%.2f MB)' % (OUT, len(rom)/1e6))
 
-main()
+if __name__ == '__main__':
+    _a = [a for a in sys.argv[1:] if not a.startswith('-')]
+    _o = sys.argv[sys.argv.index('-o') + 1] if '-o' in sys.argv[:-1] else None
+    main(_a[0] if _a else None, _o)
