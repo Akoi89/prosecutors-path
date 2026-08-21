@@ -55,13 +55,24 @@ to a full run.
 ## Verify the download
 
 ```
-sha256: f5f44aeb9f52fe634a1768b16717f8982c213cf5e21233f248e608b20ba3a1a3
+sha256: c8f656a4de5a5ad610db33f1b3121f64b5b8773f261afe0ac1d4eb2d1752b008
 size:   26M
 ```
 
 Windows SmartScreen will warn about an unrecognised publisher. The binary is unsigned
 because certificates cost money — check the hash above, or build from source, which is
 four files and a `pip install`.
+
+## Changed in v1.0.1
+
+Nine control codes were missing from the argument-count table, so 1,498 argument bytes
+were being treated as dialogue text — and 39 of them reached the engine with altered
+values after being converted to fullwidth. The table now covers all 342 codes.
+
+Verified by diffing rendered text against the previous build: 10,697 strings identical,
+8 changed, and every change removes stray argument bytes that had been leaking into
+view. No dialogue was lost, every structural guard count is unchanged, and coverage
+stays at 85.7%. See BUILDING.md for the evidence.
 
 ## Notes
 
