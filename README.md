@@ -213,3 +213,8 @@ Building requires your own legally-obtained copy of both games. Do not redistrib
 output: it contains both Capcom's copyrighted localization and the fan translation's
 assets. **If you want Capcom's translation, buy the Collection — it is very good, and it
 is the reason this project can exist at all.**
+
+## License
+
+MIT for the tools — see [LICENSE](LICENSE). This covers the code only; the game
+data it operates on is not ours to license, and none of it is distributed here.
