@@ -24,6 +24,7 @@ out/
 dump/*
 !dump/ctrl_args.json
 !dump/ds_to_collection_final.json
+!dump/jp_structure.json
 
 # Rendered graphics dumps
 *.png

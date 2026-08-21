@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 """One-shot build: extract everything, then inject.
 
-    gk2port --fan-rom "GK2 (AAI2 Final v2).nds" \
-            --jp-rom  "Gyakuten Kenji 2 (Japan).nds" \
+    gk2port --fan-rom "GK2 (AAI2 Final v2).nds"
             --collection "C:/.../Ace Attorney Investigations Collection"
 
 Every input is a file the user already owns. Nothing is downloaded, and nothing
 copyrighted ships with this tool.
+
+The retail Japanese ROM used to be required as well, since two guards compare the
+fan patch's layout against the original. Those guards need only COUNTS, never
+text, so the counts now ship as dump/jp_structure.json - see tools/jp_profile.py.
 """
 import sys, os, glob, json, argparse, traceback
 
@@ -101,9 +104,7 @@ def main(argv=None):
                     'into the Nintendo DS ROM.')
     ap.add_argument('--fan-rom', required=True,
                     help='the AAI2 Final v2 fan-patched DS ROM')
-    ap.add_argument('--jp-rom',
-                    help='the retail Japanese DS ROM (the alignment reference). '
-                         'Not needed with --skip-extract')
+    ap.add_argument('--jp-rom', help=argparse.SUPPRESS)   # no longer needed
     ap.add_argument('--collection',
                     help='Ace Attorney Investigations Collection install folder. '
                          'Not needed with --skip-extract')
@@ -114,21 +115,24 @@ def main(argv=None):
                          'nor the Japanese ROM has to stay on disk')
     a = ap.parse_args(argv)
 
-    # Only the extraction step touches the Collection and the JP ROM; the injection
-    # reads dump/ds_jp/jpn/spt.bin, not the ROM, and never opens a bundle.
+    # Only the extraction step touches the Collection; the injection never opens a
+    # bundle. The retail Japanese ROM is no longer needed at all - the structural
+    # counts the guards take from it now ship as dump/jp_structure.json.
     need = [('fan ROM', a.fan_rom)]
     if not a.skip_extract:
-        for label, val in (('--jp-rom', a.jp_rom), ('--collection', a.collection)):
-            if not val:
-                raise SystemExit('%s is required unless you pass --skip-extract' % label)
-        need += [('JP ROM', a.jp_rom), ('Collection', a.collection)]
+        if not a.collection:
+            raise SystemExit('--collection is required unless you pass --skip-extract')
+        need += [('Collection', a.collection)]
+    if a.jp_rom:
+        print('note: --jp-rom is no longer needed and is ignored; the profile it used '
+              'to provide ships with the tool.', flush=True)
     for label, path in need:
         if not os.path.exists(path):
             raise SystemExit('%s not found: %s' % (label, path))
 
     dumpdir = work('dump')
     os.makedirs(dumpdir, exist_ok=True)
-    total = 5
+    total = 4
 
     if not a.skip_extract:
         bdir = find_bundle_dir(a.collection)
@@ -138,14 +142,12 @@ def main(argv=None):
                              % a.collection)
         step(1, total, 'Reading the fan ROM filesystem')
         extract_rom(a.fan_rom, os.path.join(dumpdir, 'ds_fan'))
-        step(2, total, 'Reading the Japanese ROM filesystem')
-        extract_rom(a.jp_rom, os.path.join(dumpdir, 'ds_jp'))
-        step(3, total, "Extracting Capcom's script from %s" % os.path.basename(bdir))
+        step(2, total, "Extracting Capcom's script from %s" % os.path.basename(bdir))
         extract_scripts(bdir, dumpdir)
-        step(4, total, 'Extracting the localization string tables')
+        step(3, total, 'Extracting the localization string tables')
         extract_loc(bdir, dumpdir)
     else:
-        missing = [d for d in ('ds_fan', 'ds_jp', 'eng', 'eng_trial', 'jpn', 'jpn_trial')
+        missing = [d for d in ('ds_fan', 'eng', 'eng_trial', 'jpn', 'jpn_trial')
                    if not os.path.isdir(os.path.join(dumpdir, d))]
         missing += [f for f in ('loc_en.json', 'loc_ja.json')
                     if not os.path.exists(os.path.join(dumpdir, f))]
@@ -155,7 +157,7 @@ def main(argv=None):
                              % (dumpdir, ', '.join(missing)))
         print('[--skip-extract] reusing', dumpdir, flush=True)
 
-    step(5, total, 'Injecting\n')
+    step(4, total, 'Injecting\n')
     import inject
     inject.main(a.fan_rom, a.out)
     return 0
