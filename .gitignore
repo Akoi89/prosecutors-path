@@ -1,0 +1,35 @@
+# ---------------------------------------------------------------------------
+# Game data is NEVER committed.
+#
+# ROMs are Nintendo/Capcom copyright, and dump/ holds Capcom's English
+# localization extracted from the Ace Attorney Investigations Collection, a
+# product currently on sale. This repository ships TOOLS ONLY - every user
+# supplies their own ROM and their own copy of the Collection.
+# ---------------------------------------------------------------------------
+*.nds
+*.nsp
+*.xci
+*.xdelta
+*.ips
+*.bps
+prod.keys
+*.keys
+
+# Build output (contains a full ROM)
+out/
+
+# Extracted game data. The two JSON files are pure metadata - control-code
+# argument counts and an index->filename map - and contain no game text, so
+# they are tracked to save every user re-deriving them.
+dump/*
+!dump/ctrl_args.json
+!dump/ds_to_collection_final.json
+
+# Rendered graphics dumps
+*.png
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.DS_Store
