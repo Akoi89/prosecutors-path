@@ -38,3 +38,6 @@ venv/
 build/
 dist/
 *.spec
+
+# a local copy of the built tool
+*.exe
