@@ -216,5 +216,6 @@ is the reason this project can exist at all.**
 
 ## License
 
-MIT for the tools — see [LICENSE](LICENSE). This covers the code only; the game
-data it operates on is not ours to license, and none of it is distributed here.
+MIT for the tools — see [LICENSE](LICENSE). That covers the code only; the game data
+it operates on is not ours to license, and none of it is distributed here. See
+[NOTICE](NOTICE) for the exact scope.
