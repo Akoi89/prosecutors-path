@@ -25,7 +25,6 @@ translation, for reasons documented in [What doesn't port, and why](#what-doesnt
 |---|---|
 | **Gyakuten Kenji 2 (AAI2 Final v2)** | The fan-patched DS ROM. It supplies the variable-width font and English graphics — without it, nothing renders |
 | **Ace Attorney Investigations Collection** | The **PC** build — tested on Steam. The script lives in the Unity Addressables bundles under `GK12_Data/StreamingAssets/aa/` |
-| **Gyakuten Kenji 2 (Japan)** | The retail Japanese DS ROM. Used as the *alignment reference* — see below. Not optional |
 | **Python 3.9+** | Only if building from source. `pip install UnityPy Pillow` |
 
 ## Usage
@@ -36,7 +35,7 @@ Download `gk2port.exe` from [Releases](https://github.com/Akoi89/prosecutors-pat
 put it in a folder of its own, and run it from a terminal:
 
 ```
-gk2port.exe --fan-rom "GK2 (AAI2 Final v2).nds" --jp-rom "Gyakuten Kenji 2 (Japan).nds" --collection "C:\Program Files (x86)\Steam\steamapps\common\Ace Attorney Investigations Collection"
+gk2port.exe --fan-rom "GK2 (AAI2 Final v2).nds" --collection "C:\Program Files (x86)\Steam\steamapps\common\Ace Attorney Investigations Collection"
 ```
 
 It extracts everything it needs into `dump/` beside itself and writes the finished ROM
@@ -56,7 +55,7 @@ or build from source below.
 
 ```bash
 pip install UnityPy Pillow
-python tools/build.py --fan-rom "...nds" --jp-rom "...nds" --collection "..."
+python tools/build.py --fan-rom "...nds" --collection "..."
 ```
 
 ### Rebuilding without the Collection installed
@@ -68,9 +67,8 @@ the injection needs, so you can free the 7 GB install and still rebuild forever:
 gk2port.exe --fan-rom "GK2 (AAI2 Final v2).nds" --skip-extract
 ```
 
-That needs the fan ROM and `dump/` (~140 MB) and nothing else — not the Collection, not
-even the Japanese ROM, since the injection reads `dump/ds_jp/jpn/spt.bin` rather than the
-ROM itself. Verified byte-identical to a full run.
+That needs the fan ROM and `dump/` (~55 MB) and nothing else. Verified byte-identical to
+a full run.
 
 Or run the injection alone:
 
@@ -174,6 +172,12 @@ not fewer. The fix is to compare each string's box count against the **Japanese 
 and revert only the strings whose count moved. Doing this per-string rather than
 per-entry is worth about ten points of coverage (76.0% → 85.7%).
 
+You don't need that ROM, though. The guards want *counts*, never text — message boxes per
+string, and a control-code histogram per entry. Those are integers, facts about the file's
+structure rather than its content, so they ship as `dump/jp_structure.json` (214 KB) and
+the retail Japanese cart drops off the requirements list entirely.
+`tools/jp_profile.py` regenerates it if it ever needs updating.
+
 ### Guards
 
 Structural failures don't show up in a format check — the file parses perfectly and the
@@ -223,6 +227,7 @@ apart. Set `RETITLE = True` in `tools/inject.py` if you disagree.
 | `build_spt.py` | SPT writer |
 | `dstext.py` | Text conversion: fullwidth mapping, pixel wrapping, page breaks, control-code arity |
 | `build.py` | One-shot entry point: extract everything, then inject. This is what `gk2port.exe` runs |
+| `jp_profile.py` | Regenerates `dump/jp_structure.json`, the shipped structural counts from the JP script |
 | `inject.py` | Mapping, structural guards, ROM rebuild |
 | `loc_patch.py` | Evidence, profiles and Logic cards from the Unity Localization tables |
 | `build_map.py` / `map_ids.py` | Fuzzy n-gram matching of DS entries to Collection files |

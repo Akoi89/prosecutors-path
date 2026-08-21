@@ -70,7 +70,10 @@ def main(base=None, out=None):
     # ships with the tool (inside the bundle when frozen), unlike everything
     # else under dump/, which the user extracts from their own copies
     m = json.load(open(data('ds_to_collection_final.json')))
-    jp = dict(ds_entries('dump/ds_jp/jpn/spt.bin'))
+    # The two guards below compare against the retail JAPANESE script, but need
+    # only COUNTS from it, never text - so the counts ship with the tool and the
+    # user does not have to supply a second ROM. See tools/jp_profile.py.
+    jp = json.load(open(data('jp_structure.json')))
     raw = open('dump/ds_fan/jpn/spt.bin', 'rb').read()
     ntbl = struct.unpack_from('<I', raw, 0)[0] // 8
     entries = {}
@@ -117,13 +120,13 @@ def main(base=None, out=None):
         # moved, so str0/1/2/5/7 - including the Newspaper Clipping scene - are
         # still safe to swap).
         relaid = set()
-        if i in jp:
-            jps = list(all_strings(jp[i], True))
-            if len(jps) != len(ds):
+        prof = jp.get(str(i))
+        if prof:
+            jpb = prof['boxes']
+            if len(jpb) != len(ds):
                 restructured += 1; continue      # cannot compare; leave it alone
             relaid = {j2 for j2 in range(len(ds))
-                      if sum(1 for v in ds[j2][3] if v in BOXEND)
-                      != sum(1 for v in jps[j2][3] if v in BOXEND)}
+                      if sum(1 for v in ds[j2][3] if v in BOXEND) != jpb[j2]}
         conv = []
         for n_, (_, _, _, u) in enumerate(en):
             if n_ in relaid:
@@ -170,9 +173,8 @@ def main(base=None, out=None):
         # Structural sanity check: the Collection file should drive roughly the same
         # engine commands as the DS original. A wrong match shows up as near-zero
         # overlap in the control-code profile.
-        if i in jp:
-            a = collections.Counter(v for _, _, _, u in all_strings(jp[i], True)
-                                    for v in u if 0xE000 <= v <= 0xF8FF)
+        if prof:
+            a = collections.Counter({int(k, 16): v for k, v in prof['ctrl'].items()})
             b = collections.Counter(v for c2 in conv for v in c2 if 0xE000 <= v <= 0xF8FF)
             if a and sum((a & b).values()) / sum(a.values()) < 0.35:
                 shape += 1; continue
