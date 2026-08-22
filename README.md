@@ -29,27 +29,82 @@ translation, for reasons documented in [What doesn't port, and why](#what-doesnt
 
 ## Usage
 
-### Windows, no Python needed
+Download the build for your platform from
+[Releases](https://github.com/Akoi89/prosecutors-path/releases). No Python, and nothing
+else to install.
 
-Download `gk2port.exe` from [Releases](https://github.com/Akoi89/prosecutors-path/releases),
-put it in a folder of its own, and run it from a terminal:
+| | |
+|---|---|
+| Windows | `gk2port-windows-x64.exe` |
+| Linux | `gk2port-linux-x64` |
+| macOS, Apple Silicon | `gk2port-macos-arm64` |
+| macOS, Intel | `gk2port-macos-x64` |
+
+### The short version
+
+Put it in a folder of its own **next to your fan ROM** and run it with no arguments.
+On Windows that means double-clicking it. It finds the ROM, searches your Steam
+libraries for the Collection, shows you what it found, and asks before doing anything:
 
 ```
-gk2port.exe --fan-rom "GK2 (AAI2 Final v2).nds" --collection "C:\Program Files (x86)\Steam\steamapps\common\Ace Attorney Investigations Collection"
+  fan ROM     Gyakuten Kenji 2 (AAI2 Final v2).nds   [verified AAI2 Final v2]
+  Collection  D:\Steam Games\steamapps\common\Ace Attorney Investigations Collection
+  output      C:\gk2\out\GK2 (Official English, DS port).nds
+
+  Build? [Y/n]
 ```
 
-It extracts everything it needs into `dump/` beside itself and writes the finished ROM
-to `out/`. Takes a couple of minutes. `--collection` accepts the game folder, the
-`StreamingAssets/aa` folder, or the platform folder inside it.
+It extracts what it needs into `dump/` beside itself and writes the ROM to `out/`.
+Takes a couple of minutes.
+
+You can also drag the `.nds` onto the program, or pass paths yourself:
+
+```
+gk2port-windows-x64.exe --fan-rom "GK2 (AAI2 Final v2).nds" --collection "C:\Program Files (x86)\Steam\steamapps\common\Ace Attorney Investigations Collection"
+```
+
+`--collection` accepts the game folder, the `StreamingAssets/aa` folder, or the platform
+folder inside it, and is only needed when auto-detection fails — a non-Steam copy, or a
+console dump you extracted yourself.
+
+### macOS and Linux
+
+Both binaries are terminal programs. Mark it executable first, and on macOS clear the
+quarantine flag — the binary is unsigned and unnotarized, so Gatekeeper otherwise
+refuses to run it at all:
+
+```bash
+chmod +x gk2port-macos-arm64
+xattr -d com.apple.quarantine gk2port-macos-arm64   # macOS only
+./gk2port-macos-arm64
+```
+
+Steam auto-detection knows the usual locations, including Flatpak's. The Collection is
+a Windows game, so on Linux it will be a Proton install (which lives in a normal Steam
+library and is found the same way); on macOS you will have to copy the folder over from
+a PC and point `--collection` at it.
+
+The Linux binary is built on Ubuntu 22.04, so it needs glibc 2.35 or newer. On anything
+older, build from source.
 
 > **Console builds are untested.** The bundle lookup matches by name prefix and does
 > not care which platform folder it finds, so a Switch or PS4 dump you have already
 > extracted yourself may well work — point `--collection` at the extracted folder. But
 > nothing here has been run against one, so treat it as unknown rather than supported.
 
-Windows SmartScreen will warn about an unrecognised publisher — the binary is unsigned,
-because code-signing certificates cost money. Verify the checksum on the release page,
-or build from source below.
+The binaries are unsigned, so Windows SmartScreen and macOS Gatekeeper will both
+complain. Certificates cost money. Every release ships a `SHA256SUMS` file, the binaries
+are built in public by [GitHub Actions](.github/workflows/build.yml) rather than on
+someone's desktop, and `gk2port --selftest` checks that the one you downloaded is
+complete.
+
+### Checks before it builds
+
+- **The fan ROM is verified by hash.** Point it at a raw Japanese cart or a different
+  patch and it stops and says so, instead of producing a ROM that boots to a black
+  screen with no explanation. `--any-rom` overrides it, but expect the black screen.
+- **It refuses to overwrite its own input**, which is easy to do by accident once a
+  previous output is sitting next to the fan ROM.
 
 ### From source
 
@@ -67,8 +122,11 @@ The Collection is only read during *extraction*. Once `dump/` exists it holds ev
 the injection needs, so you can free the 7 GB install and still rebuild forever:
 
 ```
-gk2port.exe --fan-rom "GK2 (AAI2 Final v2).nds" --skip-extract
+gk2port-windows-x64.exe --fan-rom "GK2 (AAI2 Final v2).nds" --skip-extract
 ```
+
+The wizard notices this by itself: if `dump/` is already there and the Collection isn't
+installed any more, it says so and carries on.
 
 That needs the fan ROM and `dump/` (~55 MB) and nothing else. Verified byte-identical to
 a full run.
@@ -229,7 +287,8 @@ apart. Set `RETITLE = True` in `tools/inject.py` if you disagree.
 | `spt.py` | SPT container parser, both variants, with offset-scale detection |
 | `build_spt.py` | SPT writer |
 | `dstext.py` | Text conversion: fullwidth mapping, pixel wrapping, page breaks, control-code arity |
-| `build.py` | One-shot entry point: extract everything, then inject. This is what `gk2port.exe` runs |
+| `build.py` | One-shot entry point: extract everything, then inject. This is what the released binaries run |
+| `locate.py` | Finds the fan ROM and the Collection, and verifies the ROM by hash |
 | `jp_profile.py` | Regenerates `dump/jp_structure.json`, the shipped structural counts from the JP script |
 | `ctrl_args.py` | Regenerates `dump/ctrl_args.json`; `--check` diffs a fresh derivation against it |
 | `inject.py` | Mapping, structural guards, ROM rebuild |
@@ -290,6 +349,18 @@ Building requires your own legally-obtained copy of both games. Do not redistrib
 output: it contains both Capcom's copyrighted localization and the fan translation's
 assets. **If you want Capcom's translation, buy the Collection — it is very good, and it
 is the reason this project can exist at all.**
+
+### Why there is no patch file
+
+The obvious way to make this easier would be an xdelta or IPS patch, so nobody needs the
+Collection at all. That patch would *be* Capcom's script — a delta from the fan ROM to
+the ported one contains the entire localization as its payload, which is the thing being
+avoided, not a way around it. The same goes for the extracted `dump/` tree: the three
+`.json` files in it are integers and filenames and do ship here, but `dump/eng` is
+Capcom's text.
+
+Owning the Collection isn't a hurdle this project failed to remove. It's the reason the
+project is allowed to exist.
 
 ## License
 

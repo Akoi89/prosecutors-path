@@ -8,7 +8,15 @@ its string count matches the Collection file's exactly.
 """
 import sys, os, io, json, struct, collections
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+# The audit this prints contains Japanese, which the Windows console's default
+# codepage cannot encode. reconfigure() rather than a fresh TextIOWrapper: wrapping
+# sys.stdout.buffer again abandons whatever the old wrapper still had buffered, so
+# anything printed before this module was imported would silently disappear.
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+except AttributeError:                                    # pragma: no cover
+    sys.stdout.flush()
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 from spt import all_strings, parse
 from build_spt import build_ds, build_archive
 from dstext import convert
@@ -62,11 +70,19 @@ def eng_path(name, src):
             p = os.path.join(f, c + '.bin')
             if os.path.exists(p): return p
 
+DEFAULT_OUT = os.path.join('out', 'GK2 (Official English, DS port).nds')
+
+
 def main(base=None, out=None):
     os.chdir(work())
     BASE = base or os.environ.get('GK2_ROM',
                                   'Gyakuten Kenji 2 (AAI2 Final v2).nds')
-    OUT = out or os.path.join('out', 'GK2 (Official English, DS port).nds')
+    OUT = out or DEFAULT_OUT
+    # Injecting a ROM onto itself destroys the input halfway through and yields a
+    # doubly-patched file. Easy to do by accident once a previous output is lying
+    # around next to the fan ROM.
+    if os.path.abspath(BASE) == os.path.abspath(OUT):
+        raise SystemExit('the output would overwrite the input ROM: %s' % OUT)
     # ships with the tool (inside the bundle when frozen), unlike everything
     # else under dump/, which the user extracts from their own copies
     m = json.load(open(data('ds_to_collection_final.json')))
