@@ -19,6 +19,9 @@ jobs:
   build:
     name: ${{ matrix.asset }}
     runs-on: ${{ matrix.os }}
+    # A runner label with no capacity queues forever instead of failing, and
+    # everything downstream waits on it. Fail loudly instead.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -31,7 +34,9 @@ jobs:
           - os: ubuntu-22.04
             asset: gk2port-linux-x64
             sep: ':'
-          - os: macos-13
+          # Intel Macs. macos-13 is being retired and its runners now queue
+          # indefinitely rather than failing, which would hold up every release.
+          - os: macos-15-intel
             asset: gk2port-macos-x64
             sep: ':'
           - os: macos-14
