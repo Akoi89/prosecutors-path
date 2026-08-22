@@ -1,0 +1,48 @@
+name: In-game problem
+description: The ROM built, but something is wrong when you play it
+labels: [in-game]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Freezes, missing or clipped text, wrong speaker, a scene that repeats itself.
+        These are the bugs that matter most and the ones least likely to be found any
+        other way - every one so far came from somebody playing, not from the tools.
+
+        Text that is still in the fan translation is usually **not** a bug: 14.3% of
+        the script stays fan-translated on purpose. The README explains which parts.
+
+  - type: input
+    id: where
+    attributes:
+      label: Where in the game
+      placeholder: Episode 2, first investigation, after examining the desk
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens
+      description: A screenshot or a short clip is worth more than any description here.
+    validations:
+      required: true
+
+  - type: input
+    id: emulator
+    attributes:
+      label: Emulator or hardware
+      placeholder: melonDS 1.0, DeSmuME, flashcart on a DS Lite
+    validations:
+      required: true
+
+  - type: textarea
+    id: audit
+    attributes:
+      label: The build's audit output
+      description: >
+        The block of counters the build printed at the end ("entries replaced with
+        official English: ..."). It identifies exactly which build you are playing.
+      render: text
+    validations:
+      required: false

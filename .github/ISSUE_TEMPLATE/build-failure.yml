@@ -1,0 +1,58 @@
+name: Build failure
+description: gk2port did not produce a ROM
+labels: [build]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please run `gk2port --selftest` first and paste its output below. It checks
+        the two things that break most often, and takes a second.
+
+  - type: textarea
+    id: output
+    attributes:
+      label: The full output
+      description: Everything the program printed, including the traceback if there was one.
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The output of `gk2port --version`, or the commit if you built from source.
+      placeholder: gk2port 1.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - Linux
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+    validations:
+      required: true
+
+  - type: input
+    id: romhash
+    attributes:
+      label: sha256 of your fan ROM
+      description: >
+        Windows `certutil -hashfile "your.nds" SHA256`, otherwise `sha256sum` or
+        `shasum -a 256`. The AAI2 Final v2 ROM is 08e1f7afbbd99731... - if yours
+        differs, that is almost certainly the problem.
+    validations:
+      required: true
+
+  - type: input
+    id: collection
+    attributes:
+      label: Which build of the Collection
+      placeholder: Steam / Switch dump / PS4 dump / GOG
+    validations:
+      required: false

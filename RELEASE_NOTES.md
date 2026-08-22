@@ -3,16 +3,41 @@ Port Capcom's official English localization of *Gyakuten Kenji 2* into the Ninte
 **85.7% of on-screen text becomes Capcom's.** The remaining 14.3% stays in the AAI2 fan
 translation — see the README for exactly why, and which parts.
 
-## Quick start (Windows, no Python needed)
+## New in v1.1.0 — it should now be much easier to run
 
-Put `gk2port.exe` in a folder of its own and run it from a terminal:
+Nothing about the ROM changed. This release is entirely about getting to it: the output
+is **byte-for-byte identical** to v1.0.1, verified by hash.
 
-```
-gk2port.exe --fan-rom "GK2 (AAI2 Final v2).nds" --collection "C:\Program Files (x86)\Steam\steamapps\common\Ace Attorney Investigations Collection"
-```
+- **Builds for Linux and macOS**, alongside Windows. Four binaries, all built in public
+  by GitHub Actions and self-tested before upload.
+- **Run it with no arguments** — on Windows, just double-click it. It finds your ROM,
+  searches your Steam libraries for the Collection, shows you what it found, and asks
+  before doing anything.
+- **Steam auto-detection**, across every library folder, not just the default one. You
+  should not have to go hunting for an install path.
+- **Your ROM is verified by hash** before anything happens. Pointing this at the wrong
+  ROM used to produce a file that boots to a black screen with no explanation.
+- **The window stays open** when it was double-clicked, so error messages can actually
+  be read.
+- Drag the `.nds` onto the program, if that's easier than typing a path.
+- It refuses to overwrite its own input, which is easy to do by accident.
 
-It extracts what it needs into `dump/` beside itself and writes the ROM to `out/`.
-Takes a couple of minutes.
+## Downloads
+
+| Platform | File |
+|---|---|
+| Windows | `gk2port-windows-x64.exe` |
+| Linux (glibc 2.35+) | `gk2port-linux-x64` |
+| macOS, Apple Silicon | `gk2port-macos-arm64` |
+| macOS, Intel | `gk2port-macos-x64` |
+
+Checksums for all four are in `SHA256SUMS`. On macOS and Linux, `chmod +x` it first; on
+macOS also `xattr -d com.apple.quarantine <file>`, because the binary is unsigned and
+Gatekeeper otherwise refuses to run it. Windows SmartScreen will warn for the same
+reason. `gk2port --selftest` confirms your download is complete.
+
+Only the Windows binary has been used to build a ROM that was then played. The other
+three pass the self-test in CI; if one misbehaves, please open an issue.
 
 ## You need to supply
 
@@ -21,7 +46,11 @@ Takes a couple of minutes.
 | **Gyakuten Kenji 2 (AAI2 Final v2)** | The fan-patched DS ROM — supplies the variable-width font and English graphics |
 | **Ace Attorney Investigations Collection** | The **PC** build — tested on Steam |
 
-**No game data is included in this download.** All three inputs are files you own.
+**No game data is included in this download.** Both inputs are files you own.
+
+There is deliberately no patch file. A delta from the fan ROM to the ported one *is*
+Capcom's script, so distributing one would distribute the localization — the thing this
+project is built to avoid. Owning the Collection is the reason this can exist.
 
 Console builds are untested. The bundle lookup matches by name prefix and ignores the
 platform folder name, so an already-extracted Switch or PS4 dump may work — but nothing
@@ -46,33 +75,11 @@ The Collection is only read during extraction. Once `dump/` exists it holds ever
 the injection needs, so you can free the ~7 GB install and still rebuild:
 
 ```
-gk2port.exe --fan-rom "GK2 (AAI2 Final v2).nds" --skip-extract
+gk2port --fan-rom "GK2 (AAI2 Final v2).nds" --skip-extract
 ```
 
 That needs the fan ROM and `dump/` (~55 MB) and nothing else. Verified byte-identical
-to a full run.
-
-## Verify the download
-
-```
-sha256: c8f656a4de5a5ad610db33f1b3121f64b5b8773f261afe0ac1d4eb2d1752b008
-size:   26M
-```
-
-Windows SmartScreen will warn about an unrecognised publisher. The binary is unsigned
-because certificates cost money — check the hash above, or build from source, which is
-four files and a `pip install`.
-
-## Changed in v1.0.1
-
-Nine control codes were missing from the argument-count table, so 1,498 argument bytes
-were being treated as dialogue text — and 39 of them reached the engine with altered
-values after being converted to fullwidth. The table now covers all 342 codes.
-
-Verified by diffing rendered text against the previous build: 10,697 strings identical,
-8 changed, and every change removes stray argument bytes that had been leaking into
-view. No dialogue was lost, every structural guard count is unchanged, and coverage
-stays at 85.7%. See BUILDING.md for the evidence.
+to a full run. The wizard does this by itself if it finds `dump/` and no Collection.
 
 ## Notes
 
@@ -90,4 +97,3 @@ stays at 85.7%. See BUILDING.md for the evidence.
   mattered were found by a human playing the game. See the README for the full note.
 - Tested in melonDS. Episode 1 plays through to free roam; later episodes are less
   exercised, so please open an issue if you hit anything.
-
