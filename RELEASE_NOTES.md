@@ -8,8 +8,8 @@ translation — see the README for exactly why, and which parts.
 Nothing about the ROM changed. This release is entirely about getting to it: the output
 is **byte-for-byte identical** to v1.0.1, verified by hash.
 
-- **Builds for Linux and macOS**, alongside Windows. Four binaries, all built in public
-  by GitHub Actions and self-tested before upload.
+- **A Linux build**, alongside Windows. Both are built in public by GitHub Actions and
+  self-tested before upload.
 - **Run it with no arguments** — on Windows, just double-click it. It finds your ROM,
   searches your Steam libraries for the Collection, shows you what it found, and asks
   before doing anything.
@@ -28,16 +28,18 @@ is **byte-for-byte identical** to v1.0.1, verified by hash.
 |---|---|
 | Windows | `gk2port-windows-x64.exe` |
 | Linux (glibc 2.35+) | `gk2port-linux-x64` |
-| macOS, Apple Silicon | `gk2port-macos-arm64` |
-| macOS, Intel | `gk2port-macos-x64` |
 
-Checksums for all four are in `SHA256SUMS`. On macOS and Linux, `chmod +x` it first; on
-macOS also `xattr -d com.apple.quarantine <file>`, because the binary is unsigned and
-Gatekeeper otherwise refuses to run it. Windows SmartScreen will warn for the same
-reason. `gk2port --selftest` confirms your download is complete.
+Checksums are in `SHA256SUMS`. On Linux, `chmod +x` it first. Windows SmartScreen will
+warn about an unrecognised publisher, because the binary is unsigned and certificates
+cost money - check the hash, or build from source. `gk2port --selftest` confirms your
+download is complete.
 
-Only the Windows binary has been used to build a ROM that was then played. The other
-three pass the self-test in CI; if one misbehaves, please open an issue.
+Only the Windows binary has been used to build a ROM that was then played. The Linux one
+passes the self-test in CI; if it misbehaves, please open an issue.
+
+**macOS: build from source for now.** A macOS binary compiles and self-tests fine in CI,
+but nobody has run one on an actual Mac, and shipping a binary no one has executed is
+not much of a favour.
 
 ## You need to supply
 
