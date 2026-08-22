@@ -1,0 +1,129 @@
+name: build
+
+# PyInstaller cannot cross-compile: a macOS or Linux binary has to be produced on
+# macOS or Linux. That is the only reason this workflow exists - and a useful side
+# effect is that the published binaries are built from a public log on a clean
+# machine rather than on a maintainer's desktop.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.asset }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset: gk2port-windows-x64.exe
+            sep: ';'
+          # Built on the oldest runner image available, because a PyInstaller
+          # binary requires the glibc it was linked against or newer.
+          - os: ubuntu-22.04
+            asset: gk2port-linux-x64
+            sep: ':'
+          - os: macos-13
+            asset: gk2port-macos-x64
+            sep: ':'
+          - os: macos-14
+            asset: gk2port-macos-arm64
+            sep: ':'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install build dependencies
+        run: python -m pip install --upgrade pip pyinstaller UnityPy Pillow
+
+      - name: Build
+        shell: bash
+        run: |
+          python -m PyInstaller --onefile --name gk2port \
+            --add-data "$PWD/dump/ctrl_args.json${{ matrix.sep }}dump" \
+            --add-data "$PWD/dump/ds_to_collection_final.json${{ matrix.sep }}dump" \
+            --add-data "$PWD/dump/jp_structure.json${{ matrix.sep }}dump" \
+            --paths "$PWD/tools" --collect-all UnityPy \
+            --exclude-module tkinter --exclude-module matplotlib --exclude-module numpy \
+            tools/build.py
+
+      # Proves the binary is complete before anyone downloads it. Both halves have
+      # broken a real release: --add-data resolving against the wrong directory,
+      # and UnityPy's C extension being left out of the bundle.
+      - name: Self-test
+        shell: bash
+        run: |
+          bin=dist/gk2port
+          if [ -f "$bin.exe" ]; then bin="$bin.exe"; fi
+          chmod +x "$bin"
+          "$bin" --selftest
+          "$bin" --version
+
+      - name: Name and checksum the asset
+        shell: bash
+        run: |
+          bin=dist/gk2port
+          if [ -f "$bin.exe" ]; then bin="$bin.exe"; fi
+          mv "$bin" "dist/${{ matrix.asset }}"
+          cd dist
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "${{ matrix.asset }}" | tee "${{ matrix.asset }}.sha256"
+          else
+            shasum -a 256 "${{ matrix.asset }}" | tee "${{ matrix.asset }}.sha256"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: |
+            dist/${{ matrix.asset }}
+            dist/${{ matrix.asset }}.sha256
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Collect checksums
+        run: |
+          cd dist
+          cat *.sha256 > SHA256SUMS
+          rm -f *.sha256
+          ls -l
+          cat SHA256SUMS
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/* --clobber
+          else
+            gh release create "$tag" dist/* \
+              --target "${GITHUB_SHA}" \
+              --title "$tag - Prosecutor's Path" \
+              --notes-file RELEASE_NOTES.md
+          fi

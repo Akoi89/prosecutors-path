@@ -25,7 +25,14 @@ you changed behaviour — find out why before committing.
 
 ---
 
-## Rebuilding `gk2port.exe`
+## Rebuilding the binaries
+
+Normally you don't: [`.github/workflows/build.yml`](.github/workflows/build.yml) builds
+all four (Windows, Linux, macOS arm64, macOS x86_64) on every push, and attaches them to
+the release on a tag. **PyInstaller cannot cross-compile** — each binary has to be
+produced on its own OS — so CI is the only way to ship the non-Windows ones at all.
+
+To build one by hand:
 
 ```bash
 pip install pyinstaller UnityPy Pillow
@@ -37,20 +44,33 @@ python -m PyInstaller --onefile --name gk2port \
   --paths "$PWD/tools" --collect-all UnityPy \
   --exclude-module tkinter --exclude-module matplotlib --exclude-module numpy \
   tools/build.py
+
+dist/gk2port --selftest
 ```
 
-Two things that cost time if you don't know them:
+Three things that cost time if you don't know them:
 
 - **`--add-data` paths must be absolute.** They resolve relative to `--specpath`, not
   the working directory, so a relative path silently fails to find the file.
 - **Do not exclude PIL.** UnityPy imports it internally
   (`UnityPy/classes/legacy_patch/Texture2D.py`); excluding it builds fine and then
   dies at extraction time.
+- **`--selftest` is the check that catches both.** It verifies the three bundled JSON
+  files and imports what extraction actually needs — including `UnityPy.UnityPyBoost`,
+  a C extension, and `lz4.block`, which is how Addressables bundles are compressed.
+  None of that is exercised by `--help`, and a bundle missing any of it looks perfectly
+  healthy until someone points it at the game. CI runs it on every binary before it is
+  uploaded.
 
 On Linux/macOS the `;` in `--add-data` becomes `:`.
 
-The binary is unsigned, so Windows SmartScreen warns about it. Signing certificates
-cost money; the release notes carry a SHA-256 instead.
+The Linux binary is built on `ubuntu-22.04` deliberately: a PyInstaller binary needs the
+glibc it was linked against or newer, so building on the newest image would silently
+drop older distros.
+
+The binaries are unsigned. Windows SmartScreen warns; macOS Gatekeeper refuses outright
+until the user runs `xattr -d com.apple.quarantine`. Signing certificates cost money —
+the release carries a `SHA256SUMS` file and a public build log instead.
 
 ---
 
@@ -113,11 +133,14 @@ and a rendered-text diff that loses nothing.
 
 ## Releasing
 
+Update `RELEASE_NOTES.md` and `VERSION` in `tools/build.py`, then:
+
 ```bash
-gh release create vX.Y.Z "dist/gk2port.exe#gk2port.exe (Windows x64, standalone)" \
-  --target main --title "vX.Y.Z — Prosecutor's Path" --notes-file RELEASE_NOTES.md
+git tag v1.1.0 && git push origin v1.1.0
 ```
 
-Tag from `main` so the binary and the source that produced it agree — an earlier
-release had a tag three commits behind its own asset, which is confusing for anyone
-auditing. Put the SHA-256 of the exe in the notes.
+CI builds all four binaries from that exact commit, self-tests each one, and publishes
+them with a `SHA256SUMS` file. Nothing is uploaded from a local machine, and the release
+is created with `--target $GITHUB_SHA` so the tag and the assets cannot drift apart — an
+earlier release had a tag three commits behind its own binary, which is impossible to
+audit.
