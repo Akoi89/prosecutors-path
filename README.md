@@ -36,9 +36,12 @@ else to install.
 | | |
 |---|---|
 | Windows | `gk2port-windows-x64.exe` |
-| Linux | `gk2port-linux-x64` |
-| macOS, Apple Silicon | `gk2port-macos-arm64` |
-| macOS, Intel | `gk2port-macos-x64` |
+| Linux (glibc 2.35+) | `gk2port-linux-x64` |
+
+**macOS: build from source for now.** A macOS binary compiles and self-tests fine in
+CI, but nobody has run one on an actual Mac yet, and shipping a binary no one has
+executed is not much of a favour. `pip install UnityPy Pillow` and use `tools/build.py`
+— it works the same way.
 
 ### The short version
 
@@ -67,36 +70,31 @@ gk2port-windows-x64.exe --fan-rom "GK2 (AAI2 Final v2).nds" --collection "C:\Pro
 folder inside it, and is only needed when auto-detection fails — a non-Steam copy, or a
 console dump you extracted yourself.
 
-### macOS and Linux
+### Linux
 
-Both binaries are terminal programs. Mark it executable first, and on macOS clear the
-quarantine flag — the binary is unsigned and unnotarized, so Gatekeeper otherwise
-refuses to run it at all:
+It's a terminal program — mark it executable and run it:
 
 ```bash
-chmod +x gk2port-macos-arm64
-xattr -d com.apple.quarantine gk2port-macos-arm64   # macOS only
-./gk2port-macos-arm64
+chmod +x gk2port-linux-x64
+./gk2port-linux-x64
 ```
 
-Steam auto-detection knows the usual locations, including Flatpak's. The Collection is
-a Windows game, so on Linux it will be a Proton install (which lives in a normal Steam
-library and is found the same way); on macOS you will have to copy the folder over from
-a PC and point `--collection` at it.
+Steam auto-detection knows the usual locations, including Flatpak's. The Collection is a
+Windows game, so it will be a Proton install — that lives in an ordinary Steam library
+and is found the same way.
 
-The Linux binary is built on Ubuntu 22.04, so it needs glibc 2.35 or newer. On anything
-older, build from source.
+The binary is built on Ubuntu 22.04, so it needs glibc 2.35 or newer. On anything older,
+build from source.
 
 > **Console builds are untested.** The bundle lookup matches by name prefix and does
 > not care which platform folder it finds, so a Switch or PS4 dump you have already
 > extracted yourself may well work — point `--collection` at the extracted folder. But
 > nothing here has been run against one, so treat it as unknown rather than supported.
 
-The binaries are unsigned, so Windows SmartScreen and macOS Gatekeeper will both
-complain. Certificates cost money. Every release ships a `SHA256SUMS` file, the binaries
-are built in public by [GitHub Actions](.github/workflows/build.yml) rather than on
-someone's desktop, and `gk2port --selftest` checks that the one you downloaded is
-complete.
+The binaries are unsigned, so Windows SmartScreen will complain. Certificates cost
+money. Every release ships a `SHA256SUMS` file, the binaries are built in public by
+[GitHub Actions](.github/workflows/build.yml) rather than on someone's desktop, and
+`gk2port --selftest` checks that the one you downloaded is complete.
 
 ### Checks before it builds
 

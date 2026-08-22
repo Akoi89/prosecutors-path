@@ -28,9 +28,15 @@ you changed behaviour — find out why before committing.
 ## Rebuilding the binaries
 
 Normally you don't: [`.github/workflows/build.yml`](.github/workflows/build.yml) builds
-all four (Windows, Linux, macOS arm64, macOS x86_64) on every push, and attaches them to
-the release on a tag. **PyInstaller cannot cross-compile** — each binary has to be
-produced on its own OS — so CI is the only way to ship the non-Windows ones at all.
+Windows and Linux on every push and attaches them to the release on a tag.
+**PyInstaller cannot cross-compile** — each binary has to be produced on its own OS —
+so CI is the only way to ship the non-Windows ones at all.
+
+macOS is commented out of the matrix rather than absent. An arm64 binary builds and
+passes `--selftest` in about 40 seconds; what is missing is anyone running it on a real
+Mac. Intel is a separate problem: `macos-13` is being retired and its runners now sit in
+the queue indefinitely instead of failing, which stalls the whole release, so
+`macos-15-intel` is the label to use when it comes back.
 
 To build one by hand:
 
