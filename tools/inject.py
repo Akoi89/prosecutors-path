@@ -251,7 +251,7 @@ def main(base=None, out=None):
     fan = dict(ds_entries('dump/ds_fan/jpn/spt.bin'))
 
     swapped = overflow = mismatch = skipped = demo = untranslated = tiny = shape = dropped = boxkeep = 0
-    restructured = relaidn = unmerged = recut = 0
+    restructured = relaidn = unmerged = recut = hollowed = 0
     unmapped = {}
     for k in sorted(m, key=int):
         i = int(k); info = m[k]
@@ -292,6 +292,7 @@ def main(base=None, out=None):
         # moved, so str0/1/2/5/7 - including the Newspaper Clipping scene - are
         # still safe to swap).
         relaid = set()
+        jpb = None
         prof = jp.get(str(i))
         if prof:
             jpb = prof['boxes']
@@ -347,12 +348,26 @@ def main(base=None, out=None):
         # game. Reject the whole entry if any string would lose message boxes.
         END = {0xE102, 0xE104, 0xE106, 0xE185, 0xE081}
         PRINT = lambda u: sum(1 for v in u if 0xFF01 <= v <= 0xFF5E or 0x21 <= v <= 0x7E)
-        # (b) whole-entry SHIFT: the Collection spreads the same scene across strings
-        # differently (DS[115] str5 = 3,582 units on the DS, 0 in the Collection).
-        # Index-by-index substitution would scramble the scene, so reject the entry.
-        if any(PRINT(ds[j2][3]) > 200 and PRINT(conv[j2]) < 0.2 * PRINT(ds[j2][3])
-               for j2 in range(len(ds))):
-            dropped += 1; continue
+        # (b) scene SHIFT / hollow strings: a DS string with real dialogue whose
+        # official counterpart is nearly empty. Two very different causes share the
+        # symptom. When the JP profile confirms the string's box count is unchanged,
+        # the scene is NOT redistributed - the Collection simply has a hole at that
+        # slot (trial-build cuts, all in Ep1 free roam), and the string reverts to
+        # fan individually, exactly like a DEMO TEXT record. Only when the profile
+        # cannot vouch for the alignment is the whole entry rejected, because then
+        # index-by-index substitution could scramble the scene (the original case,
+        # DS[115] str5 = 3,582 units on the DS and 0 in the Collection, is now
+        # normally repaired upstream by recut_run).
+        hollow = [j2 for j2 in range(len(ds))
+                  if PRINT(ds[j2][3]) > 200 and PRINT(conv[j2]) < 0.2 * PRINT(ds[j2][3])]
+        if hollow:
+            jpb_ok = jpb is not None and len(jpb) == len(ds)
+            if jpb_ok and all(sum(1 for v in ds[j2][3] if v in BOXEND) == jpb[j2]
+                              for j2 in hollow):
+                for j2 in hollow:
+                    conv[j2] = list(ds[j2][3]); hollowed += 1
+            else:
+                dropped += 1; continue
         # (a) per-string: the Collection omits DS-only content such as the touch /
         # A-Button tutorials (DS[4] str3: 16 message boxes on the DS, 10 here). Losing
         # a box the engine waits on HANGS the game, so keep the fan's string for it.
@@ -408,6 +423,7 @@ def main(base=None, out=None):
     print('kept fan text - string count mismatch:  %d' % mismatch)
     print('entries where a joined string was split back: %d' % unmerged)
     print('relaid strings rebuilt in the fan layout:   %d' % recut)
+    print('hollow official strings kept as fan:       %d' % hollowed)
     print('kept fan text - over 64 KB u16 cap:     %d' % overflow)
     print('records kept as fan - DEMO TEXT stub:      %d' % demo)
     print('records kept as fan - still Japanese:       %d' % untranslated)
