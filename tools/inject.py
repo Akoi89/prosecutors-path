@@ -51,6 +51,19 @@ RETITLE = False
 # downstream guard like any other string.
 SPLIT_MERGED = True
 
+# Recover strings the fan patch RELAID by moving the cut point between neighbours.
+# In 42 runs of adjacent strings (concentrated in Ep1 and Ep4-5) the fan shifted
+# message boxes between two or three consecutive strings - always conserving the
+# total (+8/-8, -38/+38) or adding exactly one E081 terminator when the retail
+# layout's neighbour was empty. Joining the official strings for the run (absorbing
+# each inner E081 tail where present - strings that end an entry carry none) and
+# re-cutting at the fan's own boundaries reproduces the fan layout exactly. The
+# only gate is strict per-string box-end code-multiset equality with the fan
+# string: an official string that merged a box pair, or used a different box-end
+# variant (DS[236] has E104 where the official holds E102), fails it and the whole
+# run stays fan. No count tolerance applies here, unlike the ordinary swap path.
+RECUT_SHIFTED = True
+
 
 def _boxend_counts(u):
     """Box-end code multiset, walking with arities so argument units are never
@@ -120,6 +133,61 @@ def split_merged(ds, en):
     return en[:mp] + [(0, 0, 0, h1), (0, 0, 0, h2)] + en[mp + 1:], mp
 
 
+def _cut_after(u, k):
+    """Index just past the k-th box-end code, argument units included, or None."""
+    i, n, seen = 0, len(u), 0
+    while i < n:
+        v = u[i]
+        i += 1 + (ARGS.get(v, 0) if 0xE000 <= v <= 0xF8FF else 0)
+        if v in BOXEND:
+            seen += 1
+            if seen == k:
+                return i
+    return None
+
+
+def recut_run(ds, en, js):
+    """Rebuild official strings js (consecutive indices) in the FAN's layout.
+
+    Joins the official strings, then cuts at each fan boundary. Returns one unit
+    list per index, or None the moment anything fails strict verification.
+    """
+    joined = []
+    for t, j in enumerate(js):
+        u = list(en[j][3])
+        if t < len(js) - 1 and len(u) >= 2 and u[-2] == 0xE081:
+            u = u[:-2]                # inner terminator absorbed by the fan's move
+        joined += u
+    out, pos = [], 0
+    for t, j in enumerate(js):
+        a = ds[j][3]
+        if t == len(js) - 1:
+            h = joined[pos:]
+            # the official run can end on an EMPTY retail string - then the joined
+            # stream has no final terminator and the fan's E081 tail is restored
+            # exactly like an inner one
+            if _boxend_counts(h) != _boxend_counts(a) and len(a) >= 2 and a[-2] == 0xE081:
+                w = _boxend_counts(a)
+                w[0xE081] -= 1
+                if _boxend_counts(h) == +w:
+                    h = h + list(a[-2:])
+        else:
+            if len(a) < 2 or a[-2] != 0xE081:
+                return None
+            k = sum(1 for v in a if v in BOXEND) - 1
+            if k <= 0:
+                return None
+            cut = _cut_after(joined[pos:], k)
+            if cut is None:
+                return None
+            h = joined[pos:pos + cut] + list(a[-2:])
+            pos += cut
+        if _boxend_counts(h) != _boxend_counts(a):
+            return None
+        out.append(h)
+    return out
+
+
 def file_id(rom, want):
     fnt = struct.unpack_from('<I', rom, 0x40)[0]
     def walk(dirid, prefix=''):
@@ -183,7 +251,7 @@ def main(base=None, out=None):
     fan = dict(ds_entries('dump/ds_fan/jpn/spt.bin'))
 
     swapped = overflow = mismatch = skipped = demo = untranslated = tiny = shape = dropped = boxkeep = 0
-    restructured = relaidn = unmerged = 0
+    restructured = relaidn = unmerged = recut = 0
     unmapped = {}
     for k in sorted(m, key=int):
         i = int(k); info = m[k]
@@ -241,6 +309,20 @@ def main(base=None, out=None):
                 restructured += 1; continue      # cannot compare; leave it alone
             relaid = {j2 for j2 in range(len(ds))
                       if sum(1 for v in ds[j2][3] if v in BOXEND) != jpb[j2]}
+        if relaid and RECUT_SHIFTED:
+            en = list(en)
+            block = []
+            for j2 in sorted(relaid) + [None]:
+                if block and j2 != block[-1] + 1:
+                    if len(block) >= 2:
+                        got = recut_run(ds, en, block)
+                        if got is not None:
+                            for t, jj in enumerate(block):
+                                en[jj] = (0, 0, 0, got[t])
+                            relaid -= set(block)
+                            recut += len(block)
+                    block = []
+                block.append(j2)
         conv = []
         for n_, (_, _, _, u) in enumerate(en):
             if n_ in relaid:
@@ -325,6 +407,7 @@ def main(base=None, out=None):
     print('entries replaced with official English: %d' % swapped)
     print('kept fan text - string count mismatch:  %d' % mismatch)
     print('entries where a joined string was split back: %d' % unmerged)
+    print('relaid strings rebuilt in the fan layout:   %d' % recut)
     print('kept fan text - over 64 KB u16 cap:     %d' % overflow)
     print('records kept as fan - DEMO TEXT stub:      %d' % demo)
     print('records kept as fan - still Japanese:       %d' % untranslated)
