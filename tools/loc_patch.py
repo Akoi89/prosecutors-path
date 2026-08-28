@@ -15,9 +15,13 @@ import dstext
 CTRL = lambda v: 0xE000 <= v <= 0xF8FF
 from paths import work as _work
 _D = _work('dump')
-# DS-only tail the Collection dropped; the fan patch renders it this way.
+# DS-only tail the Collection dropped; the fan patch renders it as 'Touch the
+# Check Button for details.' - which wraps to TWO of the description box's four
+# lines at 180px and was pushing dozens of otherwise-fitting official
+# descriptions over the limit. This shorter form keeps the instruction and the
+# button's actual label on a single line. The wording is ours, not Capcom's.
 SUFFIX_JA = '《詳細》で見られる。'
-SUFFIX_EN = 'Touch the Check Button for details.'
+SUFFIX_EN = 'Touch Check for details.'
 
 def _norm(s):
     return re.sub(r'\s+', '', s or '')
