@@ -19,7 +19,7 @@ except AttributeError:                                    # pragma: no cover
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 from spt import all_strings, parse
 from build_spt import build_ds, build_archive
-from dstext import convert
+from dstext import convert, ARGS
 from episode_titles import retitle
 from loc_patch import load_lookup, patch_entry
 from map_ids import ds_entries
@@ -35,6 +35,90 @@ BOXEND = {0xE102, 0xE104, 0xE106, 0xE185, 0xE081}
 # Switching only the save slots puts two different names for the same episode one menu
 # apart, so leave the fan's names until the bitmap can be redrawn to match.
 RETITLE = False
+
+# Recover entries where the FAN patch split one long retail string into two.
+# In 9 entries (one in Ep2, six in Ep4, two in Ep5) the retail Japanese DS and the
+# Collection both hold a single joined string (DS[241]: 71 boxes) where the fan ROM
+# holds two (35 + 37) - the fan team cut long strings and appended an E081 string
+# terminator to the first half; the second half's speaker/portrait preamble survives
+# in the joined form code-for-code. The joined official string can therefore be split
+# back LOSSLESSLY at the fan's own cut point: divide after the first half's content
+# box-ends and restore its E081 tail verbatim from the fan string (the argument
+# varies, 0x01-0x0F, semantics unknown - never synthesize it). Three independent
+# sources must agree on the fingerprint before an entry is touched: the fan layout,
+# the Collection string, and the shipped JP profile (sum of the two halves' box
+# counts minus exactly the one terminator). Both halves then flow through every
+# downstream guard like any other string.
+SPLIT_MERGED = True
+
+
+def _boxend_counts(u):
+    """Box-end code multiset, walking with arities so argument units are never
+    mistaken for codes."""
+    c = collections.Counter()
+    i, n = 0, len(u)
+    while i < n:
+        v = u[i]
+        if 0xE000 <= v <= 0xF8FF:
+            if v in BOXEND:
+                c[v] += 1
+            i += 1 + ARGS.get(v, 0)
+        else:
+            i += 1
+    return c
+
+
+def split_merged(ds, en):
+    """If en is ds with exactly two adjacent strings joined, split it back.
+
+    Returns a new en-shaped list, or None when the entry does not match the pattern
+    at exactly one position. Every test is structural (box-end code multisets);
+    nothing is guessed from the prose.
+    """
+    if len(ds) - len(en) != 1:
+        return None
+    dbe = [_boxend_counts(s[3]) for s in ds]
+    ebe = [_boxend_counts(s[3]) for s in en]
+    cands = []
+    for mp in range(len(en)):
+        a, b = ds[mp][3], ds[mp + 1][3]
+        # the first half must end 'E081 <arg>' for there to be a tail to restore
+        if len(a) < 2 or a[-2] != 0xE081:
+            continue
+        want = dbe[mp] + dbe[mp + 1]
+        want[0xE081] -= 1
+        if ebe[mp] != +want:
+            continue
+        # every string outside the join must keep its exact box-end profile
+        if all(dbe[j] == ebe[j if j < mp else j - 1]
+               for j in range(len(ds)) if j not in (mp, mp + 1)):
+            cands.append(mp)
+    if len(cands) != 1:
+        return None
+    mp = cands[0]
+    a = ds[mp][3]
+    m = en[mp][3]
+    # cut after the first half's content box-ends: its own count minus the E081
+    # that the join dropped
+    need = sum(dbe[mp].values()) - 1
+    i, n, seen, cut = 0, len(m), 0, None
+    while i < n:
+        v = m[i]
+        i += 1 + (ARGS.get(v, 0) if 0xE000 <= v <= 0xF8FF else 0)
+        if v in BOXEND:
+            seen += 1
+            if seen == need:
+                cut = i
+                break
+    if cut is None or cut >= n:
+        return None
+    h1 = list(m[:cut]) + list(a[-2:])        # restore 'E081 <arg>' verbatim
+    h2 = list(m[cut:])
+    # the split must reproduce the fan layout EXACTLY, or we walk away
+    if _boxend_counts(h1) != dbe[mp] or _boxend_counts(h2) != dbe[mp + 1]:
+        return None
+    return en[:mp] + [(0, 0, 0, h1), (0, 0, 0, h2)] + en[mp + 1:], mp
+
 
 def file_id(rom, want):
     fnt = struct.unpack_from('<I', rom, 0x40)[0]
@@ -99,7 +183,7 @@ def main(base=None, out=None):
     fan = dict(ds_entries('dump/ds_fan/jpn/spt.bin'))
 
     swapped = overflow = mismatch = skipped = demo = untranslated = tiny = shape = dropped = boxkeep = 0
-    restructured = relaidn = 0
+    restructured = relaidn = unmerged = 0
     unmapped = {}
     for k in sorted(m, key=int):
         i = int(k); info = m[k]
@@ -120,8 +204,12 @@ def main(base=None, out=None):
         # files were never localised and still hold Japanese. Skipping whole files
         # threw away 16,780 letters of perfectly good official English that sat
         # alongside ~1,000 letters of stub. Fall back only on the offending records.
+        mp_split = None
         if len(ds) != len(en):
-            mismatch += 1; continue          # index layout must not shift
+            r = split_merged(ds, en) if SPLIT_MERGED else None
+            if r is None:
+                mismatch += 1; continue      # index layout must not shift
+            en, mp_split = r; unmerged += 1  # joined string split back losslessly
         # STRUCTURAL PREREQUISITE - the fan patch's own layout must still match the
         # JAPANESE original. The Collection matches the JP script box-for-box, but
         # the fan REDISTRIBUTED message boxes between strings in 54 entries
@@ -139,6 +227,16 @@ def main(base=None, out=None):
         prof = jp.get(str(i))
         if prof:
             jpb = prof['boxes']
+            if mp_split is not None and len(jpb) == len(ds) - 1:
+                # The retail JP holds the joined form too (the fan did the splitting),
+                # so the profile confirms the same fingerprint: the joined string's
+                # box count is the two fan halves' counts minus the one terminator
+                # the fan added. Split the profile at the verified point; anything
+                # else falls through to the length check below and stays fan.
+                nA = sum(1 for v in ds[mp_split][3] if v in BOXEND)
+                nB = sum(1 for v in ds[mp_split + 1][3] if v in BOXEND)
+                if jpb[mp_split] == nA + nB - 1:
+                    jpb = jpb[:mp_split] + [nA, nB] + jpb[mp_split + 1:]
             if len(jpb) != len(ds):
                 restructured += 1; continue      # cannot compare; leave it alone
             relaid = {j2 for j2 in range(len(ds))
@@ -226,6 +324,7 @@ def main(base=None, out=None):
     newspt = build_archive(entries)
     print('entries replaced with official English: %d' % swapped)
     print('kept fan text - string count mismatch:  %d' % mismatch)
+    print('entries where a joined string was split back: %d' % unmerged)
     print('kept fan text - over 64 KB u16 cap:     %d' % overflow)
     print('records kept as fan - DEMO TEXT stub:      %d' % demo)
     print('records kept as fan - still Japanese:       %d' % untranslated)
