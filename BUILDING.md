@@ -19,8 +19,11 @@ python tools/build.py --fan-rom "GK2 (AAI2 Final v2).nds" --skip-extract -o out/
 sha256sum out/check.nds
 ```
 
-Every refactor in this repo's history was gated on that hash staying at
-`76a5d740268e914f5cdacf1cb7c7362e500bf3db02c4af3db821242ffb9bdb02`. If yours moves,
+Every refactor in this repo's history was gated on that hash staying put. For
+v1.2.0 the reference is
+`c97635faefda1f131ec33a0c3e15d3fc6f9159dfbc0367d958d75f086643e661`
+(v1.1.0's was `76a5d740268e914f5cdacf1cb7c7362e500bf3db02c4af3db821242ffb9bdb02`;
+it moved intentionally, and only, with the v1.2.0 text recoveries). If yours moves,
 you changed behaviour — find out why before committing.
 
 ---
@@ -128,8 +131,11 @@ The table now has all 342. What made the fix safe to apply:
   had been leaking into view (`' !!'` → `'!!'`, `'2 2 2 2'` → `'2222'`). No dialogue
   was lost.
 
-Every guard count is unchanged (404 entries, 112 relaid strings, 11 shape rejections),
-all six structural checks still pass, and coverage stays at 85.7%.
+At the time of that fix every guard count was unchanged (then 404 entries, 112
+relaid strings, 11 shape rejections) and all six structural checks still passed.
+The counts have since moved for good reasons - v1.2.0's structural recoveries -
+and the current audit is printed by every build; `tools/coverage.py` computes the
+coverage figure.
 
 `tools/ctrl_args.py --check` now reports no gap. If it ever reports one again, the
 same evidence gate applies: demand zero run-length variance, binary-looking arguments,
@@ -142,7 +148,7 @@ and a rendered-text diff that loses nothing.
 Update `RELEASE_NOTES.md` and `VERSION` in `tools/build.py`, then:
 
 ```bash
-git tag v1.1.0 && git push origin v1.1.0
+git tag vX.Y.Z && git push origin vX.Y.Z
 ```
 
 CI builds all four binaries from that exact commit, self-tests each one, and publishes

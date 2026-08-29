@@ -10,8 +10,9 @@ Collection* (2024).
 This toolchain takes Capcom's script and injects it into the DS game — so you can play
 the official localization on original hardware, on a flashcart, or in an emulator.
 
-**85.7% of the on-screen text becomes Capcom's.** The remaining 14.3% stays in the fan
-translation, for reasons documented in [What doesn't port, and why](#what-doesnt-port-and-why).
+**96.9% of the script's text becomes Capcom's** — measured by `tools/coverage.py`, so
+you can recompute it. The remainder stays in the fan translation, for reasons documented
+in [What doesn't port, and why](#what-doesnt-port-and-why).
 
 > **This repository contains no game data.** No ROM, no script, no extracted text — only
 > the tools. You supply your own legally-obtained copy of the DS game and your own
@@ -138,12 +139,14 @@ python tools/inject.py "Gyakuten Kenji 2 (AAI2 Final v2).nds" -o out/GK2-officia
 The build prints a full audit of what it did and, crucially, what it refused to do:
 
 ```
-entries replaced with official English: 404
+entries replaced with official English: 418
+entries where a joined string was split back: 9
+relaid strings rebuilt in the fan layout:   74
+hollow official strings kept as fan:       7
 records kept as fan - still Japanese:   347
-records kept as fan - fan relaid it vs JP: 112
-kept fan text - string count mismatch:   14
+records kept as fan - fan relaid it vs JP: 38
+kept fan text - string count mismatch:   5
 kept fan text - control-code shape off:  11
-kept fan text - scene shifted between strings: 5
 ```
 
 Every one of those counters is a guard that fired. They exist because each one, once,
@@ -153,15 +156,20 @@ broke the game.
 
 ## Coverage
 
-| Episode | Official | Notes |
+| Episode | Official | character units |
 |---|---|---|
-| 1 — *Turnabout Target* | 73.6% | Worst-aligned stretch in the game |
-| 2 — *The Imprisoned Turnabout* | 82.4% | |
-| 3 — *The Inherited Turnabout* | **99.9%** | Essentially pure Capcom |
-| 4 — *The Forgotten Turnabout* | 74.7% | Large fan cluster in chapters 4–5 |
-| 5 — *The Grand Turnabout* | 89.7% | |
-| Menus & UI | 79.1% | |
-| **Total** | **85.7%** | 1,657,842 of 1,934,287 characters |
+| 1 — *Turnabout Target* | 97.8% | 175,478 / 179,476 |
+| 2 — *The Imprisoned Turnabout* | 98.0% | 361,292 / 368,710 |
+| 3 — *The Inherited Turnabout* | **100%** | 377,753 / 377,753 |
+| 4 — *The Forgotten Turnabout* | 93.8% | 279,208 / 297,665 |
+| 5 — *The Grand Turnabout* | **100%** | 497,837 / 497,837 |
+| Menus & UI | 75.7% | 84,455 / 111,600 |
+| **Total** | **96.9%** | 1,776,023 / 1,833,041 |
+
+The counting is `tools/coverage.py`: character units (everything that is not a control
+code or one of its arguments) in strings whose bytes differ from the fan ROM, over all
+character units. Earlier releases quoted "85.7%" from a methodology that did not
+survive; the two numbers are not directly comparable.
 
 Also ported: evidence and profile descriptions, Logic card text, and the Organizer
 messages — none of which live in the script files at all. They come from the Collection's
@@ -229,7 +237,14 @@ Stage* location card. The engine waits on them. They never arrive.
 Box-count-based guards can't see this: the official string has *more* boxes (63 vs 55),
 not fewer. The fix is to compare each string's box count against the **Japanese DS ROM**
 and revert only the strings whose count moved. Doing this per-string rather than
-per-entry is worth about ten points of coverage (76.0% → 85.7%).
+per-entry was worth about ten points of coverage on its own. v1.2.0 goes further:
+where a whole RUN of neighbouring strings was relaid with its box total conserved, the
+official strings are joined and re-cut at the fan's own boundaries — the layout the
+engine was built against — with strict per-string box-code equality as the gate. The
+same trick inverts the fan's habit of splitting one long retail string into two
+(the retail JP and the Collection both hold the joined form; the split point is
+recovered from three independent structural fingerprints). What used to be reverted
+wholesale is now mostly rebuilt.
 
 You don't need that ROM, though. The guards want *counts*, never text — message boxes per
 string, and a control-code histogram per entry. Those are integers, facts about the file's
@@ -245,7 +260,8 @@ game hangs anyway. Each guard below exists because it happened:
 - **Scene redistributed across strings** — a string with >200 printable DS characters
   whose Collection counterpart has under 20% of that. Rejects the entry.
 - **Message-box loss** — losing ≥2 boxes reverts that string. Losing exactly *one* is
-  benign and very common (868 of 913 cases): the localization merged a pair.
+  benign and very common (868 of 913 cases, measured before the v1.2.0 rebuilds):
+  the localization merged a pair.
 - **Per-record defects** — Capcom's English bundle contains `DEMO TEXT` placeholders and
   untranslated Japanese, but *per record*, not per file. Guarding at file level threw
   away 16,780 letters of perfectly good English.
@@ -258,13 +274,19 @@ game hangs anyway. Each guard below exists because it happened:
 
 The floor isn't laziness — it's structural, and it breaks down cleanly:
 
-| Cause | Share |
-|---|---|
-| Fan-authored content, blank in the Japanese original too | 6.5% |
-| Strings the fan patch relaid relative to the JP script | 3.8% |
-| Individual lines inside otherwise-official scenes | 2.5% |
-| Collection empty at that slot | 2.1% |
-| Other | 0.4% |
+What remains fan, as of v1.2.0 (~3.1% of the script):
+
+- **Relaid strings with no rebuildable partner** — 38 strings whose box counts moved
+  against the retail layout in ways the run-rebuild cannot verify (lone strings, or
+  runs where the official uses a different box-end variant, e.g. `DS[236]`).
+- **Evidence descriptions that overflow their box** — official English exists for
+  ~111 of them but does not fit the DS's 4-line description box, and editing Capcom's
+  wording to fit was ruled out (evidence text is contradiction material; a dropped
+  hedge changes the game). The fan's descriptions fit because they were written for
+  this box.
+- **Hollow official strings** — a few strings are empty or `DEMO TEXT` in the
+  Collection's own files.
+- **Menus & UI residue** — DS-only interface text with no official counterpart.
 
 DS-only content is the recurring theme. The touch-screen tutorials, the button prompts,
 the Logic walkthrough — Capcom's version targets hardware without a second screen or an
@@ -326,7 +348,8 @@ The tooling in this repository was written with **LLM assistance** — specifica
 That is worth stating plainly, because it shapes what you should trust here. The format
 reverse-engineering is grounded in measurements over the real files rather than in
 recollection, and the numbers quoted throughout — 20,516 of 26,172 newlines, 54 of 429
-relaid entries, 85.7% coverage — are all reproducible by running the tools. Every build
+relaid entries, 96.9% coverage — are all reproducible by running the tools
+(`tools/coverage.py` computes the coverage figure). Every build
 is verified byte-for-byte against previous ones.
 
 But the bugs that mattered were found by **playing the game**, not by the model. The
