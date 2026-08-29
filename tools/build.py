@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import locate
 from paths import work, data, FROZEN
 
-VERSION = '1.2.0'
+VERSION = '1.2.1'
 ISSUES = 'https://github.com/Akoi89/prosecutors-path/issues'
 
 # Bundle name prefixes -> where their TextAssets go. Addressables appends a content
