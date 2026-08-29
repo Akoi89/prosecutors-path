@@ -151,7 +151,8 @@ def selftest():
     # actually compressed - both are reached only during extraction, so a build
     # missing them looks perfectly healthy until someone points it at the game.
     for mod in ('UnityPy', 'UnityPy.UnityPyBoost', 'lz4.block', 'brotli', 'PIL.Image',
-                'spt', 'dstext', 'inject', 'locate', 'ndsx'):
+                'spt', 'dstext', 'inject', 'locate', 'ndsx', 'names', 'plates',
+                'lz11', 'nitro'):
         try:
             __import__(mod)
             print('  import %-29s ok' % mod)
