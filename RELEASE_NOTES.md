@@ -5,6 +5,37 @@ units, measured by `tools/coverage.py` — a new, reproducible counting; not dir
 comparable to the old release's "85.7%", whose methodology differed). The remainder
 stays in the AAI2 fan translation — see the README for exactly why, and which parts.
 
+## New in v1.4.3 — Episode 1 hands you the controls again. Update before playing.
+
+**Every release from v1.2.0 to v1.4.2 hangs in Episode 1**, at the exact moment the
+game stops talking and gives you control at the Gourd Lake stage. A speaker's
+nameplate sits over an empty message box, the scene keeps animating, the music keeps
+playing, and nothing advances. Reproduced from a cold boot, and confirmed against the
+fan translation, which reaches free roam at the same point.
+
+The cause is a guard that was measuring the wrong thing. The Collection's script has
+no touch-screen, A-Button or Logic tutorials — they are DS-only — so converting it can
+silently drop the engine commands that drive them. The existing guard caught that by
+counting **message boxes**, on the reasoning that missing content means missing boxes.
+It does not: Capcom's prose is longer, so the converted string ended up with *more*
+boxes than the fan's (18 against 16) while the tutorial command pair inside it was
+gone. The box count looked healthy and the scene hung anyway.
+
+The guard now compares the **engine commands** rather than the boxes, and any string
+that would drop one keeps the fan's line. That is 105 strings, concentrated in
+Episode 1's tutorial-heavy opening.
+
+That costs real coverage, and it is worth being plain about it: **the total falls from
+98.4% to 97.5%**, and Episode 1 — which carries almost all of these strings — falls
+from 97.7% to 91.8%. Those strings are where the DS-only tutorials live, so they were
+always the least translatable part of the game, and the alternative is a hang in the
+first ten minutes. A scene that plays in the fan's words beats a scene that does not
+play at all.
+
+This is the third hang found by someone actually playing rather than by any offline
+check, and the second in Episode 1's opening — which had never been played on a build
+this recent. If you are on any earlier release, update before starting.
+
 ## New in v1.4.2 — an Episode 1 hang, found by a player. Update if you are playing.
 
 **Every release from v1.3.0 to v1.4.1 can lock up early in Episode 1**, while you
