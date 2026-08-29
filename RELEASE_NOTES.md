@@ -1,9 +1,41 @@
 Port Capcom's official English localization of *Gyakuten Kenji 2* into the Nintendo DS ROM.
 
-**96.9% of the script's text becomes Capcom's** (1,776,023 of 1,833,041 character
+**98.4% of the script's text becomes Capcom's** (1,803,512 of 1,833,041 character
 units, measured by `tools/coverage.py` — a new, reproducible counting; not directly
 comparable to the old release's "85.7%", whose methodology differed). The remainder
 stays in the AAI2 fan translation — see the README for exactly why, and which parts.
+
+## New in v1.3.0 — the last big recoveries, and a jump-index repair
+
+- **The confrontation line banks are official now.** The "argument" lines you pick
+  during rebuttals and Logic Chess (236 rows, e.g. *"Yet, I will be heard!"*) were at
+  0% because their file only exists in the Collection's trial bundle. They now swap
+  row-by-row, each line verified single-line and no wider than the widest line the
+  fan translation ever displayed in that widget.
+- **The two biggest fan-kept scenes are recovered** — a courtroom stretch of Episode 4
+  and an Episode 2 investigation scene (~12k characters) whose restructuring was
+  beyond the previous release's tools: the region aligner now handles multiple joins
+  in one entry and regions re-cut into a different number of strings, under the same
+  strict structural verification as everything else.
+- **A latent v1.2.1 defect is repaired.** In five recovered entries, the jump index
+  carried at the end of some strings (which string the engine plays next) was copied
+  from the official layout's numbering, off by the recovery's own re-cutting — 33
+  strings in Episodes 2/4/5, including two that jumped to themselves. All jump
+  indices are now taken from the fan layout, and a whole-ROM scan verifies zero
+  divergence. These scenes had never been played on any build; if you hit an odd
+  text loop there on v1.2.x, this was it.
+- Coverage: **96.9% → 98.4%**. Episode 2 is 99.9%, Episode 4 98.4%, Episodes 3 and 5
+  stay 100%.
+
+| Episode | Official | character units |
+|---|---|---|
+| 1 — Turnabout Target | 97.7% | 175,426 / 179,476 |
+| 2 — The Imprisoned Turnabout | 99.9% | 368,376 / 368,710 |
+| 3 — The Inherited Turnabout | **100%** | 377,753 / 377,753 |
+| 4 — The Forgotten Turnabout | 98.4% | 292,972 / 297,665 |
+| 5 — The Grand Turnabout | **100%** | 497,837 / 497,837 |
+| Menus & UI | 81.7% | 91,148 / 111,600 |
+| **Total** | **98.4%** | 1,803,512 / 1,833,041 |
 
 ## New in v1.2.1 — one restored NPC line
 
@@ -37,16 +69,6 @@ structurally before a single string is touched:
   hollow strings now revert individually; the rest of each entry is official.
 - **25 more evidence descriptions** fit their box after the DS-only "see the detail
   view" tail (this project's own wording, not Capcom's) was shortened to one line.
-
-| Episode | Official | character units |
-|---|---|---|
-| 1 — Turnabout Target | 97.8% | 175,478 / 179,476 |
-| 2 — The Imprisoned Turnabout | 98.0% | 361,292 / 368,710 |
-| 3 — The Inherited Turnabout | **100%** | 377,753 / 377,753 |
-| 4 — The Forgotten Turnabout | 93.8% | 279,208 / 297,665 |
-| 5 — The Grand Turnabout | **100%** | 497,837 / 497,837 |
-| Menus & UI | 75.7% | 84,455 / 111,600 |
-| **Total** | **96.9%** | 1,776,023 / 1,833,041 |
 
 Zero message boxes are lost anywhere: across all 931 strings of the 48 entries that
 changed since v1.1.0, every string's box structure matches the fan layout the engine

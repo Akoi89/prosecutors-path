@@ -19,6 +19,7 @@ except AttributeError:                                    # pragma: no cover
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 from spt import all_strings, parse
 from build_spt import build_ds, build_archive
+import dstext
 from dstext import convert, ARGS
 from episode_titles import retitle
 from loc_patch import load_lookup, patch_entry
@@ -86,56 +87,122 @@ def _boxend_counts(u):
     return c
 
 
-def split_merged(ds, en):
-    """If en is ds with exactly two adjacent strings joined, split it back.
+def _code_positions(u):
+    """Indices of control-code units, walking arities so argument units are never
+    mistaken for codes."""
+    out = []
+    i = 0
+    while i < len(u):
+        v = u[i]
+        if 0xE000 <= v <= 0xF8FF:
+            out.append(i)
+            i += 1 + ARGS.get(v, 0)
+        else:
+            i += 1
+    return out
 
-    Returns a new en-shaped list, or None when the entry does not match the pattern
-    at exactly one position. Every test is structural (box-end code multisets);
-    nothing is guessed from the prose.
+
+def rebuild_region(fan_strs, en_strs):
+    """Join en_strs (absorbing inner E081 tails where present - strings that end
+    an entry carry none), then re-cut into len(fan_strs) pieces at the fan's own
+    boundaries, restoring the fan's E081 tails verbatim. The E081 argument is the
+    index of the next string to jump to, so the fan's value is correct by
+    construction here - the rebuild reproduces the fan's string indices. Strict
+    per-string box-end multiset equality or None."""
+    joined = []
+    for t, u in enumerate(en_strs):
+        u = list(u)
+        if t < len(en_strs) - 1 and len(u) >= 2 and u[-2] == 0xE081:
+            u = u[:-2]
+        joined += u
+    out, pos = [], 0
+    for t, a in enumerate(fan_strs):
+        if t == len(fan_strs) - 1:
+            h = joined[pos:]
+            # the official region can end without a terminator (empty retail
+            # neighbour) - restore the fan's tail exactly like an inner one
+            if _boxend_counts(h) != _boxend_counts(a) and len(a) >= 2 and a[-2] == 0xE081:
+                w = _boxend_counts(a)
+                w[0xE081] -= 1
+                if _boxend_counts(h) == +w:
+                    h = h + list(a[-2:])
+        else:
+            if len(a) < 2 or a[-2] != 0xE081:
+                return None
+            k = sum(1 for v in a if v in BOXEND) - 1
+            if k <= 0:
+                return None
+            cut = _cut_after(joined[pos:], k)
+            if cut is None:
+                return None
+            h = joined[pos:pos + cut] + list(a[-2:])
+            pos += cut
+        if _boxend_counts(h) != _boxend_counts(a):
+            return None
+        out.append(h)
+    return out
+
+
+def region_align(ds, en, maxspan=4):
+    """Align official strings to the FAN layout when the string counts differ.
+
+    Greedy: strings whose box-end multisets match pair 1:1; at a mismatch, the
+    smallest (p fan : q en) region whose rebuild verifies is taken. Trailing
+    empty/fragment official strings with no fan counterpart are consumed. This
+    subsumes the fan's two restructurings - joining retail strings (with an added
+    E081 terminator) and re-cutting a region into a different number of pieces -
+    including several of them in one entry. Returns an en-shaped list or None;
+    every returned string is multiset-verified against the fan, which is stronger
+    than the count-level JP-profile check, so the relaid guard is skipped for
+    entries rebuilt here.
     """
-    if len(ds) - len(en) != 1:
-        return None
-    dbe = [_boxend_counts(s[3]) for s in ds]
-    ebe = [_boxend_counts(s[3]) for s in en]
-    cands = []
-    for mp in range(len(en)):
-        a, b = ds[mp][3], ds[mp + 1][3]
-        # the first half must end 'E081 <arg>' for there to be a tail to restore
-        if len(a) < 2 or a[-2] != 0xE081:
+    du = [list(t[3]) for t in ds]
+    eu = [list(t[3]) for t in en]
+    P, Q = len(du), len(eu)
+    i = j = 0
+    out = []
+    while i < P or j < Q:
+        if i >= P and j < Q and len(eu[j]) <= 4 and not _boxend_counts(eu[j]):
+            j += 1
             continue
-        want = dbe[mp] + dbe[mp + 1]
-        want[0xE081] -= 1
-        if ebe[mp] != +want:
+        if i < P and j < Q and _boxend_counts(du[i]) == _boxend_counts(eu[j]):
+            out.append(eu[j])
+            i += 1; j += 1
             continue
-        # every string outside the join must keep its exact box-end profile
-        if all(dbe[j] == ebe[j if j < mp else j - 1]
-               for j in range(len(ds)) if j not in (mp, mp + 1)):
-            cands.append(mp)
-    if len(cands) != 1:
-        return None
-    mp = cands[0]
-    a = ds[mp][3]
-    m = en[mp][3]
-    # cut after the first half's content box-ends: its own count minus the E081
-    # that the join dropped
-    need = sum(dbe[mp].values()) - 1
-    i, n, seen, cut = 0, len(m), 0, None
-    while i < n:
-        v = m[i]
-        i += 1 + (ARGS.get(v, 0) if 0xE000 <= v <= 0xF8FF else 0)
-        if v in BOXEND:
-            seen += 1
-            if seen == need:
-                cut = i
+        done = False
+        for span in range(2, 2 * maxspan + 1):
+            for p in range(1, min(maxspan, P - i) + 1):
+                q = span - p
+                if q < 1 or q > min(maxspan, Q - j) or (p == 1 and q == 1):
+                    continue
+                got = rebuild_region(du[i:i + p], eu[j:j + q])
+                if got is not None:
+                    out += got
+                    i += p; j += q
+                    done = True
+                    break
+            if done:
                 break
-    if cut is None or cut >= n:
+        if not done:
+            return None
+    if len(out) != P:
         return None
-    h1 = list(m[:cut]) + list(a[-2:])        # restore 'E081 <arg>' verbatim
-    h2 = list(m[cut:])
-    # the split must reproduce the fan layout EXACTLY, or we walk away
-    if _boxend_counts(h1) != dbe[mp] or _boxend_counts(h2) != dbe[mp + 1]:
-        return None
-    return en[:mp] + [(0, 0, 0, h1), (0, 0, 0, h2)] + en[mp + 1:], mp
+    # Every E081 argument is a STRING INDEX in this entry - and after a p:q
+    # region with p != q, indices carried from the official layout are skewed
+    # against the fan layout this entry now uses (a copied arg can even point a
+    # string at itself, which is a text loop). Rewrite every argument from the
+    # fan counterpart positionally; the multiset gate guarantees the counts
+    # match, so the copy is total.
+    for t in range(P):
+        u, a = out[t], du[t]
+        pu = [k for k in _code_positions(u) if u[k] == 0xE081]
+        pa = [k for k in _code_positions(a) if a[k] == 0xE081]
+        if len(pu) != len(pa):
+            return None
+        for ku, ka in zip(pu, pa):
+            if ku + 1 < len(u) and ka + 1 < len(a):
+                u[ku + 1] = a[ka + 1]
+    return [(0, 0, 0, u) for u in out]
 
 
 def _cut_after(u, k):
@@ -257,6 +324,7 @@ def main(base=None, out=None):
 
     swapped = overflow = mismatch = skipped = demo = untranslated = tiny = shape = dropped = boxkeep = 0
     restructured = relaidn = unmerged = recut = hollowed = 0
+    sparse_kept = sparse_entries = 0
     unmapped = {}
     for k in sorted(m, key=int):
         i = int(k); info = m[k]
@@ -277,12 +345,12 @@ def main(base=None, out=None):
         # files were never localised and still hold Japanese. Skipping whole files
         # threw away 16,780 letters of perfectly good official English that sat
         # alongside ~1,000 letters of stub. Fall back only on the offending records.
-        mp_split = None
+        realigned = False
         if len(ds) != len(en):
-            r = split_merged(ds, en) if SPLIT_MERGED else None
+            r = region_align(ds, en) if SPLIT_MERGED else None
             if r is None:
                 mismatch += 1; continue      # index layout must not shift
-            en, mp_split = r; unmerged += 1  # joined string split back losslessly
+            en = r; unmerged += 1; realigned = True
         # STRUCTURAL PREREQUISITE - the fan patch's own layout must still match the
         # JAPANESE original. The Collection matches the JP script box-for-box, but
         # the fan REDISTRIBUTED message boxes between strings in 54 entries
@@ -298,19 +366,13 @@ def main(base=None, out=None):
         # still safe to swap).
         relaid = set()
         jpb = None
-        prof = jp.get(str(i))
+        # Entries rebuilt by region_align skip the JP-profile relaid check: every
+        # one of their strings was verified against the fan by box-end code
+        # MULTISET, which is strictly stronger than the profile's per-string
+        # counts (and the profile's string indices no longer line up anyway).
+        prof = None if realigned else jp.get(str(i))
         if prof:
             jpb = prof['boxes']
-            if mp_split is not None and len(jpb) == len(ds) - 1:
-                # The retail JP holds the joined form too (the fan did the splitting),
-                # so the profile confirms the same fingerprint: the joined string's
-                # box count is the two fan halves' counts minus the one terminator
-                # the fan added. Split the profile at the verified point; anything
-                # else falls through to the length check below and stays fan.
-                nA = sum(1 for v in ds[mp_split][3] if v in BOXEND)
-                nB = sum(1 for v in ds[mp_split + 1][3] if v in BOXEND)
-                if jpb[mp_split] == nA + nB - 1:
-                    jpb = jpb[:mp_split] + [nA, nB] + jpb[mp_split + 1:]
             if len(jpb) != len(ds):
                 restructured += 1; continue      # cannot compare; leave it alone
             relaid = {j2 for j2 in range(len(ds))
@@ -393,7 +455,69 @@ def main(base=None, out=None):
             a = collections.Counter({int(k, 16): v for k, v in prof['ctrl'].items()})
             b = collections.Counter(v for c2 in conv for v in c2 if 0xE000 <= v <= 0xF8FF)
             if a and sum((a & b).values()) / sum(a.values()) < 0.35:
-                shape += 1; continue
+                # A near-zero profile overlap usually means a WRONG file match -
+                # reject. But the exam/exam_ask confrontation banks fail this test
+                # for a different reason: only the trial bundle carries them, and
+                # it populates just the demo's rows (215 of 848), so the converted
+                # file can never cover the full JP profile. For matches this
+                # confident, fall back to swapping the populated rows one by one -
+                # official English text in a string whose box-end multiset equals
+                # the fan's exactly - and keep fan for everything else.
+                if info['score'] < 0.90:
+                    shape += 1; continue
+                # These rows are OPTION-WIDGET lines, not dialogue: every fan row
+                # is a single line, up to ~306px - far wider than the dialogue box
+                # the default conversion wraps for. Re-convert unwrapped, and use
+                # the fan's own widest row as the widget's proven budget: anything
+                # wider keeps the fan line rather than risking a clip.
+                TYPO = {0x2018: "'", 0x2019: "'", 0x201C: '"', 0x201D: '"',
+                        0x2013: '-', 0x2014: '-', 0x2026: '.', 0x2025: '.'}
+                def _rowpx(u):
+                    segs = [0]
+                    k2 = 0
+                    while k2 < len(u):
+                        v = u[k2]
+                        if 0xE000 <= v <= 0xF8FF:
+                            k2 += 1 + ARGS.get(v, 0); continue
+                        if v == 0x0A:
+                            segs.append(0)
+                        else:
+                            ch = (chr(v - 0xFEE0) if 0xFF01 <= v <= 0xFF5E else
+                                  ' ' if v == 0xFF3F else
+                                  TYPO.get(v) or (chr(v) if 0x20 <= v < 0x7F else None))
+                            # an unpriceable glyph poisons the row: force it wide so
+                            # the budget test can only fail toward keeping fan
+                            segs[-1] += 9999 if ch is None else dstext._w(ch)
+                        k2 += 1
+                    return max(segs), len(segs)
+                # the budget comes from the fan's ENGLISH rows only - the bank's
+                # untranslated Japanese placeholder rows are not display-proven
+                # and their glyphs are unpriceable anyway
+                lat = [t[3] for t in ds
+                       if t[3] and sum(1 for v in t[3]
+                                       if 0xFF21 <= v <= 0xFF5A or 0x41 <= v <= 0x7A) > 4]
+                if not lat:
+                    shape += 1; continue
+                budget = max(_rowpx(u)[0] for u in lat)
+                kept = gained = 0
+                for j2 in range(len(ds)):
+                    u2 = en[j2][3]
+                    flat, _ = convert(u2, wrap=False, page=False, hard_nl=False)
+                    la2 = sum(1 for v in flat if 0xFF21 <= v <= 0xFF5A or 0x41 <= v <= 0x7A)
+                    px2, nl2 = _rowpx(flat)
+                    if (la2 == 0 or j2 in relaid or nl2 > 1 or px2 > budget
+                            or _boxend_counts(flat) != _boxend_counts(ds[j2][3])):
+                        if list(conv[j2]) != list(ds[j2][3]):
+                            conv[j2] = list(ds[j2][3]); kept += 1
+                    else:
+                        conv[j2] = flat
+                        if list(flat) != list(ds[j2][3]):
+                            gained += 1
+                if not gained:
+                    # nothing official survived the per-row gate - keep the fan
+                    # entry byte-for-byte rather than rebuilding its container
+                    shape += 1; continue
+                sparse_kept += kept; sparse_entries += 1
         # Last net: a SHORT fan string emptied outright by the Collection (DS[13]
         # str1, an Ep1 NPC line the trial build cut - 53 chars, one box, invisible
         # to both the 200-char hollow floor and the lose-two-boxes guard). Runs
@@ -459,6 +583,8 @@ def main(base=None, out=None):
     print('records kept as fan - still Japanese:       %d' % untranslated)
     print('kept fan text - too little text to map: %d' % tiny)
     print('kept fan text - control-code shape off:  %d' % shape)
+    print('sparse official banks swapped row-by-row: %d (%d rows kept fan)'
+          % (sparse_entries, sparse_kept))
     print('kept fan text - scene shifted between strings: %d' % dropped)
     print('kept fan text - cannot align to JP original: %d' % restructured)
     print('records kept as fan - fan relaid it vs JP:    %d' % relaidn)

@@ -10,7 +10,7 @@ Collection* (2024).
 This toolchain takes Capcom's script and injects it into the DS game — so you can play
 the official localization on original hardware, on a flashcart, or in an emulator.
 
-**96.9% of the script's text becomes Capcom's** — measured by `tools/coverage.py`, so
+**98.4% of the script's text becomes Capcom's** — measured by `tools/coverage.py`, so
 you can recompute it. The remainder stays in the fan translation, for reasons documented
 in [What doesn't port, and why](#what-doesnt-port-and-why).
 
@@ -139,14 +139,15 @@ python tools/inject.py "Gyakuten Kenji 2 (AAI2 Final v2).nds" -o out/GK2-officia
 The build prints a full audit of what it did and, crucially, what it refused to do:
 
 ```
-entries replaced with official English: 418
-entries where a joined string was split back: 9
+entries replaced with official English: 422
+entries re-aligned to the fan string layout: 11
+sparse official banks swapped row-by-row: 2
 relaid strings rebuilt in the fan layout:   74
-hollow official strings kept as fan:       7
+hollow official strings kept as fan:       8
 records kept as fan - still Japanese:   347
 records kept as fan - fan relaid it vs JP: 38
-kept fan text - string count mismatch:   5
-kept fan text - control-code shape off:  11
+kept fan text - string count mismatch:   3
+kept fan text - control-code shape off:  9
 ```
 
 Every one of those counters is a guard that fired. They exist because each one, once,
@@ -158,13 +159,13 @@ broke the game.
 
 | Episode | Official | character units |
 |---|---|---|
-| 1 — *Turnabout Target* | 97.8% | 175,478 / 179,476 |
-| 2 — *The Imprisoned Turnabout* | 98.0% | 361,292 / 368,710 |
+| 1 — *Turnabout Target* | 97.7% | 175,426 / 179,476 |
+| 2 — *The Imprisoned Turnabout* | 99.9% | 368,376 / 368,710 |
 | 3 — *The Inherited Turnabout* | **100%** | 377,753 / 377,753 |
-| 4 — *The Forgotten Turnabout* | 93.8% | 279,208 / 297,665 |
+| 4 — *The Forgotten Turnabout* | 98.4% | 292,972 / 297,665 |
 | 5 — *The Grand Turnabout* | **100%** | 497,837 / 497,837 |
-| Menus & UI | 75.7% | 84,455 / 111,600 |
-| **Total** | **96.9%** | 1,776,023 / 1,833,041 |
+| Menus & UI | 81.7% | 91,148 / 111,600 |
+| **Total** | **98.4%** | 1,803,512 / 1,833,041 |
 
 The counting is `tools/coverage.py`: character units (everything that is not a control
 code or one of its arguments) in strings whose bytes differ from the fan ROM, over all
