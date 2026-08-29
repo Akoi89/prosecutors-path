@@ -5,6 +5,22 @@ units, measured by `tools/coverage.py` — a new, reproducible counting; not dir
 comparable to the old release's "85.7%", whose methodology differed). The remainder
 stays in the AAI2 fan translation — see the README for exactly why, and which parts.
 
+## New in v1.3.4 — one description stops disagreeing about a room's name
+
+The Rubber Glove's updated Court Record description — one of the ~100 over-long
+descriptions that keep the fan's fitting text — called the crime scene
+"workroom A", while every official line around it (including the same item's own
+earlier description) says "workshop". The playtest that found the v1.3.3 hang
+also caught this. An audit of every kept-fan row against the official vocabulary
+found **exactly one such location-term conflict in the whole game**; the rest of
+the fan-vocabulary differences are character names, which stay untouched until
+nameplates can change with them.
+
+The fix substitutes that one word at build time in the description/Logic banks
+only — same letter count, measurably narrower, so nothing re-wraps. The ROM
+changes by exactly 3 character units; full fan scenes keep their own vocabulary.
+The reference hash for `--verify` moves accordingly.
+
 ## New in v1.3.3 — a hang in the Little Thief scenes, found by playtest, fixed
 
 **Every earlier release hangs — permanently, music still playing — the moment Kay
