@@ -567,6 +567,24 @@ def main(base=None, out=None):
     print('episode titles switched to official names:   %d%s'
           % (titles, '' if RETITLE else '  (RETITLE off - keeping fan names)'))
 
+    # Character names: strings that keep fan text still used the fan's names
+    # (Simon Keyes, Ray Shields, ...). Rewrite them to Capcom's, verified
+    # string-identical-to-fan first so official text is never touched.
+    import names as _names
+    renamed = 0
+    over_rows = []
+    for i, d in entries.items():
+        if not d or d[:4] != b' TPS':
+            continue
+        nd, c, over = _names.harmonize_entry(d, fan.get(i), i)
+        if c:
+            entries[i] = nd; renamed += c
+        for si, bad in over:
+            over_rows.append((i, si, bad))
+    print('kept-fan strings renamed to official names:  %d' % renamed)
+    if over_rows:
+        print('WARNING: renamed rows too wide for their box: %s' % over_rows)
+
     newspt = build_archive(entries)
     print('entries replaced with official English: %d' % swapped)
     print('kept fan text - string count mismatch:  %d' % mismatch)
@@ -590,6 +608,12 @@ def main(base=None, out=None):
         print('unmapped code points: %d distinct, %d occurrences'
               % (len(unmapped), sum(unmapped.values())))
 
+    # The dialogue nameplates are graphics; redraw them with the official
+    # names using the fan patch's own font, harvested from the user's files.
+    import plates as _plates
+    newid, plate_n = _plates.rebuild_idlocal('dump/ds_fan/jpn/idlocal.bin')
+    print('nameplates redrawn with official names:      %d' % plate_n)
+
     rom = bytearray(open(BASE, 'rb').read())
     fid = file_id(rom, 'jpn/spt.bin')
     fat = struct.unpack_from('<I', rom, 0x48)[0]
@@ -598,6 +622,11 @@ def main(base=None, out=None):
     rom += newspt
     while len(rom) % 512: rom += b'\xFF'
     struct.pack_into('<II', rom, fat + fid * 8, start, start + len(newspt))
+    idfid = file_id(rom, 'jpn/idlocal.bin')
+    start = len(rom)
+    rom += newid
+    while len(rom) % 512: rom += b'\xFF'
+    struct.pack_into('<II', rom, fat + idfid * 8, start, start + len(newid))
     struct.pack_into('<I', rom, 0x80, len(rom))
     cap = 0
     while (128 * 1024) << cap < len(rom): cap += 1
