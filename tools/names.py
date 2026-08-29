@@ -145,7 +145,36 @@ DIALOG_LIMIT = 200
 def _fwseq(s):
     return [0xFF3F if c == ' ' else (0x201D if c == "'" else ord(c) - 0x21 + 0xFF01) for c in s]
 
-ROWFIX = {(432, 292): (_fwseq('Was Samson'), _fwseq('Samson'))}
+ROWFIX = {(432, 292): (_fwseq('Was Samson'), _fwseq('Samson')),
+          # 'Mr. Master's' -> 'Mr. Tangaroa's' pushed this option-widget row past
+          # the budget the fan proved; the honorific is the cheapest word to lose.
+          # The period here is U+2025, which is how this script writes 'Mr.'
+          (453, 299): ([0xFF2D, 0xFF52, 0x2025, 0xFF3F] + _fwseq('Tangaroa'),
+                       _fwseq('Tangaroa'))}
+
+# Option-widget banks: one line each, and the widget's proven width is whatever
+# the fan actually displayed in it - the same budget inject.py uses when it
+# swaps these rows. A renamed row wider than that keeps the fan line rather than
+# risking a clip, exactly as the injector does.
+WIDGET_BANKS = {453, 454, 455, 456, 457}
+TYPO = {0x2018: "'", 0x2019: "'", 0x201C: '"', 0x201D: "'",
+        0x2013: '-', 0x2014: '-', 0x2026: '.', 0x2025: '.'}
+
+def row_px(u):
+    """Widest display line, measured the way inject.py measures these rows."""
+    segs, k = [0], 0
+    while k < len(u):
+        v = u[k]
+        if CTRL(v):
+            k += 1 + dstext.ARGS.get(v, 0); continue
+        if v == 0x0A:
+            segs.append(0)
+        else:
+            ch = (chr(v - 0xFEE0) if 0xFF01 <= v <= 0xFF5E
+                  else TYPO.get(v, chr(v) if v >= 0x20 else ''))
+            if ch: segs[-1] += dstext._w(ch)
+        k += 1
+    return max(segs)
 
 BOXEND = {0xE102, 0xE104, 0xE106, 0xE185, 0xE081}
 
@@ -219,6 +248,9 @@ def harmonize_entry(entry, fan_entry, idx):
     except Exception:
         return entry, 0, []
     lim, cap = LIMITS.get(idx, (DIALOG_LIMIT, None))
+    budget = None
+    if idx in WIDGET_BANKS and F:
+        budget = max(row_px(list(u)) for u in F.values())
     changed = 0
     over = []
     recs = []
@@ -249,6 +281,12 @@ def harmonize_entry(entry, fan_entry, idx):
                                     break
                                 line_no += 1; start = k2 + 1
                         bad = [(k3, w) for k3, w in enumerate(line_widths(nu)) if w > lim]
+                if budget is not None and row_px(nu) > budget:
+                    # wider than the fan ever proved this widget can draw -
+                    # keep the fan row rather than risk a clipped line
+                    over.append((si, [('widget', row_px(nu), budget)]))
+                    recs.append((a, uu))
+                    continue
                 if bad:
                     over.append((si, bad))
                 uu = nu
