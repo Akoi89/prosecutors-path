@@ -22,6 +22,14 @@ The 85% test needs a population to be meaningful. {E255} occurs 3 times, all
 followed by a letter, but its minimum run is 5 - a genuine arity. Codes with fewer
 than 5 occurrences keep their measured minimum.
 
+One more correction, learned the hard way: an argument whose fixed VALUE happens
+to be an ASCII letter looks exactly like inline markup to the letter test. {E1E2}
+is always followed by 68 - the letter 'D' - so the test forced it to arity 0, the
+converter turned that 68 into a fullwidth D, and the engine hung on the corrupted
+argument (v1.3.2's Little Thief hang). Prose after a real inline code VARIES;
+a constant first unit is an argument. So the letter test is overridden when one
+single value accounts for nearly every following unit.
+
     python tools/ctrl_args.py --check          compare against the shipped table
     python tools/ctrl_args.py -o out.json      write a freshly derived table
 
@@ -37,11 +45,13 @@ CTRL = lambda v: 0xE000 <= v <= 0xF8FF
 LETTER = lambda v: 0x41 <= v <= 0x5A or 0x61 <= v <= 0x7A
 INLINE_RATIO = 0.85       # followed by a letter this often -> inline markup, arity 0
 MIN_SUPPORT = 5           # ...but only when there are enough occurrences to judge
+CONST_RATIO = 0.99        # one constant following value this often -> argument, not prose
 
 
 def derive(folders):
     runs = collections.defaultdict(list)
     letters, total = collections.Counter(), collections.Counter()
+    following = collections.defaultdict(collections.Counter)
     for folder in folders:
         for p in sorted(glob.glob(os.path.join(folder, '*.bin'))):
             try:
@@ -60,11 +70,18 @@ def derive(folders):
                     total[v] += 1
                     if k + 1 < n and LETTER(u[k + 1]):
                         letters[v] += 1
+                    if k + 1 < n:
+                        following[v][u[k + 1]] += 1
     out = {}
     for c, rs in runs.items():
         a = min(rs)
         if total[c] >= MIN_SUPPORT and letters[c] / total[c] > INLINE_RATIO:
-            a = 0
+            # constant following value = a fixed argument, not prose ({E1E2}'s
+            # first argument is 68, the letter 'D' - see the docstring)
+            top = following[c].most_common(1)
+            const = top and top[0][1] / sum(following[c].values()) >= CONST_RATIO
+            if not const:
+                a = 0
         out['%04X' % c] = a
     return out
 

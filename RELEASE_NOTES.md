@@ -5,6 +5,36 @@ units, measured by `tools/coverage.py` — a new, reproducible counting; not dir
 comparable to the old release's "85.7%", whose methodology differed). The remainder
 stays in the AAI2 fan translation — see the README for exactly why, and which parts.
 
+## New in v1.3.3 — a hang in the Little Thief scenes, found by playtest, fixed
+
+**Every earlier release hangs — permanently, music still playing — the moment Kay
+deploys Little Thief in Episode 2's final chapter.** The first hands-on playtest of
+the recovered scenes hit it within the hour, on the first Little Thief scene it
+reached. If you played v1.3.2 or earlier past that point, this is the fix; your
+save is fine (text is read-only data — restart the chapter on a v1.3.3 ROM).
+
+The cause is almost funny. The converter knows how many argument units follow each
+control code from a statistically derived table, and that table treats any code
+"followed by a letter in >85% of cases" as inline markup with no arguments. Code
+`E1E2` — Little Thief's projector command — takes three arguments, and the first is
+always the value 68… which is the letter **`D`**. A constant argument that spells a
+letter defeated the letter test, the converter fullwidth-converted the 68 into a
+`Ｄ`, and the DS engine hung on the garbage value. Two more codes fell into the same
+trap: `E19D` (argument 100 = `d`) and `E1E5` (argument 115 = `s`), corrupted at 16
+further sites — no confirmed symptom, but the same class of wrong.
+
+The fix corrects those three arities (the deriver now refuses to force arity 0 when
+the "prose" after a code is the same value every time — prose varies, arguments
+don't), which repairs **exactly 32 units across 20 script entries and changes
+nothing else** — verified by byte-diff against the v1.3.2 ROM, and every repaired
+argument is now byte-identical to the fan ROM's own engine-proven value. Verified
+in-game: the Episode 2 scene that hung now plays through its full Little Thief
+re-creation in Capcom's text (that entire ~4,400-unit recovered scene was also
+box-by-box reviewed on screen — zero text defects). The other affected scenes
+(Episodes 2/4/5) are verified structurally by the same byte-comparison.
+
+The reference hash for `--verify` moves accordingly. Coverage is unchanged.
+
 ## New in v1.3.2 — checking, and clearer help
 
 No change to the ROM (still verifies to the same hash as v1.3.1). This release makes
