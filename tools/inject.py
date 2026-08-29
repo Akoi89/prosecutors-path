@@ -37,24 +37,19 @@ BOXEND = {0xE102, 0xE104, 0xE106, 0xE185, 0xE081}
 # apart, so leave the fan's names until the bitmap can be redrawn to match.
 RETITLE = False
 
-# Recover entries where the FAN patch split one long retail string into two.
-# In 9 entries (one in Ep2, six in Ep4, two in Ep5) the retail Japanese DS and the
-# Collection both hold a single joined string (DS[241]: 71 boxes) where the fan ROM
-# holds two (35 + 37) - the fan team cut long strings and appended an E081 string
-# terminator to the first half; the second half's speaker/portrait preamble survives
-# in the joined form code-for-code. The joined official string can therefore be split
-# back LOSSLESSLY at the fan's own cut point: divide after the first half's content
-# box-ends and restore its E081 tail verbatim from the fan string (the argument
-# varies, 0x01-0x0F; it is the index of the string to jump to next within the
-# entry - across all 2,650 tail occurrences in the corpus the argument is a valid
-# in-range string index, linear scenes use k+1 and investigation hubs share a
-# return target. The fan's value is correct by construction here, because the
-# rebuild reproduces the fan's string indices - still copy it, never synthesize
-# it). Three independent
-# sources must agree on the fingerprint before an entry is touched: the fan layout,
-# the Collection string, and the shipped JP profile (sum of the two halves' box
-# counts minus exactly the one terminator). Both halves then flow through every
-# downstream guard like any other string.
+# Recover entries whose string COUNTS differ because the fan patch restructured
+# them: joining long retail strings was split back, and regions re-cut into a
+# different number of pieces are re-cut again at the fan's own boundaries
+# (region_align below - it subsumed the earlier single-join `split_merged` and
+# reproduces its 9 entries byte-identically, plus the shapes it could not reach:
+# multiple joins in one entry, and p:q regions). Verification is strict per-string
+# box-end code MULTISET equality against the fan layout - stronger than the JP
+# profile's per-string counts, which is why realigned entries skip the relaid
+# check. Every E081 argument (the index of the next string to play - all 2,650
+# tail occurrences in the corpus are valid in-range indices; linear scenes use
+# k+1, investigation hubs share a return target) is rewritten positionally from
+# the fan counterpart, because official-layout indices are skewed after a re-cut
+# and a stale index can make a string jump to itself.
 SPLIT_MERGED = True
 
 # Recover strings the fan patch RELAID by moving the cut point between neighbours.
