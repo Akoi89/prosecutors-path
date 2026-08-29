@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import locate
 from paths import work, data, FROZEN
 
-VERSION = '1.2.1'
+VERSION = '1.3.0'
 ISSUES = 'https://github.com/Akoi89/prosecutors-path/issues'
 
 # Bundle name prefixes -> where their TextAssets go. Addressables appends a content
@@ -359,7 +359,12 @@ def main(argv=None):
     else:
         missing = [d for d in ('ds_fan', 'eng', 'eng_trial', 'jpn', 'jpn_trial')
                    if not os.path.isdir(os.path.join(dumpdir, d))]
-        missing += [f for f in ('loc_en.json', 'loc_ja.json')
+        # ...and the specific files the injector opens, so a truncated or
+        # half-deleted dump fails HERE instead of minutes into the injection
+        missing += [f for f in ('loc_en.json', 'loc_ja.json',
+                                os.path.join('ds_fan', 'jpn', 'spt.bin'),
+                                os.path.join('jpn_trial', 'detailMsg.bin'),
+                                os.path.join('jpn', 'logicKW.bin'))
                     if not os.path.exists(os.path.join(dumpdir, f))]
         if missing:
             raise SystemExit('--skip-extract, but %s is missing: %s. '
