@@ -44,7 +44,12 @@ RETITLE = False
 # in the joined form code-for-code. The joined official string can therefore be split
 # back LOSSLESSLY at the fan's own cut point: divide after the first half's content
 # box-ends and restore its E081 tail verbatim from the fan string (the argument
-# varies, 0x01-0x0F, semantics unknown - never synthesize it). Three independent
+# varies, 0x01-0x0F; it is the index of the string to jump to next within the
+# entry - across all 2,650 tail occurrences in the corpus the argument is a valid
+# in-range string index, linear scenes use k+1 and investigation hubs share a
+# return target. The fan's value is correct by construction here, because the
+# rebuild reproduces the fan's string indices - still copy it, never synthesize
+# it). Three independent
 # sources must agree on the fingerprint before an entry is touched: the fan layout,
 # the Collection string, and the shipped JP profile (sum of the two halves' box
 # counts minus exactly the one terminator). Both halves then flow through every
@@ -389,6 +394,31 @@ def main(base=None, out=None):
             b = collections.Counter(v for c2 in conv for v in c2 if 0xE000 <= v <= 0xF8FF)
             if a and sum((a & b).values()) / sum(a.values()) < 0.35:
                 shape += 1; continue
+        # Last net: a SHORT fan string emptied outright by the Collection (DS[13]
+        # str1, an Ep1 NPC line the trial build cut - 53 chars, one box, invisible
+        # to both the 200-char hollow floor and the lose-two-boxes guard). Runs
+        # AFTER every entry-level guard so it can never change an entry's verdict,
+        # and demands English fan text with a box (walked with arities, so argument
+        # bytes never count as text) - the demo entries' Japanese placeholder stubs
+        # stay gone.
+        def _wprint(u):
+            n2 = i2 = 0
+            while i2 < len(u):
+                v2 = u[i2]
+                if 0xE000 <= v2 <= 0xF8FF:
+                    i2 += 1 + ARGS.get(v2, 0); continue
+                if 0xFF01 <= v2 <= 0xFF5E or 0x21 <= v2 <= 0x7E:
+                    n2 += 1
+                i2 += 1
+            return n2
+        for j2 in range(len(ds)):
+            fu = ds[j2][3]
+            cj2 = sum(1 for v in fu if 0x3040 <= v <= 0x30FF or 0x4E00 <= v <= 0x9FFF)
+            la2 = sum(1 for v in fu if 0xFF21 <= v <= 0xFF5A or 0x41 <= v <= 0x7A)
+            if (_wprint(fu) > 0 and _wprint(conv[j2]) == 0
+                    and la2 > max(4, cj2)
+                    and sum(1 for v in fu if v in BOXEND) > 0):
+                conv[j2] = list(fu); hollowed += 1
         recs = [(ds[j][1], conv[j]) for j in range(1, len(ds))]
         try:
             entries[i] = build_ds(conv[0], recs, trailer, scale, longest)
