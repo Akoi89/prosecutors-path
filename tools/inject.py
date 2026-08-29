@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """Inject the Collection's official English script into the GK2 DS ROM.
 
 Structure is taken from the DS side and only the string CONTENT is swapped:
@@ -318,7 +318,7 @@ def main(base=None, out=None):
     fan = dict(ds_entries('dump/ds_fan/jpn/spt.bin'))
 
     swapped = overflow = mismatch = skipped = demo = untranslated = tiny = shape = dropped = boxkeep = 0
-    restructured = relaidn = unmerged = recut = hollowed = boxless = 0
+    restructured = relaidn = unmerged = recut = hollowed = boxless = dsonly = 0
     sparse_kept = sparse_entries = 0
     unmapped = {}
     for k in sorted(m, key=int):
@@ -442,6 +442,32 @@ def main(base=None, out=None):
             b2 = sum(1 for v in conv[j2] if v in END)
             if a2 - b2 >= 2:
                 conv[j2] = list(ds[j2][3]); boxkeep += 1
+        # (c) DS-ONLY ENGINE COMMANDS. Counting message boxes does not catch the
+        # case that matters most: Capcom's prose is LONGER, so a converted string
+        # can carry MORE boxes than the fan's while still having silently dropped
+        # a command the engine waits on. DS[4] str3/str4 - the Gourd Lake stage,
+        # where Episode 1 hands control to the player - ends up with 18 boxes
+        # against the fan's 16 and still hangs, because the E041/E042 pair around
+        # the DS-only touch/A-Button/Logic tutorials is gone. Reproduced from a
+        # cold boot on v1.4.2 and fixed by restoring the fan's strings; the fan
+        # ROM reaches free roam at the same point. So compare the commands, not
+        # the boxes, and keep the fan's string whenever one goes missing.
+        DSONLY = {0xE041, 0xE042}
+        def _cmds(u):
+            c = collections.Counter()
+            k = 0
+            while k < len(u):
+                v = u[k]
+                if 0xE000 <= v <= 0xF8FF:
+                    if v in DSONLY: c[v] += 1
+                    k += 1 + ARGS.get(v, 0); continue
+                k += 1
+            return c
+        for j2 in range(len(ds)):
+            fa, fb = _cmds(ds[j2][3]), _cmds(conv[j2])
+            if any(fa[k] > fb.get(k, 0) for k in fa):
+                if list(conv[j2]) != list(ds[j2][3]):
+                    conv[j2] = list(ds[j2][3]); dsonly += 1
         trailer, scale, longest = hfan['term'], hfan['scale'], hfan['last']
         # Structural sanity check: the Collection file should drive roughly the same
         # engine commands as the DS original. A wrong match shows up as near-zero
@@ -616,6 +642,7 @@ def main(base=None, out=None):
     print('relaid strings rebuilt in the fan layout:   %d' % recut)
     print('hollow official strings kept as fan:       %d' % hollowed)
     print('rows kept as fan to keep their message box: %d' % boxless)
+    print('rows kept as fan to keep a DS-only command:  %d' % dsonly)
     print('kept fan text - over 64 KB u16 cap:     %d' % overflow)
     print('records kept as fan - DEMO TEXT stub:      %d' % demo)
     print('records kept as fan - still Japanese:       %d' % untranslated)
