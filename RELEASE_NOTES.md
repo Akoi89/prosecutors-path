@@ -5,6 +5,46 @@ units, measured by `tools/coverage.py` — a new, reproducible counting; not dir
 comparable to the old release's "85.7%", whose methodology differed). The remainder
 stays in the AAI2 fan translation — see the README for exactly why, and which parts.
 
+## New in v1.4.0 — Capcom's character names, everywhere
+
+The fan translation named this cast years before Capcom did, and until now the
+port wore both sets at once: the dialogue (98.4% Capcom's) said *Fender*,
+*Saint* and *Laguarde* while the nameplate above it still said *Ray*, *Simon*
+and *Roland*, and the Organizer agreed with neither. This release retires the
+fan names entirely — the official localization is the canon this port follows.
+
+- **All 28 dialogue nameplates whose names Capcom changed are redrawn**
+  (Ray→Fender, Simon→Saint, Courtney→Gavèlle, Debeste→Eustace, Roland→Laguarde,
+  Dogen→Kanis, Knightley→Knight, MIB→Man in Black, and twenty more). Nameplates
+  are graphics, not text: the tool decodes them from your fan ROM, harvests the
+  fan patch's own pixel font from the plates themselves, and re-renders the
+  official names in it — so the plates still look exactly like the fan patch drew
+  them, and no fan-drawn graphics ship with this tool.
+- **All 119 evidence and profile title cards with outdated names or titles are
+  redrawn the same way** — profile cards now read *Eddie Fender* and *Simeon
+  Saint*, and evidence titles use Capcom's item names (*Ms. Lloyd's Tape*,
+  *Pocket Chess Set*, *Mr. Kanis's Bells*, *Taurusaurus Head*, ...). A few
+  official titles are wider than the DS card and drop one filler word, built
+  only from the official title's own words. One card the fan patch left in
+  Japanese (約束ノート) is now *Promise Notebook*.
+- **Every kept-fan text string is renamed to match** — 45 strings (Organizer
+  descriptions, Logic cards, DS-only tutorials and the fan-kept scenes) now use
+  the official names, verified string-by-string against the fan ROM first so
+  official text is never touched, with line widths re-checked and re-wrapped
+  where a longer name needed it. The mapping was derived from the two scripts
+  themselves: for every line that exists in both translations, fan names were
+  paired with the official names appearing in the same line (139 co-occurrences
+  for Knightley→Knight alone), then spot-checked in context.
+- The pairing also covers the non-people: *Moozilla* is officially
+  *Taurusaurus*, the elephant *Astique* is *Azea*, the chairman's nickname
+  *Blaisie* is *Celsius*, the masked *Conductor* is the *Ringleader*, and the
+  *Dye-Young Hospital* is *Hertz Hospital*.
+
+The episode titles on the save screen already used Capcom's names (since
+v1.1.0); the episode-select artwork remains the fan's bitmap, as before. The
+reference hash for `--verify` moves; coverage counts are unchanged (titles and
+nameplates are graphics, not counted text).
+
 ## New in v1.3.4 — one description stops disagreeing about a room's name
 
 The Rubber Glove's updated Court Record description — one of the ~100 over-long
