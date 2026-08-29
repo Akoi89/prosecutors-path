@@ -5,6 +5,20 @@ units, measured by `tools/coverage.py` — a new, reproducible counting; not dir
 comparable to the old release's "85.7%", whose methodology differed). The remainder
 stays in the AAI2 fan translation — see the README for exactly why, and which parts.
 
+## New in v1.2.1 — one restored NPC line
+
+A post-release audit of every string in the ROM against the fan original found
+exactly one real text loss: an Episode 1 free-roam NPC line ("Thank you for
+waiting! There's nothing unusual here!") that the Collection's own files leave
+empty, small enough to slip between two guards' thresholds. It could have shown
+an empty box — or hung — if examined. A final safety net now restores any short
+English fan line whose official replacement is empty; audited ROM-wide, it
+changes exactly that one string.
+
+The same audit settled a long-standing unknown: the argument on the string
+terminator is the index of the next string to jump to, which proves the
+v1.2.0 seam rebuilds carry the correct value by construction.
+
 ## New in v1.2.0 — most of what was missing is recovered
 
 The fan patch restructured the script in ways that used to force whole scenes back to
