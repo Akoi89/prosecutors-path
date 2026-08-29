@@ -318,7 +318,7 @@ def main(base=None, out=None):
     fan = dict(ds_entries('dump/ds_fan/jpn/spt.bin'))
 
     swapped = overflow = mismatch = skipped = demo = untranslated = tiny = shape = dropped = boxkeep = 0
-    restructured = relaidn = unmerged = recut = hollowed = 0
+    restructured = relaidn = unmerged = recut = hollowed = boxless = 0
     sparse_kept = sparse_entries = 0
     unmapped = {}
     for k in sorted(m, key=int):
@@ -538,6 +538,30 @@ def main(base=None, out=None):
                     and la2 > max(4, cj2)
                     and sum(1 for v in fu if v in BOXEND) > 0):
                 conv[j2] = list(fu); hollowed += 1
+        # Harder net, and the one that actually protects the player: a row that
+        # loses its MESSAGE BOX hangs the game wherever it is displayed - the box
+        # opens on a speaker with nothing in it and never closes, so there is no
+        # input that advances. That is strictly worse than any wording, including
+        # untranslated Japanese, so a row whose official replacement has no
+        # box-end at all keeps the fan's row whatever language it is in.
+        # Found by a player on v1.4.1: DS[456] (exam_dl - examine responses)
+        # rows 54-60 had been emptied outright, and examining the wrong thing
+        # early in Episode 1 locked the game on Edgeworth's nameplate over an
+        # empty box. The English-only net above skipped them precisely because
+        # the fan's rows there are Japanese.
+        def _nbox(u):
+            n2 = i2 = 0
+            while i2 < len(u):
+                v2 = u[i2]
+                if 0xE000 <= v2 <= 0xF8FF:
+                    if v2 in BOXEND: n2 += 1
+                    i2 += 1 + ARGS.get(v2, 0); continue
+                i2 += 1
+            return n2
+        for j2 in range(len(ds)):
+            fu = ds[j2][3]
+            if _nbox(fu) > 0 and _nbox(conv[j2]) == 0:
+                conv[j2] = list(fu); boxless += 1
         recs = [(ds[j][1], conv[j]) for j in range(1, len(ds))]
         try:
             entries[i] = build_ds(conv[0], recs, trailer, scale, longest)
@@ -591,6 +615,7 @@ def main(base=None, out=None):
     print('entries where a joined string was split back: %d' % unmerged)
     print('relaid strings rebuilt in the fan layout:   %d' % recut)
     print('hollow official strings kept as fan:       %d' % hollowed)
+    print('rows kept as fan to keep their message box: %d' % boxless)
     print('kept fan text - over 64 KB u16 cap:     %d' % overflow)
     print('records kept as fan - DEMO TEXT stub:      %d' % demo)
     print('records kept as fan - still Japanese:       %d' % untranslated)
