@@ -491,11 +491,19 @@ class Titles(object):
 
     def compose(self, i, fan_expected, official):
         g = self._grid(i)
-        # guard: when segmentable, the strip must read as the expected fan text
+        # Guard: the strip we are about to overwrite must be the one this row
+        # describes, or a wrong official name lands on the wrong card. The
+        # readings were verified two ways (rig/audit_titles.py): every strip
+        # re-read by template-matching the harvested glyphs, and the dozen the
+        # segmenter cannot split - the long titles the fan hand-squeezed - read
+        # by eye. Letter-count is the check that survives both cases; a strip
+        # whose letters touch simply cannot be counted, so it is not evidence
+        # of a mismatch and is allowed through.
         runs = self._runs(g)
         letters = [c for c in fan_expected if c != ' ']
-        if len(runs) == len(letters):
-            pass   # segment count matches the expected fan title
+        if runs and len(runs) > len(letters):
+            raise ValueError('strip %d has %d letter runs but %r has %d - wrong '
+                             'card?' % (i, len(runs), fan_expected, len(letters)))
         # clear text
         for y in range(16):
             for x in range(128):

@@ -5,6 +5,28 @@ units, measured by `tools/coverage.py` — a new, reproducible counting; not dir
 comparable to the old release's "85.7%", whose methodology differed). The remainder
 stays in the AAI2 fan translation — see the README for exactly why, and which parts.
 
+## New in v1.4.1 — one renamed line brought back inside its widget
+
+An audit of v1.4.0 against the injector's own rules found a single line that broke
+one. The confrontation and Logic Chess option widgets have no measured width in
+the game; what the tool trusts instead is **the widest line the fan translation
+ever displayed in that widget** — anything wider keeps the fan's line rather than
+risk a clipped word. v1.4.0's rename pass did not apply that rule to its own
+output, and one line, where a shorter surname became a longer official one, ended
+up 8 pixels past the widest that widget has ever been proven to draw.
+
+The line now drops an honorific to fit (243px against a 262px budget), and the
+rename pass enforces the same per-widget budget the injector does, so a future
+name can't quietly overrun one: any renamed row wider than the fan proved simply
+keeps the fan line and says so at build time. No other line in the game was
+affected — the other renamed banks came in at or under budget.
+
+Also in this release: the guard meant to stop a title card being redrawn with the
+wrong item's name was a no-op, and is now real. It never mattered — every one of
+the 177 fan titles was independently re-read and confirmed, and all 119 official
+names were checked to exist verbatim in Capcom's own tables — but the check now
+actually runs.
+
 ## New in v1.4.0 — Capcom's character names, everywhere
 
 The fan translation named this cast years before Capcom did, and until now the
