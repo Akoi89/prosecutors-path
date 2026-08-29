@@ -5,6 +5,19 @@ units, measured by `tools/coverage.py` — a new, reproducible counting; not dir
 comparable to the old release's "85.7%", whose methodology differed). The remainder
 stays in the AAI2 fan translation — see the README for exactly why, and which parts.
 
+## New in v1.3.2 — checking, and clearer help
+
+No change to the ROM (still verifies to the same hash as v1.3.1). This release makes
+the tool easier to trust and to get working:
+
+- **`gk2port --verify`** hashes a built ROM and confirms it against this version's
+  published reference. A MATCH means it is the genuine, unmodified output of the tool —
+  so a ROM can be trusted without trusting whoever built it. Pass a path to check any
+  file: `gk2port --verify "your.nds"`.
+- **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** — the handful of things that actually go
+  wrong (wrong ROM, Collection not found, freeing the 7 GB install, unsigned-binary
+  warnings) and how to fix each.
+
 ## New in v1.3.1 — three autopsy descriptions stop contradicting the testimony
 
 The Episode 2 rebuttal cites the autopsy report's *stab wound* — official dialogue

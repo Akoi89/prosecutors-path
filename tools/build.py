@@ -17,8 +17,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import locate
 from paths import work, data, FROZEN
 
-VERSION = '1.3.1'
+VERSION = '1.3.2'
 ISSUES = 'https://github.com/Akoi89/prosecutors-path/issues'
+# sha256 of the ROM this version's tools produce from the AAI2 Final v2 base.
+# --verify checks a built ROM against it. Update ONLY when the injector changes
+# the output on purpose (v1.3.2 is tools/docs only, so this stays v1.3.1's ROM).
+REFERENCE_ROM_SHA256 = '176ea39fa62df6c9d115f7200ffdba231601cfd639d04b7ad226d0e41ebdad8a'
 
 # Bundle name prefixes -> where their TextAssets go. Addressables appends a content
 # hash to every bundle, so these must be matched by prefix, never by full name.
@@ -256,6 +260,34 @@ def wizard(a):
     return a
 
 
+def verify(path):
+    """Hash a built ROM and check it against this version's published reference.
+
+    Lets anyone confirm their build - or a ROM a friend built - is the genuine,
+    unmodified output of this tool, without trusting the person who ran it.
+    """
+    import locate, inject
+    os.chdir(work())
+    if not path:
+        path = os.path.join(work(), inject.DEFAULT_OUT)
+    print('gk2port %s  reference ROM %s' % (VERSION, REFERENCE_ROM_SHA256))
+    if not os.path.exists(path):
+        print('\nno ROM at %s' % path)
+        print('Build one first, or pass the path: gk2port --verify "your.nds"')
+        return 1
+    h = locate.sha256(path)
+    print('\n  %s' % os.path.basename(path))
+    print('  sha256 %s' % h)
+    if h == REFERENCE_ROM_SHA256:
+        print('\nMATCH - this is the genuine gk2port %s output.' % VERSION)
+        return 0
+    print('\nNO MATCH. This ROM is not the reference %s output. Either it was built' % VERSION)
+    print('by a different version, edited after building, or built on the wrong base.')
+    print('Rebuild with this version, or check your AAI2 Final v2 ROM is')
+    print('sha256 %s.' % locate.FAN_ROM_SHA256)
+    return 1
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(
         prog='gk2port',
@@ -282,6 +314,9 @@ def main(argv=None):
                          'screen; this exists so the check is never a dead end')
     ap.add_argument('--selftest', action='store_true',
                     help='check that this build has its bundled data and libraries')
+    ap.add_argument('--verify', nargs='?', const='', metavar='ROM',
+                    help="hash a built ROM and check it against this version's "
+                         'published reference; with no path, checks the default output')
     ap.add_argument('--no-pause', action='store_true',
                     help='never wait for a keypress before exiting')
     ap.add_argument('--version', action='version', version='gk2port ' + VERSION)
@@ -289,6 +324,10 @@ def main(argv=None):
 
     if a.selftest:
         return selftest()
+
+    if a.verify is not None:
+        import inject
+        return verify(a.verify or None)
 
     # No arguments at all means a double-click, or a first-time user who has not
     # read anything yet. Either way, asking beats an argparse usage error in a

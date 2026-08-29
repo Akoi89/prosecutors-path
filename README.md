@@ -105,6 +105,14 @@ money. Every release ships a `SHA256SUMS` file, the binaries are built in public
 - **It refuses to overwrite its own input**, which is easy to do by accident once a
   previous output is sitting next to the fan ROM.
 
+### Checking a build
+
+`gk2port --verify` hashes a built ROM and checks it against the version's published
+reference — a MATCH means it is the genuine, unmodified output of the tool, so you can
+trust a ROM without trusting whoever built it. Pass a path to check a specific file:
+`gk2port --verify "path\to\rom.nds"`. Something going wrong? See
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
 ### From source
 
 ```bash
