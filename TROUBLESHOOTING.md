@@ -14,7 +14,7 @@ The tool ships **no game data** — both inputs are files you already own.
 
 ## Common problems
 
-**"that is not the AAI2 Final v2 ROM"**
+**"this is not the AAI2 Final v2 ROM"**
 You pointed it at the wrong ROM — a raw Japanese cart, a different patch, or an
 already-built output. It must be the AAI2 Final v2 fan ROM, hash above. Building on
 anything else produces a ROM that boots to a black screen, which is why the check

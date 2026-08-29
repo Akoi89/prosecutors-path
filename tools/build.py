@@ -267,9 +267,9 @@ def verify(path):
     unmodified output of this tool, without trusting the person who ran it.
     """
     import locate, inject
-    os.chdir(work())
-    if not path:
-        path = os.path.join(work(), inject.DEFAULT_OUT)
+    # Resolve before anything can change the working directory: a relative path
+    # must mean "relative to where the user ran this", nothing else.
+    path = os.path.abspath(path) if path else os.path.join(work(), inject.DEFAULT_OUT)
     print('gk2port %s  reference ROM %s' % (VERSION, REFERENCE_ROM_SHA256))
     if not os.path.exists(path):
         print('\nno ROM at %s' % path)
@@ -326,7 +326,6 @@ def main(argv=None):
         return selftest()
 
     if a.verify is not None:
-        import inject
         return verify(a.verify or None)
 
     # No arguments at all means a double-click, or a first-time user who has not
