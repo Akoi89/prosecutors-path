@@ -17,13 +17,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import locate
 from paths import work, data, FROZEN
 
-VERSION = '1.4.1'
+VERSION = '1.4.2'
 ISSUES = 'https://github.com/Akoi89/prosecutors-path/issues'
 # sha256 of the ROM this version's tools produce from the AAI2 Final v2 base.
 # --verify checks a built ROM against it. Update ONLY when the injector changes
-# the output on purpose (v1.4.1: one renamed option-widget row brought back
-# inside the width the fan proved that widget can draw).
-REFERENCE_ROM_SHA256 = '2adc9aab8f4d47b8b8b987d774e8b4845dfd6eaf2d39a8557e707efeb097e59b'
+# the output on purpose (v1.4.2: seven examine rows that had lost their message
+# box - a hang - keep the fan's row instead).
+REFERENCE_ROM_SHA256 = '3c91065cef5c75ae5890ce2931576faca080203ac250588828411d0918c2536c'
 
 # Bundle name prefixes -> where their TextAssets go. Addressables appends a content
 # hash to every bundle, so these must be matched by prefix, never by full name.

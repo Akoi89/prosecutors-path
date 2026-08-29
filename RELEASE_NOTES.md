@@ -5,6 +5,31 @@ units, measured by `tools/coverage.py` — a new, reproducible counting; not dir
 comparable to the old release's "85.7%", whose methodology differed). The remainder
 stays in the AAI2 fan translation — see the README for exactly why, and which parts.
 
+## New in v1.4.2 — an Episode 1 hang, found by a player. Update if you are playing.
+
+**Every release from v1.3.0 to v1.4.1 can lock up early in Episode 1**, while you
+are examining the scene. The screen keeps animating and the music keeps playing,
+but a speaker's nameplate sits over an empty message box and no button advances it.
+Your save is not damaged — text is read-only data — but the only way out is to
+restart the chapter on this build.
+
+Seven rows of the examine-response bank had been emptied outright. The Collection
+has no text for them (the fan patch left them untranslated), and when a row is
+replaced by nothing it loses its **message box** along with its words. A box that
+opens with nothing inside never closes, so the scene simply stops.
+
+There was already a net for this: a row the Collection empties keeps the fan's row
+instead. It only ran when the fan's row was in English, which is why these seven —
+Japanese in the fan patch — fell straight through it. The net is now split in two.
+The old English rule still governs *wording*. A second, stricter rule governs
+*structure*: **a row whose replacement has no message box at all keeps the fan's
+row, whatever language it is in.** Untranslated text is a blemish; a lost box is a
+lock, and structure now wins. A whole-ROM check confirms no string anywhere is
+missing a box any more, and the fix touches that one bank and nothing else.
+
+Thanks to the player who hit it and left the game running — a live lock is worth
+far more than a bug report, and this was found and fixed from that one screen.
+
 ## New in v1.4.1 — one renamed line brought back inside its widget
 
 An audit of v1.4.0 against the injector's own rules found a single line that broke
