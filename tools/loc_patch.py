@@ -45,6 +45,31 @@ def load_lookup():
 def _ds_plain(u):
     return re.sub(r'\s+', '', ''.join(chr(v) for v in u if (not CTRL(v) and v > 0x20) or v == 0x0A))
 
+# Fan location terms harmonised to Capcom's in rows that KEEP fan text, so a
+# description can't call a room one thing while the official dialogue beside it
+# calls it another (the updated Rubber Glove said "workroom A" where every
+# official line says "workshop"). Substitution only - same letter count, and
+# 'workshop' measures 2px narrower, so wrapping cannot change. Applied solely
+# to the description/Logic banks this module patches; full fan scenes elsewhere
+# keep their own vocabulary untouched.
+def _fw_units(s):
+    return [0x3000 if c == ' ' else ord(c) - 0x21 + 0xFF01 for c in s]
+
+FAN_TERMS = [(_fw_units('workroom'), _fw_units('workshop')),
+             (_fw_units('Workroom'), _fw_units('Workshop'))]
+
+def _fix_fan_terms(u):
+    u = list(u)
+    for find, repl in FAN_TERMS:
+        k = 0
+        while k <= len(u) - len(find):
+            if u[k:k+len(find)] == find:
+                u[k:k+len(find)] = repl
+                k += len(repl)
+            else:
+                k += 1
+    return u
+
 def _to_units(s):
     return [ord(c) for c in s]
 
@@ -93,7 +118,9 @@ def patch_entry(ds_entry, jp_src, lookup, box='detailMsg'):
         elif t.endswith(_norm(SUFFIX_JA)) and t[:-len(_norm(SUFFIX_JA))] in lookup:
             eng = lookup[t[:-len(_norm(SUFFIX_JA))]]; suffix = SUFFIX_EN
         if eng is None:
-            recs.append((a, list(u))); continue
+            fu = _fix_fan_terms(u)
+            if fu != list(u): n += 1
+            recs.append((a, fu)); continue
         # a few official descriptions are condensed to fit the box - only rows
         # whose fan wording contradicts official dialogue; see tools/condense.py
         c = condense.apply(t, eng)
@@ -120,7 +147,9 @@ def patch_entry(ds_entry, jp_src, lookup, box='detailMsg'):
         if age: conv = age + [0x0A] + conv
         if 1 + sum(1 for v in conv if v == 0x0A) > maxln:
             # Official wording overruns the box; the fan's fits. Keep the fan's.
-            recs.append((a, list(u))); continue
+            fu = _fix_fan_terms(u)
+            if fu != list(u): n += 1
+            recs.append((a, fu)); continue
         tail = [v for v in u if CTRL(v) and v in dstext.RESET][-1:]
         recs.append((a, head + conv + tail))
         n += 1
