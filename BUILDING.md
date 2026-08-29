@@ -20,9 +20,9 @@ sha256sum out/check.nds
 ```
 
 Every refactor in this repo's history was gated on that hash staying put. For
-v1.3.0 the reference is
-`50e6af8ffc96ca9aba12404331b0f5a592cd53bfe2c64b23ddbecdc02b173c40`
-(v1.2.1's was `ee2098ba0ef53b5970f07ecb8e7bb88df5324b11651346299fb27e5f0af606d9`)
+v1.3.1 the reference is
+`176ea39fa62df6c9d115f7200ffdba231601cfd639d04b7ad226d0e41ebdad8a`
+(v1.3.0's was `50e6af8f…`, v1.2.1's `ee2098ba…` - each move intentional and released)
 (v1.2.0's was `c97635faefda1f131ec33a0c3e15d3fc6f9159dfbc0367d958d75f086643e661`)
 (v1.1.0's was `76a5d740268e914f5cdacf1cb7c7362e500bf3db02c4af3db821242ffb9bdb02`;
 it moved intentionally, and only, with the v1.2.0 text recoveries). If yours moves,

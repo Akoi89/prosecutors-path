@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from spt import all_strings, parse
 from build_spt import build_ds
 import dstext
+import condense
 
 CTRL = lambda v: 0xE000 <= v <= 0xF8FF
 from paths import work as _work
@@ -93,6 +94,11 @@ def patch_entry(ds_entry, jp_src, lookup, box='detailMsg'):
             eng = lookup[t[:-len(_norm(SUFFIX_JA))]]; suffix = SUFFIX_EN
         if eng is None:
             recs.append((a, list(u))); continue
+        # a few official descriptions are condensed to fit the box - only rows
+        # whose fan wording contradicts official dialogue; see tools/condense.py
+        c = condense.apply(t, eng)
+        if c is not None:
+            eng = c
         head = []
         for v in u:
             if CTRL(v) or v < 0x20: head.append(v)

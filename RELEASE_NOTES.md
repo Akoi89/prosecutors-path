@@ -5,6 +5,21 @@ units, measured by `tools/coverage.py` — a new, reproducible counting; not dir
 comparable to the old release's "85.7%", whose methodology differed). The remainder
 stays in the AAI2 fan translation — see the README for exactly why, and which parts.
 
+## New in v1.3.1 — three autopsy descriptions stop contradicting the testimony
+
+The Episode 2 rebuttal cites the autopsy report's *stab wound* — official dialogue
+in this ROM — while the Court Record description of the body still said the fan's
+*"single blow to base of neck"*, because Capcom's wording didn't fit the DS's
+4-line description box. In a series about spotting contradictions, the game
+contradicting itself is the one thing text must never do.
+
+Those three descriptions (and only those — the ~100 other over-long descriptions
+keep the fan's fitting text, which agrees with the dialogue) are now Capcom's
+wording, lightly condensed to fit. The condensations live in the repository as
+word-index edit operations with a result checksum — no game text — applied at
+build time to the text you extract from your own Collection, and falling back to
+the fan line if your Collection's wording ever differs.
+
 ## New in v1.3.0 — the last big recoveries, and a jump-index repair
 
 - **The confrontation line banks are official now.** The "argument" lines you pick
