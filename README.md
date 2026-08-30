@@ -438,8 +438,24 @@ glyphs are drawn, the bitmaps and the text switch ship together.
 
 ## Tools
 
+Everything under `tools/` builds the ROM. Everything under `audits/` checks one after
+the fact — each takes an optional ROM path, so you can point one at any build:
+
+```bash
+python audits/audit_boxes.py            # did any string lose a message box?
+python audits/audit_fixtures.py         # prove the audits can actually fail
+```
+
 | | |
 |---|---|
+| `audits/audit_boxes.py` | Any string with fewer message boxes than the fan's — the v1.4.2 hang |
+| `audits/audit_empty.py` | Strings emptied of text that the fan ROM had |
+| `audits/audit_arity.py` | Control-code arguments corrupted into text — the v1.3.3 hang |
+| `audits/audit_cmdloss.py` | Is another DS-only engine command being dropped? — the v1.4.3 hang |
+| `audits/audit_widgets.py` | Option lines wider than the fan ever proved that widget can draw |
+| `audits/audit_titles.py` | Every redrawn card keyed off the right source title |
+| `audits/audit_hint.py` | Any SPT buffer hint too small for its own data |
+| `audits/audit_fixtures.py` | Breaks a copy of your build four ways and checks the audits notice |
 | `spt.py` | SPT container parser, both variants, with offset-scale detection |
 | `build_spt.py` | SPT writer |
 | `dstext.py` | Text conversion: fullwidth mapping, pixel wrapping, page breaks, control-code arity |
@@ -488,10 +504,16 @@ grounded in measurements over the real files rather than in anyone's recollectio
 be trusted without trusting whoever built it, and the published binary has been confirmed
 to reproduce that hash byte-for-byte.
 
-Seven standing audits guard the structural failure classes, and **four of them are tested
-against deliberately corrupted ROMs** so they are known to be capable of failing — one of
-those fixtures immediately exposed a defect class that had no audit at all. An audit that
-has never failed has not been tested, it has only been run.
+The seven audits in [`audits/`](audits) guard the structural failure classes, and **four
+of them are tested against deliberately corrupted ROMs** — `audits/audit_fixtures.py`
+breaks a copy of your build in exactly the way each one claims to detect and checks it
+notices. Run it yourself; it never touches `out/`. One of those fixtures immediately
+exposed a defect class that had no audit at all, which is why `audit_boxes.py` exists.
+An audit that has never failed has not been tested, it has only been run.
+
+Each audit also carries a `# SCOPE` block stating what it does **not** look at, because a
+check with an unstated scope is how something goes unexamined without anyone being wrong
+about anything.
 
 The tooling was written with **LLM assistance** — Claude, driven through Claude Code, over
 a series of sessions. That is stated plainly rather than buried, and so is the rest of the
