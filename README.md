@@ -480,18 +480,25 @@ Their ATTENTION notice is left intact in every build, and should stay that way.
 
 ## How this was built
 
-The tooling in this repository was written with **LLM assistance** — Claude (Opus 5 and
-Fable 5), driven through Claude Code, over a series of sessions.
+**Nothing here asks to be taken on trust.** Every figure in this README is reproducible
+by running the tools on your own files: `tools/coverage.py` computes the coverage table,
+and the format work behind it — 20,516 of 26,172 newlines, 54 of 429 relaid entries — is
+grounded in measurements over the real files rather than in anyone's recollection.
+`--verify` hashes a finished build against the release's published reference, so a ROM can
+be trusted without trusting whoever built it, and the published binary has been confirmed
+to reproduce that hash byte-for-byte.
 
-That is worth stating plainly, because it shapes what you should trust here. The format
-reverse-engineering is grounded in measurements over the real files rather than in
-recollection, and the numbers quoted throughout — 20,516 of 26,172 newlines, 54 of 429
-relaid entries, the coverage table — are all reproducible by running the tools
-(`tools/coverage.py` computes the coverage figure). Every build is verified byte-for-byte
-against previous ones.
+Seven standing audits guard the structural failure classes, and **four of them are tested
+against deliberately corrupted ROMs** so they are known to be capable of failing — one of
+those fixtures immediately exposed a defect class that had no audit at all. An audit that
+has never failed has not been tested, it has only been run.
 
-But every hang this project has ever had was found by **playing the game**, and none by
-any offline check — including checks written specifically to catch the previous one.
+The tooling was written with **LLM assistance** — Claude, driven through Claude Code, over
+a series of sessions. That is stated plainly rather than buried, and so is the rest of the
+record, including the parts that do not flatter it.
+
+Because every hang this project has ever had was found by **playing the game**, and none
+by any offline check — including checks written specifically to catch the previous one.
 Three of them:
 
 - a mode launcher whose argument had been converted into a letter, because the
@@ -510,11 +517,15 @@ were sitting in a warning that v1.4.3 printed and nobody read, because the relea
 already tagged by the time it scrolled past. A guard that reports into a wall of counters
 only works if someone reads the wall.
 
-Treat the model's confidence accordingly, and the guards as a record of what has actually
-gone wrong rather than a proof that nothing else will.
+So treat the guards as a record of what has actually gone wrong rather than proof that
+nothing else will, and treat the code as reviewable rather than authoritative. It is about
+3,500 lines across 28 modules, MIT licensed, and it ships as source precisely so you do
+not have to take any of the above on faith — read it before you trust it with a ROM you
+care about, and recompute anything here that matters to you.
 
-Treat the code as reviewable rather than authoritative. It is 1,400 lines and MIT
-licensed; read it before you trust it with a ROM you care about.
+That is also why this is offered as a **test build** rather than a finished one, and why
+[issue #1](../../issues/1) asks for players rather than for approval. Nobody has finished
+an episode yet.
 
 ## Legal
 
