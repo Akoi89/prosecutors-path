@@ -10,9 +10,14 @@ Collection* (2024).
 This toolchain takes Capcom's script and injects it into the DS game — so you can play
 the official localization on original hardware, on a flashcart, or in an emulator.
 
-**98.4% of the script's text becomes Capcom's** — measured by `tools/coverage.py`, so
+**96.5% of the script's text becomes Capcom's** — measured by `tools/coverage.py`, so
 you can recompute it. The remainder stays in the fan translation, for reasons documented
 in [What doesn't port, and why](#what-doesnt-port-and-why).
+
+**The cast uses Capcom's names everywhere**, not just in dialogue: the nameplates above
+the text box and the evidence and profile cards are *graphics*, and they are redrawn at
+build time in the fan patch's own pixel font. See
+[Names](#names-are-capcoms-including-the-ones-that-are-graphics).
 
 > **This repository contains no game data.** No ROM, no script, no extracted text — only
 > the tools. You supply your own legally-obtained copy of the DS game and your own
@@ -147,19 +152,27 @@ python tools/inject.py "Gyakuten Kenji 2 (AAI2 Final v2).nds" -o out/GK2-officia
 The build prints a full audit of what it did and, crucially, what it refused to do:
 
 ```
-entries replaced with official English: 422
-entries re-aligned to the fan string layout: 11
-sparse official banks swapped row-by-row: 2
+entries replaced with official English: 423
+kept-fan strings renamed to official names:  84
+rows left fan-named (official name would not fit): 10
+entries where a joined string was split back: 11
 relaid strings rebuilt in the fan layout:   74
-hollow official strings kept as fan:       8
-records kept as fan - still Japanese:   347
-records kept as fan - fan relaid it vs JP: 38
-kept fan text - string count mismatch:   3
-kept fan text - control-code shape off:  9
+hollow official strings kept as fan:       36
+rows kept as fan to keep their message box: 4
+rows kept as fan to keep a DS-only command:  105  (in 67 script banks)
+sparse official banks swapped row-by-row: 2 (853 rows kept fan)
+records kept as fan - still Japanese:       347
+records kept as fan - fan relaid it vs JP:    38
+records kept as fan - would lose a message box: 3
+kept fan text - string count mismatch:  3
+kept fan text - control-code shape off:  8
+nameplates redrawn with official names:      147
 ```
 
 Every one of those counters is a guard that fired. They exist because each one, once,
-broke the game.
+broke the game — the three at the bottom of the guard list were each added after a
+specific hang, and the last two lines of the injection report exist because a player
+hit the thing they now prevent.
 
 ---
 
@@ -167,13 +180,24 @@ broke the game.
 
 | Episode | Official | character units |
 |---|---|---|
-| 1 — *Turnabout Target* | 97.7% | 175,426 / 179,476 |
-| 2 — *The Imprisoned Turnabout* | 99.9% | 368,376 / 368,710 |
-| 3 — *The Inherited Turnabout* | **100%** | 377,753 / 377,753 |
-| 4 — *The Forgotten Turnabout* | 98.4% | 292,972 / 297,665 |
-| 5 — *The Grand Turnabout* | **100%** | 497,837 / 497,837 |
-| Menus & UI | 81.7% | 91,148 / 111,600 |
-| **Total** | **98.4%** | 1,803,512 / 1,833,041 |
+| 1 — *Turnabout Target* | 91.0% | 163,253 / 179,474 |
+| 2 — *The Imprisoned Turnabout* | 95.2% | 350,929 / 368,696 |
+| 3 — *The Inherited Turnabout* | 99.0% | 373,972 / 377,751 |
+| 4 — *The Forgotten Turnabout* | 98.0% | 291,649 / 297,663 |
+| 5 — *The Grand Turnabout* | 99.3% | 494,396 / 497,811 |
+| Menus & UI | 84.7% | 94,517 / 111,588 |
+| **Total** | **96.5%** | 1,768,716 / 1,832,983 |
+
+These are lower than v1.4.2's numbers, and deliberately so. v1.4.3 gave back 105 rows,
+spread across 67 script banks, because they were dropping the engine commands that drive
+the DS-only tutorials — and one of them stopped Episode 1 from ever handing the player
+control. Coverage is a means, not the goal; a scene that plays in the fan's words beats
+a scene that does not play.
+
+Two figures here have been wrong in earlier drafts of this file, both times because they
+were remembered rather than measured. Every number in this table is what
+`tools/coverage.py` printed for the ROM whose hash `--verify` checks. If you build it
+yourself and get different numbers, the README is the thing that is wrong.
 
 The counting is `tools/coverage.py`: character units (everything that is not a control
 code or one of its arguments) in strings whose bytes differ from the fan ROM, over all
@@ -183,6 +207,38 @@ survive; the two numbers are not directly comparable.
 Also ported: evidence and profile descriptions, Logic card text, and the Organizer
 messages — none of which live in the script files at all. They come from the Collection's
 Unity Localization string tables, matched through the Japanese text.
+
+---
+
+## Names are Capcom's, including the ones that are graphics
+
+Capcom renamed most of the cast. With the dialogue in their words, the fan's names had
+become the inconsistency rather than the tradition: the text said *Fender* while the
+nameplate above it said *Ray* and the Organizer said *Raymond Shields*.
+
+All three now agree. The text is the easy part; the other two are **graphics**:
+
+- **28 dialogue nameplates** — `jpn/idlocal.bin` entries 27–86, one LZ11'd 144×8 tile
+  strip each, with a 43-pixel text field.
+- **119 evidence and profile title cards** — 128×16 strips inside that same file's
+  sprite bundles, drawn as four 32×16 OAM objects.
+
+Neither can be swapped as text, so they are **redrawn at build time in the fan patch's
+own pixel font** — which the tool recovers from your own ROM, by cutting the letters out
+of the cards whose wording it already knows. Nothing but Capcom's names and a handful of
+hand-drawn glyphs for letters the fan set never used ships in this repository.
+
+The fan→official mapping was derived from the two scripts rather than from memory: for
+every line present in both translations, fan names were paired with the official names in
+the same line. That caught what recall would have missed — *Nicole Swift* is officially
+*Tabby Lloyd*, the monster *Moozilla* is *Taurusaurus*, and the chairman's nickname
+*Blaisie* is *Celsius*.
+
+`tools/names.py` holds the map and rewrites only strings that are byte-identical to the
+fan ROM's, so official text is never touched — 84 rows in the current build, plus 147
+nameplates redrawn. Ten further rows were left with the fan's name because the official
+one would not fit the line; see the width guard under
+[Guards](#guards). `tools/plates.py` does the graphics.
 
 ---
 
@@ -271,11 +327,57 @@ game hangs anyway. Each guard below exists because it happened:
 - **Message-box loss** — losing ≥2 boxes reverts that string. Losing exactly *one* is
   benign and very common (868 of 913 cases, measured before the v1.2.0 rebuilds):
   the localization merged a pair.
+- **A row that loses its box entirely** (v1.4.2) — if the Collection has nothing for a
+  row, the replacement has no message box at all, and a box that opens with nothing in
+  it never closes. Such a row keeps the fan's, *in any language*: untranslated text is a
+  blemish, a lost box is a lock.
+- **DS-only engine commands** (v1.4.3) — the guard that matters most, and the one that
+  took three tries to get right. See below.
+- **Option-widget width** — the confrontation and Logic Chess widgets have no measured
+  width, so the budget is the widest line the fan ever displayed in that widget. Anything
+  wider keeps the fan's line rather than risk a clipped word.
+- **A renamed line that no longer fits** (v1.4.4) — Capcom's names are often longer than
+  the fan's, so substituting one into a kept-fan row can push a line past the edge of its
+  box. The build re-breaks the row to fit; when it can't — usually because the over-wide
+  line ends a box, leaving nowhere to push the word — that row keeps the fan's name. Ten
+  rows do. A single line still reading the fan's name costs less than a clipped one.
+  This guard is why the previous release shipped ten clipped lines and this one doesn't:
+  v1.4.3's DS-only revert handed the rename pass many more rows to work on (84, up from
+  45), and some of them didn't fit.
 - **Per-record defects** — Capcom's English bundle contains `DEMO TEXT` placeholders and
   untranslated Japanese, but *per record*, not per file. Guarding at file level threw
   away 16,780 letters of perfectly good English.
 - **Control-code shape** — a wrong file match shows as near-zero overlap in the
   control-code profile against the Japanese original.
+
+### Counting boxes is not enough
+
+This section used to end here, and the game hung anyway.
+
+Capcom's script has no touch-screen, A-Button or Logic tutorials, because those are
+DS-only. Converting it can therefore drop the engine commands that drive them. The guard
+above tried to catch that by counting message boxes, on the reasonable-sounding logic
+that missing content means missing boxes.
+
+It does not. Capcom's prose is **longer**, so the converted string ends up with *more*
+boxes than the fan's while the command inside it is gone. `DS[4]` str3 came out with 18
+boxes against the fan's 16 — a healthy-looking number — and Episode 1 never handed the
+player control at the Gourd Lake stage. Nameplate over an empty box, music playing,
+nothing to press.
+
+So the guard now compares the **commands**, not the boxes: a string that would drop an
+`E041`/`E042` pair keeps the fan's line. That is 105 rows across 67 script banks,
+living in the partner-conversation, examine-check and NPC entries where DS-only
+interaction sits throughout the game. Worth stating plainly, because the first
+announcement of this fix got it wrong: these are *not* concentrated in Episode 1's
+tutorial opening. Episode 1 is where one of them happened to lock the game.
+
+`rig`-side, `audit_cmdloss.py` answers the obvious follow-up — *is another command being
+dropped the same way?* — by computing, for every control code, how often the fan string
+carries it against how often ours drops it. A ratio near 1.0 means the official script
+essentially never has that code, which is the signature of DS-only content. The highest
+ratio in the current build is 0.28, on a formatting code the official script uses 62,000
+times. Nothing is hiding.
 
 ---
 
@@ -283,7 +385,11 @@ game hangs anyway. Each guard below exists because it happened:
 
 The floor isn't laziness — it's structural, and it breaks down cleanly:
 
-What remains fan, as of v1.2.0 (~3.1% of the script):
+What remains fan (~3.5% of the script):
+
+- **DS-only tutorial and interaction strings** — 105 rows whose official replacement
+  drops an engine command the DS build needs. The largest single category, and the newest:
+  see [Counting boxes is not enough](#counting-boxes-is-not-enough).
 
 - **Relaid strings with no rebuildable partner** — 38 strings whose box counts moved
   against the retail layout in ways the run-rebuild cannot verify (lone strings, or
@@ -301,11 +407,21 @@ DS-only content is the recurring theme. The touch-screen tutorials, the button p
 the Logic walkthrough — Capcom's version targets hardware without a second screen or an
 L button, so no official wording has ever existed for a lot of it.
 
-**Episode names stay the fan's.** Capcom renamed all five (*Turnabout Target* →
-*Turnabout Trigger*, *The Imprisoned Turnabout* → *The Captive Turnabout*, and so on),
-but those names appear on the episode-select screen as a **bitmap**, not text. Changing
-only the save-slot labels would put two different names for one episode a single menu
-apart. Set `RETITLE = True` in `tools/inject.py` if you disagree.
+**Episode names stay the fan's** — the one place the official naming does not reach.
+Capcom renamed all five (*Turnabout Target* → *Turnabout Trigger*, *The Imprisoned
+Turnabout* → *The Captive Turnabout*, and so on), and the tool can swap the text, but
+that switch is deliberately off (`RETITLE = False` in `tools/inject.py`). The names also
+appear as **graphics** in two places the text swap cannot reach: the episode-select
+buttons and the splash card at the start of each episode. Turning on the text alone would
+put two different names for one episode a single menu apart, which is worse than either
+answer.
+
+Both surfaces have been located and decoded — sprite banks in `jpn/save_local.bin` and
+`jpn/opening_local.bin` — so unlike the nameplates, what stops this is lettering rather
+than format. The official names need eight characters that appear in no fan title
+anywhere in the game, and substituting a real font is ruled out: every system serif was
+scored against the fan's own lettering and the closest still differed by 57%. When those
+glyphs are drawn, the bitmaps and the text switch ship together.
 
 ---
 
@@ -322,6 +438,8 @@ apart. Set `RETITLE = True` in `tools/inject.py` if you disagree.
 | `ctrl_args.py` | Regenerates `dump/ctrl_args.json`; `--check` diffs a fresh derivation against it |
 | `inject.py` | Mapping, structural guards, ROM rebuild |
 | `loc_patch.py` | Evidence, profiles and Logic cards from the Unity Localization tables |
+| `names.py` | The fan→official character-name map, applied only to strings that kept fan text |
+| `plates.py` | Redraws the nameplate and title-card graphics in the fan's own pixel font |
 | `build_map.py` / `map_ids.py` | Fuzzy n-gram matching of DS entries to Collection files |
 | `lz11.py` / `nitro.py` | Nintendo LZ11 and NCGR/NCLR/NSCR/NCER/NANR |
 | `episode_titles.py` | Optional official episode names |
@@ -351,21 +469,38 @@ Their ATTENTION notice is left intact in every build, and should stay that way.
 
 ## How this was built
 
-The tooling in this repository was written with **LLM assistance** — specifically Claude
-(Opus 5), driven through Claude Code, over a series of sessions.
+The tooling in this repository was written with **LLM assistance** — Claude (Opus 5 and
+Fable 5), driven through Claude Code, over a series of sessions.
 
 That is worth stating plainly, because it shapes what you should trust here. The format
 reverse-engineering is grounded in measurements over the real files rather than in
 recollection, and the numbers quoted throughout — 20,516 of 26,172 newlines, 54 of 429
-relaid entries, 96.9% coverage — are all reproducible by running the tools
-(`tools/coverage.py` computes the coverage figure). Every build
-is verified byte-for-byte against previous ones.
+relaid entries, the coverage table — are all reproducible by running the tools
+(`tools/coverage.py` computes the coverage figure). Every build is verified byte-for-byte
+against previous ones.
 
-But the bugs that mattered were found by **playing the game**, not by the model. The
-freeze in Episode 1, the ragged line wrapping, the clipped text, the duplicated
-conversation — each surfaced from a human sitting in front of an emulator with a
-screenshot, and several of them contradicted what the model believed at the time. The
-project's own history is a decent argument for that division of labour.
+But every hang this project has ever had was found by **playing the game**, and none by
+any offline check — including checks written specifically to catch the previous one.
+Three of them:
+
+- a mode launcher whose argument had been converted into a letter, because the
+  argument's constant value *was* the letter `D`;
+- seven examine rows emptied so completely they lost their message box;
+- Episode 1 refusing to hand over control, while the guard meant to prevent exactly that
+  counted boxes and saw a healthy number.
+
+Each was invisible to a format check: the file parses, the structure verifies, the game
+stops anyway. Two of the three were found by a person who simply started playing and left
+the emulator running when it froze — which turned out to be worth more than any audit run
+that day.
+
+The build's own output did catch one thing, though not a hang: v1.4.4's ten clipped lines
+were sitting in a warning that v1.4.3 printed and nobody read, because the release was
+already tagged by the time it scrolled past. A guard that reports into a wall of counters
+only works if someone reads the wall.
+
+Treat the model's confidence accordingly, and the guards as a record of what has actually
+gone wrong rather than a proof that nothing else will.
 
 Treat the code as reviewable rather than authoritative. It is 1,400 lines and MIT
 licensed; read it before you trust it with a ROM you care about.
