@@ -22,14 +22,21 @@ boxes than the fan's (18 against 16) while the tutorial command pair inside it w
 gone. The box count looked healthy and the scene hung anyway.
 
 The guard now compares the **engine commands** rather than the boxes, and any string
-that would drop one keeps the fan's line. That is 105 strings, concentrated in
-Episode 1's tutorial-heavy opening.
+that would drop one keeps the fan's line.
+
+That turned out to be bigger than the one scene. **93 strings across all five
+episodes** were dropping a DS-only command — 34 in Episode 1, 27 in Episode 2, 16 in
+Episode 5, 9 in Episode 3, 4 in Episode 4. They sit in the partner-conversation,
+examine-check and NPC entries, which is where DS-only interaction lives throughout the
+game, not just in the tutorial. Only the Episode 1 one is known to hang, because it is
+the only one anybody has reached and stopped at; the rest were the same defect waiting
+in the same kind of place.
 
 That costs real coverage, and it is worth being plain about it: **the total falls from
-98.4% to 97.5%**, and Episode 1 — which carries almost all of these strings — falls
-from 97.7% to 91.8%. Those strings are where the DS-only tutorials live, so they were
-always the least translatable part of the game, and the alternative is a hang in the
-first ten minutes. A scene that plays in the fan's words beats a scene that does not
+98.4% to 97.5%**, with Episode 1 taking most of it (97.7% to 91.8%) and every other
+episode giving up a little. Those strings are the DS-only content Capcom never wrote,
+so they were always the least translatable part of the game, and the alternative is a
+scene that stops. A scene that plays in the fan's words beats a scene that does not
 play at all.
 
 This is the third hang found by someone actually playing rather than by any offline
