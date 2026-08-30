@@ -14,6 +14,17 @@ the official localization on original hardware, on a flashcart, or in an emulato
 you can recompute it. The remainder stays in the fan translation, for reasons documented
 in [What doesn't port, and why](#what-doesnt-port-and-why).
 
+> ### Playtesters wanted
+>
+> Nobody has finished an episode, and solving a rebuttal has never been tested by
+> anyone. About 5,100 of the game's ~41,700 message boxes have been executed, all by
+> a script that can only press A and tap. Every bug this project has had was found
+> by a person playing, and none by an offline check.
+>
+> **[Report anything that stops in issue #1](../../issues/1)** — which episode and
+> chapter is enough. Your save is never at risk; the text is read-only data, so a
+> hang costs you the chapter and nothing else.
+
 **The cast uses Capcom's names everywhere**, not just in dialogue: the nameplates above
 the text box and the evidence and profile cards are *graphics*, and they are redrawn at
 build time in the fan patch's own pixel font. See
