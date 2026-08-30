@@ -288,7 +288,17 @@ def harmonize_entry(entry, fan_entry, idx):
                     recs.append((a, uu))
                     continue
                 if bad:
+                    # A longer official name pushed a line past its box and
+                    # neither re-breaking nor the spare-line split could bring
+                    # it back - usually because the over-wide line ends a box,
+                    # so there is nowhere to push the word to. Keep the fan's
+                    # row: one line still reading the fan's name is a smaller
+                    # cost than a line clipped at the right edge. This matters
+                    # more since v1.4.3, which hands this pass many more
+                    # fan-kept rows to rename.
                     over.append((si, bad))
+                    recs.append((a, uu))
+                    continue
                 uu = nu
                 changed += 1
         recs.append((a, uu))

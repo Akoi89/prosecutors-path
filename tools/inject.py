@@ -319,6 +319,7 @@ def main(base=None, out=None):
 
     swapped = overflow = mismatch = skipped = demo = untranslated = tiny = shape = dropped = boxkeep = 0
     restructured = relaidn = unmerged = recut = hollowed = boxless = dsonly = 0
+    dsonly_banks = set()
     sparse_kept = sparse_entries = 0
     unmapped = {}
     for k in sorted(m, key=int):
@@ -468,6 +469,7 @@ def main(base=None, out=None):
             if any(fa[k] > fb.get(k, 0) for k in fa):
                 if list(conv[j2]) != list(ds[j2][3]):
                     conv[j2] = list(ds[j2][3]); dsonly += 1
+                    dsonly_banks.add(i)
         trailer, scale, longest = hfan['term'], hfan['scale'], hfan['last']
         # Structural sanity check: the Collection file should drive roughly the same
         # engine commands as the DS original. A wrong match shows up as near-zero
@@ -633,7 +635,10 @@ def main(base=None, out=None):
             over_rows.append((i, si, bad))
     print('kept-fan strings renamed to official names:  %d' % renamed)
     if over_rows:
-        print('WARNING: renamed rows too wide for their box: %s' % over_rows)
+        # These were NOT renamed - the official name would not fit the line, so
+        # the fan's row shipped instead. Reported, not warned about.
+        print('rows left fan-named (official name would not fit): %d'
+              % len(over_rows))
 
     newspt = build_archive(entries)
     print('entries replaced with official English: %d' % swapped)
@@ -642,7 +647,8 @@ def main(base=None, out=None):
     print('relaid strings rebuilt in the fan layout:   %d' % recut)
     print('hollow official strings kept as fan:       %d' % hollowed)
     print('rows kept as fan to keep their message box: %d' % boxless)
-    print('rows kept as fan to keep a DS-only command:  %d' % dsonly)
+    print('rows kept as fan to keep a DS-only command:  %d  (in %d script banks)'
+          % (dsonly, len(dsonly_banks)))
     print('kept fan text - over 64 KB u16 cap:     %d' % overflow)
     print('records kept as fan - DEMO TEXT stub:      %d' % demo)
     print('records kept as fan - still Japanese:       %d' % untranslated)
