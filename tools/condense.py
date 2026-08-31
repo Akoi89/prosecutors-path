@@ -19,8 +19,14 @@ import hashlib
 CONDENSE = {
     # Knightley's body, autopsy v1 (Ep2)
     'ee54df8a876bed8f': {
-        'ops': [['sub', 9, 12, ['was']], ['sub', 13, 17, ['A']], ['del', 23, 26]],
-        'want': 'fddff143f30504be',
+        # The Japanese hedges (と思われる, 'thought to be') and so does Capcom
+        # ('would have been'). An earlier trim flattened that to 'was', stating an
+        # instant death as fact - a bad trade in a game where autopsies get
+        # overturned. The hedge is restored and paid for by dropping 'to the head',
+        # which is redundant beside 'scalp'. Still exactly 4 lines at 180px.
+        'ops': [['sub', 9, 12, ['was', 'likely']], ['sub', 13, 17, ['A']],
+                ['del', 23, 26], ['sub', 27, 31, ['blow.']]],
+        'want': '5384580f541d2a15',
     },
     # autopsy v2: body moved, covered in dirt
     '998d10737b0eff91': {
