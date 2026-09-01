@@ -406,10 +406,15 @@ What remains fan (~3.5% of the script):
   against the retail layout in ways the run-rebuild cannot verify (lone strings, or
   runs where the official uses a different box-end variant, e.g. `DS[236]`).
 - **Evidence descriptions that overflow their box**: official English exists for
-  ~111 of them but does not fit the DS's 4-line description box, and editing Capcom's
-  wording to fit was ruled out (evidence text is contradiction material; a dropped
-  hedge changes the game). The fan's descriptions fit because they were written for
-  this box.
+  ~111 of them but does not fit the DS's 4-line description box. Editing Capcom's
+  wording to fit is rejected as a general answer (evidence text is contradiction
+  material; a dropped hedge changes the game), so these keep the fan's descriptions,
+  which fit because they were written for this box. **Thirteen rows are the
+  deliberate exception**, and each is written out in full where it lives: 3
+  descriptions in `tools/condense.py`, 8 over-wide card titles in `tools/plates.py`
+  (`TRIMS`), and 2 renamed rows in `tools/names.py` (`ROWFIX`). The 3 descriptions
+  were condensed only because the *fan* wording contradicted official dialogue, and
+  the title trims use only words from the official title itself.
 - **Hollow official strings**: a few strings are empty or `DEMO TEXT` in the
   Collection's own files.
 - **Menus & UI residue**: DS-only interface text with no official counterpart.
