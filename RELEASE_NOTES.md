@@ -5,6 +5,51 @@ units, measured by `tools/coverage.py` — a new, reproducible counting; not dir
 comparable to the old release's "85.7%", whose methodology differed). The remainder
 stays in the AAI2 fan translation — see the README for exactly why, and which parts.
 
+## New in v1.4.4: ten lines that shipped clipped, and two corrected claims
+
+**Ten lines in v1.4.3 shipped clipped at the right edge of their box.** If you
+are already playing v1.4.3 this is cosmetic: no hangs, no save incompatibility.
+Rebuilding is optional but recommended.
+
+v1.4.3 reverted 105 rows to fan text so they would keep the engine commands the
+DS-only tutorials need. That had a side effect nobody looked for: the
+name-substitution pass only touches rows byte-identical to the fan ROM, so
+handing it 105 more such rows gave it **84 rows to rename, up from 45**.
+
+Capcom's names are often longer than the fan's, and ten of those rows ended up
+wider than the box they draw into. The build re-breaks a row to make it fit, but
+it cannot when the over-wide line is the *last* line of a box, because there is
+nowhere to push the word to. Those ten now keep the fan's name instead. A single
+line still reading *Fender* costs less than a line running off the screen.
+
+The build had printed a warning about this. It scrolled past in a wall of thirty
+counters, after the tag was already cut.
+
+### Corrections to the v1.4.3 notes
+
+The v1.4.3 release said the revert was "93 strings, nearly all in Episode 1's
+tutorial-heavy opening." Both halves were wrong, and it is now measured rather
+than recalled:
+
+- It is **105 rows, across 67 script banks.**
+- They are spread across the whole game: partner conversations, examine checks
+  and NPC entries, wherever DS-only interaction sits. Episode 1 is not where they
+  cluster, it is where one of them locked the game.
+
+The README also claimed **97.5% coverage**. Re-measured with `tools/coverage.py`:
+**96.5%**. That figure had been written from memory instead of from the tool.
+
+### Also in this release
+
+- `inject.py` reports how many script banks the DS-only revert touched.
+- The over-wide report is no longer phrased as a `WARNING`, since those rows are
+  reverted rather than shipped.
+- README: refreshed per-episode coverage and the new guard documented.
+
+```
+sha256  8ab40704f4abed647ec1fe602dd8f8cb92b6b25ee38ba2abc8af74a4b744fa6e
+```
+
 ## New in v1.4.3 — Episode 1 hands you the controls again. Update before playing.
 
 **Every release from v1.2.0 to v1.4.2 hangs in Episode 1**, at the exact moment the
