@@ -319,6 +319,30 @@ def main(base=None, out=None):
 
     swapped = overflow = mismatch = skipped = demo = untranslated = tiny = shape = dropped = boxkeep = 0
     restructured = relaidn = unmerged = recut = hollowed = boxless = dsonly = 0
+    foreign = 0
+    # Every control code the DS engine is known to accept: the set used by the fan
+    # script. A converted string that still carries any other code would make the
+    # engine skip it and read its arguments as text (see dstext.OFFICIAL_TO_DS).
+    ds_codes = set()
+    for _e in fan.values():
+        for _, _, _, _u in all_strings(_e, True):
+            _k = 0
+            while _k < len(_u):
+                _v = _u[_k]
+                if 0xE000 <= _v <= 0xF8FF:
+                    ds_codes.add(_v); _k += 1 + ARGS.get(_v, 0)
+                else:
+                    _k += 1
+    def _has_foreign(u):
+        k = 0
+        while k < len(u):
+            v = u[k]
+            if 0xE000 <= v <= 0xF8FF:
+                if v not in ds_codes: return True
+                k += 1 + ARGS.get(v, 0)
+            else:
+                k += 1
+        return False
     dsonly_banks = set()
     sparse_kept = sparse_entries = 0
     unmapped = {}
@@ -400,6 +424,8 @@ def main(base=None, out=None):
                 conv.append(list(ds[n_][3])); untranslated += 1; continue
             d, un = convert(u)
             for v in un: unmapped[v] = unmapped.get(v, 0) + 1
+            if _has_foreign(d):
+                conv.append(list(ds[n_][3])); foreign += 1; continue
             conv.append(d)
         hfan = parse(fan[i], True)[0]
         # STRUCTURAL ALIGNMENT CHECK. Matching string COUNTS is not enough: the
@@ -660,6 +686,7 @@ def main(base=None, out=None):
     print('kept fan text - cannot align to JP original: %d' % restructured)
     print('records kept as fan - fan relaid it vs JP:    %d' % relaidn)
     print('records kept as fan - would lose a message box: %d' % boxkeep)
+    print('records kept as fan - official-only control code: %d' % foreign)
     print('kept fan text - no/weak mapping:        %d' % skipped)
     print('spt.bin: fan %.2f MB -> new %.2f MB' % (len(raw)/1e6, len(newspt)/1e6))
     if unmapped:

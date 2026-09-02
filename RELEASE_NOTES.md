@@ -1,9 +1,40 @@
 Port Capcom's official English localization of *Gyakuten Kenji 2* into the Nintendo DS ROM.
 
-**94.3% of the script's text is Capcom's writing** (1,727,658 of 1,832,983 character
-units, measured by `tools/coverage.py`). Earlier notes said 96.5% and, before that,
+**93.9% of the script's text is Capcom's writing** (1,722,032 of 1,832,983 character
+units, measured by `tools/coverage.py`). 1.5.1 said 94.3%; four tutorial lines went back
+to the fan text in 1.5.2, see below. Earlier notes said 96.5% and, before that,
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
+
+## New in v1.5.2: a hang in Episode 1 that every release had
+
+Every release through 1.5.1 could stop dead in Episode 1, in the audience area, right
+after the bodyguard introduces himself: the music keeps playing, the text box never
+comes back, and no button or tap does anything. It was found by a scripted playthrough
+of the build, not by a report, and it is a bug in this port, not in the fan patch.
+
+The cause is one control code. Capcom's script uses a code the DS engine has never seen,
+where the DS script uses its own equivalent (the pair that opens and closes a scripted
+wait). The converter passed the unknown code through unchanged. The engine skips a code
+it does not know and then reads the code's arguments as text; one of them is zero, which
+ends the string early, and the closing half of the pair is left waiting forever. There
+are 15 such sites in 12 strings across the game, all with the same shape, plus five
+sites of a second unknown code (the Collection's inline button icon, in tutorial lines).
+
+The fix does two things. The converter now translates that code to its DS equivalent,
+and the injector keeps the fan's string whenever a converted string still carries any
+code the fan script never uses, so the five button-icon lines fall back to the fan text
+rather than gamble. That guard is now part of the build report
+(`records kept as fan - official-only control code`). Exactly 14 strings differ from
+1.5.1; every audit passes; the first chapter of Episode 1 was replayed on the fixed build
+and runs clean. Coverage moves from 94.3% to 93.9% because those four tutorial lines are
+fan text again.
+
+If you built 1.5.1 or earlier, rebuild.
+
+```
+sha256  d9d27354ecbd734cc4d01683d57f51a0a447e6c0ed826318baa76b776a899047
+```
 
 ## New in v1.5.1: the last five fan-named lines
 
