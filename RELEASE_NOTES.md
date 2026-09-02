@@ -1,9 +1,71 @@
 Port Capcom's official English localization of *Gyakuten Kenji 2* into the Nintendo DS ROM.
 
-**98.4% of the script's text becomes Capcom's** (1,803,512 of 1,833,041 character
-units, measured by `tools/coverage.py` — a new, reproducible counting; not directly
-comparable to the old release's "85.7%", whose methodology differed). The remainder
-stays in the AAI2 fan translation — see the README for exactly why, and which parts.
+**93.7% of the script's text is Capcom's writing** (1,717,473 of 1,832,983 character
+units, measured by `tools/coverage.py`). Earlier notes said 96.5% and, before that,
+98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
+fan translation; the README says exactly why, and which parts.
+
+## New in v1.5.0: Capcom's titles everywhere, and an honest coverage number
+
+**The last fan names are gone from the screens you see most.** The title screen now shows
+Capcom's *Ace Attorney Investigations 2: Prosecutor's Gambit* logo; the episode-select
+buttons, the splash card at the start of each episode and the save screen all carry the
+official episode titles. The logo sprite and the two fonts (Modé Mina B, UD Kakugo M) are
+read from your own Collection at build time and rendered into the DS graphics; nothing
+Capcom-owned ships with the tool. The splash-card face the fan team hand-drew turned out
+to be Modé Mina, so those cards read as the same design with the official words.
+
+Verified in melonDS on a cleared save: title screen, save panel ("Turnabout for the
+Ages"), episode select and splash card ("Turnabout Trigger"), all at 60/60.
+
+### Character names: line by line
+
+v1.4.4 left ten whole conversations in the fan's names because one line in each could not
+take the longer official name. The rename now works line by line: the official name where
+it fits, Capcom's surname where only that fits, the fan line only if even that is too wide.
+Hyphenated forms ("Courtney-pie") rename too; they were being skipped. Result: 94 rows
+renamed (was 84), and **five lines in the whole game still carry a fan name**, each because
+the fan drew that line already at the edge of the box:
+
+- `DS[29]` str 14: "Swift will be cleared of suspicion!"
+- `DS[76]` str 7: "You didn't know either, Uncle Ray?"
+- `DS[94]` str 2: "escaped prisoner, Jay Elbird"
+- `DS[99]` str 4: "Mr. Elbird would have seen it"
+- `DS[117]` str 28: "(The true killer is Warden Roland.)"
+
+### One evidence description, one hedge
+
+The Episode 2 autopsy description used to say "Death was instant." Capcom wrote "would
+have been instant" and the Japanese hedges too; in a game where autopsies get overturned
+that is not a decoration. It now reads "Death was likely instant," paid for by dropping
+"to the head" after "scalp", which says the same thing. Still exactly four lines.
+
+### Coverage: 93.7%, not 96.5%
+
+`tools/coverage.py` counted a string as official whenever its bytes differed from the fan
+ROM's. Since v1.4.0 the rename pass has been swapping Capcom's character names into
+fan-written rows, and every one of those rows was being counted as official. It now counts
+a row as official only if it differs from the fan row *after* names and titles are applied.
+By that rule v1.4.4 was **93.8%**, and 1.5.0 is **93.7%**. The ROM did not get worse; the
+number got honest. Per-episode figures are in the README.
+
+### Also
+
+- `tools/nitro.py`: the palette reader started four bytes late (no visible effect on the
+  nameplates, wrong colours on every 8bpp screen). Fixed; a rebuild of 1.4.4 hashed
+  identically.
+- New tools, all build-time, none shipping game data: `ncer.py`, `title_art.py`,
+  `title_logo.py`, `extract_logo.py`, `title_text.py`, `title_assets.py`.
+- The build now has five steps; the Collection is needed for the title assets as well as
+  the script, and `--skip-extract` checks for them.
+
+```
+sha256  261479387d7eb08047ec93696605faf0635363e19bf245739afab7b8f98b9ef9
+```
+
+```bash
+python tools/build.py --verify
+```
 
 ## New in v1.4.4: ten lines that shipped clipped, and two corrected claims
 

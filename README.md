@@ -10,9 +10,11 @@ Collection* (2024).
 This toolchain takes Capcom's script and injects it into the DS game, so you can play
 the official localization on original hardware, on a flashcart, or in an emulator.
 
-**96.5% of the script's text becomes Capcom's**, measured by `tools/coverage.py`, so
-you can recompute it. The remainder stays in the fan translation, for reasons documented
-in [What doesn't port, and why](#what-doesnt-port-and-why).
+**93.7% of the script's text is Capcom's writing**, measured by `tools/coverage.py`, so
+you can recompute it. Earlier releases said 96.5%; that figure counted fan-written rows
+as official once Capcom's character names had been swapped into them, which is not the
+same thing. The remainder stays in the fan translation, for reasons documented in
+[What doesn't port, and why](#what-doesnt-port-and-why).
 
 > ### Playtesters wanted
 >
@@ -25,10 +27,17 @@ in [What doesn't port, and why](#what-doesnt-port-and-why).
 > chapter is enough. Your save is never at risk; the text is read-only data, so a
 > hang costs you the chapter and nothing else.
 
-**The cast uses Capcom's names everywhere**, not just in dialogue: the nameplates above
+**The cast uses Capcom's names throughout**, not just in dialogue: the nameplates above
 the text box and the evidence and profile cards are *graphics*, and they are redrawn at
-build time in the fan patch's own pixel font. See
+build time in the fan patch's own pixel font. Five individual lines in the whole game
+still carry a fan name because even Capcom's surname is wider than the line the fan
+drew; they are listed in the release notes. See
 [Names](#names-are-capcoms-including-the-ones-that-are-graphics).
+
+**The title screen, the episode-select buttons, the episode splash cards and the save
+screen all carry Capcom's titles** as of 1.5.0: the official logo and the two fonts are
+read out of your own Collection at build time and rendered into the DS graphics. See
+[Episode titles and the title screen](#episode-titles-and-the-title-screen).
 
 > **This repository contains no game data.** No ROM, no script, no extracted text: only
 > the tools. You supply your own legally-obtained copy of the DS game and your own
@@ -191,29 +200,34 @@ hit the thing they now prevent.
 
 | Episode | Official | character units |
 |---|---|---|
-| 1. *Turnabout Target* | 91.0% | 163,253 / 179,474 |
-| 2. *The Imprisoned Turnabout* | 95.2% | 350,929 / 368,696 |
-| 3. *The Inherited Turnabout* | 99.0% | 373,972 / 377,751 |
-| 4. *The Forgotten Turnabout* | 98.0% | 291,649 / 297,663 |
-| 5. *The Grand Turnabout* | 99.3% | 494,396 / 497,811 |
-| Menus & UI | 84.7% | 94,517 / 111,588 |
-| **Total** | **96.5%** | 1,768,716 / 1,832,983 |
+| 1. *Turnabout Trigger* | 86.4% | 155,050 / 179,474 |
+| 2. *The Captive Turnabout* | 91.3% | 336,646 / 368,696 |
+| 3. *Turnabout Legacy* | 97.6% | 368,827 / 377,751 |
+| 4. *A Turnabout Forsaken* | 95.9% | 285,437 / 297,663 |
+| 5. *Turnabout for the Ages* | 96.6% | 481,053 / 497,811 |
+| Menus & UI | 81.1% | 90,460 / 111,588 |
+| **Total** | **93.7%** | 1,717,473 / 1,832,983 |
 
-These are lower than v1.4.2's numbers, and deliberately so. v1.4.3 gave back 105 rows,
-spread across 67 script banks, because they were dropping the engine commands that drive
-the DS-only tutorials, and one of them stopped Episode 1 from ever handing the player
-control. Coverage is a means, not the goal; a scene that plays in the fan's words beats
-a scene that does not play.
+**These are lower than the 96.5% every release since v1.4.0 quoted, and the ROM did not
+get worse; the counting got honest.** `tools/coverage.py` used to call a string official
+whenever its bytes differed from the fan ROM's, on the premise that the injector only
+replaces whole strings. That stopped being true in v1.4.0, when the rename pass started
+swapping Capcom's character names into fan-written rows: 84 long conversations (now 94)
+were counted as official because a name in them had changed. As of 1.5.0 a row counts as
+official only if it differs from the fan row *after* that row has been given the official
+names and episode titles, so a fan-written line with "Bronco Knight" in it is fan text,
+which is what it is. Measured this way v1.4.4 was 93.8%, not 96.5%.
 
-Two figures here have been wrong in earlier drafts of this file, both times because they
-were remembered rather than measured. Every number in this table is what
-`tools/coverage.py` printed for the ROM whose hash `--verify` checks. If you build it
-yourself and get different numbers, the README is the thing that is wrong.
+Two figures in this file have been wrong before, both remembered rather than measured;
+this third one was measured, by a rule that had quietly stopped meaning what it said.
+Every number in this table is what `tools/coverage.py` printed for the ROM whose hash
+`--verify` checks. If you build it yourself and get different numbers, the README is the
+thing that is wrong.
 
 The counting is `tools/coverage.py`: character units (everything that is not a control
-code or one of its arguments) in strings whose bytes differ from the fan ROM, over all
-character units. Earlier releases quoted "85.7%" from a methodology that did not
-survive; the two numbers are not directly comparable.
+code or one of its arguments) in strings whose bytes differ from the fan ROM after names
+and titles, over all character units. Earlier releases quoted "85.7%" from a methodology
+that did not survive; the two numbers are not directly comparable.
 
 Also ported: evidence and profile descriptions, Logic card text, and the Organizer
 messages, none of which live in the script files at all. They come from the Collection's
@@ -396,7 +410,7 @@ times. Nothing is hiding.
 
 The floor isn't laziness. It's structural, and it breaks down cleanly:
 
-What remains fan (~3.5% of the script):
+What remains fan (~6.3% of the script):
 
 - **DS-only tutorial and interaction strings**: 105 rows whose official replacement
   drops an engine command the DS build needs. The largest single category, and the newest:
@@ -423,21 +437,31 @@ DS-only content is the recurring theme. The touch-screen tutorials, the button p
 the Logic walkthrough, because Capcom's version targets hardware without a second screen or an
 L button, so no official wording has ever existed for a lot of it.
 
-**Episode names stay the fan's**: the one place the official naming does not reach.
-Capcom renamed all five (*Turnabout Target* → *Turnabout Trigger*, *The Imprisoned
-Turnabout* → *The Captive Turnabout*, and so on), and the tool can swap the text, but
-that switch is deliberately off (`RETITLE = False` in `tools/inject.py`). The names also
-appear as **graphics** in two places the text swap cannot reach: the episode-select
-buttons and the splash card at the start of each episode. Turning on the text alone would
-put two different names for one episode a single menu apart, which is worse than either
-answer.
+## Episode titles and the title screen
 
-Both surfaces have been located and decoded (sprite banks in `jpn/save_local.bin` and
-`jpn/opening_local.bin`) so unlike the nameplates, what stops this is lettering rather
-than format. The official names need eight characters that appear in no fan title
-anywhere in the game, and substituting a real font is ruled out: every system serif was
-scored against the fan's own lettering and the closest still differed by 57%. When those
-glyphs are drawn, the bitmaps and the text switch ship together.
+Capcom renamed all five episodes (*Turnabout Target* → *Turnabout Trigger*, *The
+Imprisoned Turnabout* → *The Captive Turnabout*, *The Inherited Turnabout* → *Turnabout
+Legacy*, *The Forgotten Turnabout* → *A Turnabout Forsaken*, *The Grand Turnabout* →
+*Turnabout for the Ages*). The names live in four places, and since 1.5.0 all four say the
+same thing:
+
+- **Save screen text**: 27 strings in `DS[460]`, switched by `tools/episode_titles.py`.
+- **Episode-select buttons** and **episode splash cards**: sprite graphics in
+  `jpn/save_local.bin` and `jpn/opening_local.bin`. `tools/title_text.py` renders the
+  official names into the existing sprites using two fonts pulled from *your* Collection
+  at build time: Modé Mina B for the splash cards, which turns out to be the very face the
+  fan team was imitating by hand, and UD Kakugo M for the buttons. Nothing is drawn
+  outside the sprites the game already draws.
+- **Title screen**: the official English logo sprite (`GK2_Logo_R_eng`) is read from the
+  Collection, laid out over the fan's copyright line, and written into `jpn/title_local.bin`
+  by `tools/extract_logo.py` and `tools/title_logo.py`.
+
+No artwork or font ships with the tool; like the script, all of it comes out of the
+player's own install. `tools/ncer.py` is the cell-bank reader that made the sprite work
+possible, and `tools/title_art.py` exports the pieces for inspection.
+
+The game's title screen therefore reads *Prosecutor's Gambit*, Capcom's title, while this
+project keeps the name it started with.
 
 ---
 

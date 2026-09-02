@@ -17,13 +17,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import locate
 from paths import work, data, FROZEN
 
-VERSION = '1.4.4'
+VERSION = '1.5.0'
 ISSUES = 'https://github.com/Akoi89/prosecutors-path/issues'
 # sha256 of the ROM this version's tools produce from the AAI2 Final v2 base.
 # --verify checks a built ROM against it. Update ONLY when the injector changes
 # the output on purpose (v1.4.3: strings that dropped a DS-only engine command
 # keep the fan's line - the Episode 1 hang at the handoff to player control).
-REFERENCE_ROM_SHA256 = '8ab40704f4abed647ec1fe602dd8f8cb92b6b25ee38ba2abc8af74a4b744fa6e'
+REFERENCE_ROM_SHA256 = '261479387d7eb08047ec93696605faf0635363e19bf245739afab7b8f98b9ef9'
 
 # Bundle name prefixes -> where their TextAssets go. Addressables appends a content
 # hash to every bundle, so these must be matched by prefix, never by full name.
@@ -382,7 +382,7 @@ def main(argv=None):
 
     dumpdir = work('dump')
     os.makedirs(dumpdir, exist_ok=True)
-    total = 4
+    total = 5
 
     if not a.skip_extract:
         bdir = find_bundle_dir(a.collection)
@@ -396,6 +396,8 @@ def main(argv=None):
         extract_scripts(bdir, dumpdir)
         step(3, total, 'Extracting the localization string tables')
         extract_loc(bdir, dumpdir)
+        import title_assets
+        title_assets.extract(bdir, dumpdir)
     else:
         missing = [d for d in ('ds_fan', 'eng', 'eng_trial', 'jpn', 'jpn_trial')
                    if not os.path.isdir(os.path.join(dumpdir, d))]
@@ -406,6 +408,9 @@ def main(argv=None):
                                 os.path.join('jpn_trial', 'detailMsg.bin'),
                                 os.path.join('jpn', 'logicKW.bin'))
                     if not os.path.exists(os.path.join(dumpdir, f))]
+        import title_assets
+        missing += [os.path.relpath(f, dumpdir) for f in title_assets.required(dumpdir)
+                    if not os.path.exists(f)]
         if missing:
             raise SystemExit('--skip-extract, but %s is missing: %s. '
                              'Run once without --skip-extract to build it.'
@@ -415,6 +420,10 @@ def main(argv=None):
     step(4, total, 'Injecting\n')
     import inject
     inject.main(a.fan_rom, a.out)
+    step(5, total, 'Title screen and episode titles')
+    import title_assets
+    out_path = a.out or os.path.join(work(), inject.DEFAULT_OUT)
+    title_assets.apply(dumpdir, out_path)
     return 0
 
 
