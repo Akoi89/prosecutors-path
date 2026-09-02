@@ -18,6 +18,20 @@ to be Modé Mina, so those cards read as the same design with the official words
 Verified in melonDS on a cleared save: title screen, save panel ("Turnabout for the
 Ages"), episode select and splash card ("Turnabout Trigger"), all at 60/60.
 
+### The shouts, in Capcom's English voices
+
+The fan patch recorded its own English "Objection!", "Hold it!", "Take that!" and the
+rest over the Japanese samples. The Collection carries Capcom's 2024 English recordings
+under the same sound-effect numbers, and thirteen of the twenty samples the fan team
+replaced have one. Those thirteen now play Capcom's takes: read from your Collection at
+build time, downmixed and resampled to the retail format of each slot (IMA ADPCM at
+22 kHz; 16-bit PCM at 32 kHz for the long one), and written back into the sound archive
+with every header rebuilt from the sample data. The DS plays each shout to the end of its
+sample, so nothing is time-compressed or cut; the one take that runs half a second longer
+than the fan's goes in whole. The seven samples the Collection does not localise keep the
+fan's recordings. The rebuilt archive boots and plays in melonDS, and every new sample was
+decoded back out of it to confirm length, rate and level.
+
 ### Logic keyword cards in Capcom's words
 
 The cards on the Logic board were the last large fan-lettered surface. They are images,
@@ -75,7 +89,7 @@ number got honest. Per-episode figures are in the README.
   identically.
 - New tools, all build-time, none shipping game data: `ncer.py`, `title_art.py`,
   `title_logo.py`, `extract_logo.py`, `title_text.py`, `title_assets.py`,
-  `logic_names.py`, `logic_cards.py`.
+  `logic_names.py`, `logic_cards.py`, `voices.py`.
 - The build now has five steps; the Collection is needed for the title assets as well as
   the script, and `--skip-extract` checks for them.
 - The title screen now shows the build's version ("v1.5.0") in small white digits in its
@@ -83,7 +97,7 @@ number got honest. Per-episode figures are in the README.
   into the composed picture by `tools/title_version.py`; no artwork is covered.
 
 ```
-sha256  6ae331a65e66f7d91692dec6fd57d916d061c1cd4a2df08e5b4d141ef8d4314e
+sha256  c383f155e60f17e3404ec579265c2a2687e43fb7459ffa46a1813df27bb625dd
 ```
 
 ```bash
