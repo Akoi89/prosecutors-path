@@ -5,6 +5,21 @@ units, measured by `tools/coverage.py`). Earlier notes said 96.5% and, before th
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
 
+## New in v1.5.1: the last five fan-named lines
+
+1.5.0 left five dialogue lines with a fan character name because the official name pushed
+each one past its box and re-breaking had nowhere to put the extra word. They now carry
+the official names, each with the smallest edit the width allows: a title or an
+honorific dropped, or a contraction, never a changed meaning. Measured in the game's own
+font against the 216 px line budget (`rig/measure_lines.py` in the private notes). The
+per-line renamer now applies these hand fixes too; before, a row with a second over-wide
+line silently discarded them. A full scan of the built ROM finds no fan character name
+left in any kept-fan row. Coverage is unchanged at 94.3%: renamed fan rows count as fan.
+
+```
+sha256  2f5ba692e0c0bc2c45ab3c88dced781b8800bd117503dd69f5eca7a7873f1a61
+```
+
 ## New in v1.5.0: Capcom's titles everywhere, and an honest coverage number
 
 **The last fan names are gone from the screens you see most.** The title screen now shows
@@ -47,7 +62,7 @@ v1.4.4 left ten whole conversations in the fan's names because one line in each 
 take the longer official name. The rename now works line by line: the official name where
 it fits, Capcom's surname where only that fits, the fan line only if even that is too wide.
 Hyphenated forms ("Courtney-pie") rename too; they were being skipped. Result: 94 rows
-renamed (was 84), and **five lines in the whole game still carry a fan name**, each because
+renamed (was 84), and **five lines in the whole game still carry a fan name** (resolved in 1.5.1), each because
 the fan drew that line already at the edge of the box:
 
 - `DS[29]` str 14: "Swift will be cleared of suspicion!"

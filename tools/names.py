@@ -155,7 +155,21 @@ ROWFIX = {(432, 292): (_fwseq('Was Samson'), _fwseq('Samson')),
           # the budget the fan proved; the honorific is the cheapest word to lose.
           # The period here is U+2025, which is how this script writes 'Mr.'
           (453, 299): ([0xFF2D, 0xFF52, 0x2025, 0xFF3F] + _fwseq('Tangaroa'),
-                       _fwseq('Tangaroa'))}
+                       _fwseq('Tangaroa')),
+          # 1.5.1: the five lines that 1.5.0 left fan-named because the official
+          # name pushed them past 216px. Each keeps the fan sentence and loses
+          # only what the width forces (measured with rig/measure_lines.py; the
+          # engine codes inside the lines are kept where they were).
+          (29, 14): (_fwseq('Lloyd will be cleared of suspicion!'),            # 224px
+                     _fwseq("Lloyd's name will be cleared!")),                   # 190px
+          (76, 7): (_fwseq("You didn't know either,") + [0xE108, 0x8] + _fwseq(' Uncle Eddie?'),   # 227px
+                    _fwseq("Uncle Eddie didn't know either") + [0xE108, 0x8] + _fwseq('?')),         # 195px
+          (94, 2): (_fwseq('prisoner') + [0xE040] + _fwseq(',') + [0xE108, 0x8] + _fwseq(' Rocco Carcerato'),  # 233px
+                    _fwseq('prisoner') + [0xE040] + _fwseq(',') + [0xE108, 0x8] + _fwseq(' Carcerato')),       # 191px
+          (99, 4): (_fwseq('would have seen it'),                              # 221px with Mr. Carcerato
+                    _fwseq("would've seen it")),                                # 204px
+          (117, 28): (_fwseq('true killer is ') + [0xE1D5] + _fwseq('Warden Laguarde'),   # 244px
+                      _fwseq('true killer is ') + [0xE1D5] + _fwseq('Laguarde'))}          # 193px
 
 # Option-widget banks: one line each, and the widget's proven width is whatever
 # the fan actually displayed in it - the same budget inject.py uses when it
@@ -290,8 +304,21 @@ def _split_lines(u):
     return out
 
 
-def per_line_harmonize(uu, lim):
-    """Rename line by line. Returns (units, changed_lines, fan_lines_kept)."""
+def _apply_fix(nu, fix):
+    """Replace the first occurrence of fix[0] in nu with fix[1] (a ROWFIX pair)."""
+    if not fix:
+        return nu
+    f, r = fix
+    for k in range(len(nu) - len(f) + 1):
+        if nu[k:k + len(f)] == f:
+            return nu[:k] + list(r) + nu[k + len(f):]
+    return nu
+
+
+def per_line_harmonize(uu, lim, fix=None):
+    """Rename line by line. Returns (units, changed_lines, fan_lines_kept).
+    `fix` is the row's ROWFIX pair, applied to a line after the full-name
+    substitution so a hand-shortened line is measured, not the raw rename."""
     out, changed, kept = [], 0, 0
     for seg, sep in _split_lines(uu):
         if not seg:
@@ -302,6 +329,7 @@ def per_line_harmonize(uu, lim):
             nu, c = _substitute_with(seg, pairs)
             if not c:
                 best = seg; break
+            nu = _apply_fix(nu, fix)
             w = row_px(nu)
             if w <= max(lim, RENAME_LIMIT) or w <= orig_w:   # fits the proven box, or no wider than the fan drew it
                 best = nu; changed += 1; break
@@ -372,7 +400,7 @@ def harmonize_entry(entry, fan_entry, idx):
                     # the sake of one line. Now: rename line by line, official
                     # name where it fits, official surname where it does not,
                     # and the fan line only if even that is too wide.
-                    nu2, c2, kept_lines = per_line_harmonize(uu, lim)
+                    nu2, c2, kept_lines = per_line_harmonize(uu, lim, fix=ROWFIX.get((idx, si)))
                     if kept_lines:
                         over.append((si, [('line-kept-fan', kept_lines)]))
                     if c2:
