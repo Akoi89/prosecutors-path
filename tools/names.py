@@ -235,6 +235,57 @@ def rebreak(u, limit, orig=None):
     return u, bad
 
 
+
+# Official surnames, for the one line where the full official name will not fit.
+# Capcom's own script refers to most characters by surname anyway.
+SHORT_PAIRS = [(src, dst.split()[-1]) if (' ' in dst and src != dst) else (src, dst)
+               for src, dst in PAIRS]
+
+
+def _substitute_with(u, pairs):
+    global PAIRS
+    saved = PAIRS
+    PAIRS = pairs
+    try:
+        return substitute(u)
+    finally:
+        PAIRS = saved
+
+
+def _split_lines(u):
+    """Split a unit list into (segment, separator) pieces at soft newlines and
+    box ends, keeping every unit. Segments carry the text, separators the break."""
+    out, cur = [], []
+    for v in u:
+        if v == 0x0A or v in BOXEND:
+            out.append((cur, [v])); cur = []
+        else:
+            cur.append(v)
+    out.append((cur, []))
+    return out
+
+
+def per_line_harmonize(uu, lim):
+    """Rename line by line. Returns (units, changed_lines, fan_lines_kept)."""
+    out, changed, kept = [], 0, 0
+    for seg, sep in _split_lines(uu):
+        if not seg:
+            out += sep; continue
+        orig_w = row_px(seg)
+        best = None
+        for pairs in (PAIRS, SHORT_PAIRS):
+            nu, c = _substitute_with(seg, pairs)
+            if not c:
+                best = seg; break
+            w = row_px(nu)
+            if w <= lim or w <= orig_w:      # fits, or no wider than the fan drew it
+                best = nu; changed += 1; break
+        if best is None:
+            best = seg; kept += 1
+        out += best + sep
+    return out, changed, kept
+
+
 def harmonize_entry(entry, fan_entry, idx):
     """Apply the name pairs to every string of `entry` that is byte-identical
     to its counterpart in `fan_entry` (i.e. kept fan text). Returns
@@ -291,13 +342,18 @@ def harmonize_entry(entry, fan_entry, idx):
                     # A longer official name pushed a line past its box and
                     # neither re-breaking nor the spare-line split could bring
                     # it back - usually because the over-wide line ends a box,
-                    # so there is nowhere to push the word to. Keep the fan's
-                    # row: one line still reading the fan's name is a smaller
-                    # cost than a line clipped at the right edge. This matters
-                    # more since v1.4.3, which hands this pass many more
-                    # fan-kept rows to rename.
-                    over.append((si, bad))
-                    recs.append((a, uu))
+                    # so there is nowhere to push the word to. Until v1.5 the
+                    # whole row then kept the fan's names, dozens of boxes for
+                    # the sake of one line. Now: rename line by line, official
+                    # name where it fits, official surname where it does not,
+                    # and the fan line only if even that is too wide.
+                    nu2, c2, kept_lines = per_line_harmonize(uu, lim)
+                    if kept_lines:
+                        over.append((si, [('line-kept-fan', kept_lines)]))
+                    if c2:
+                        recs.append((a, nu2)); changed += 1
+                    else:
+                        recs.append((a, uu))
                     continue
                 uu = nu
                 changed += 1
