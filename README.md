@@ -160,7 +160,8 @@ gk2port-windows-x64.exe --fan-rom "GK2 (AAI2 Final v2).nds" --skip-extract
 The wizard notices this by itself: if `dump/` is already there and the Collection isn't
 installed any more, it says so and carries on.
 
-That needs the fan ROM and `dump/` (~55 MB) and nothing else. Verified byte-identical to
+That needs the fan ROM and `dump/` (~70 MB: the script dumps plus the title assets and
+voice clips pulled from the Collection) and nothing else. Verified byte-identical to
 a full run.
 
 Or run the injection alone:
@@ -172,9 +173,10 @@ python tools/inject.py "Gyakuten Kenji 2 (AAI2 Final v2).nds" -o out/GK2-officia
 The build prints a full audit of what it did and, crucially, what it refused to do:
 
 ```
+strings patched from localization tables:  343
+episode titles switched to official names:   27
+kept-fan strings renamed to official names:  64
 entries replaced with official English: 423
-kept-fan strings renamed to official names:  84
-rows left fan-named (official name would not fit): 10
 entries where a joined string was split back: 11
 relaid strings rebuilt in the fan layout:   74
 hollow official strings kept as fan:       36
@@ -187,6 +189,9 @@ records kept as fan - would lose a message box: 3
 kept fan text - string count mismatch:  3
 kept fan text - control-code shape off:  8
 nameplates redrawn with official names:      147
+title screen: official logo 248x116 at (4,30), 439/768 tiles, 222 colours
+logic keyword cards: 97 of 133 slots named officially, 194 card images rewritten
+voices: 13 shouts in Capcom's English, sound archive 11066644 -> 11282047 bytes
 ```
 
 Every one of those counters is a guard that fired. They exist because each one, once,
@@ -212,7 +217,7 @@ hit the thing they now prevent.
 get worse; the counting got honest.** `tools/coverage.py` used to call a string official
 whenever its bytes differed from the fan ROM's, on the premise that the injector only
 replaces whole strings. That stopped being true in v1.4.0, when the rename pass started
-swapping Capcom's character names into fan-written rows: 84 long conversations (now 94)
+swapping Capcom's character names into fan-written rows: 84 long conversations
 were counted as official because a name in them had changed. As of 1.5.0 a row counts as
 official only if it differs from the fan row *after* that row has been given the official
 names and episode titles, so a fan-written line with "Bronco Knight" in it is fan text,
@@ -260,10 +265,12 @@ the same line. That caught what recall would have missed: *Nicole Swift* is offi
 *Blaisie* is *Celsius*.
 
 `tools/names.py` holds the map and rewrites only strings that are byte-identical to the
-fan ROM's, so official text is never touched: 84 rows in the current build, plus 147
-nameplates redrawn. Ten further rows were left with the fan's name because the official
-one would not fit the line; see the width guard under
-[Guards](#guards). `tools/plates.py` does the graphics.
+fan ROM's, so official text is never touched: 64 whole rows in the current build, more
+rows renamed line by line where a whole-row rename would not fit, plus 147 nameplates
+redrawn. Since 1.5.1 no line in the game keeps a fan character name: the five that the
+official name pushed past their box carry hand-shortened lines (`ROWFIX` in `names.py`),
+and a scan of the built ROM finds zero fan names in kept-fan text. See the width guard
+under [Guards](#guards). `tools/plates.py` does the graphics.
 
 ---
 
@@ -522,7 +529,12 @@ python audits/audit_fixtures.py         # prove the audits can actually fail
 | `plates.py` | Redraws the nameplate and title-card graphics in the fan's own pixel font |
 | `build_map.py` / `map_ids.py` | Fuzzy n-gram matching of DS entries to Collection files |
 | `lz11.py` / `nitro.py` | Nintendo LZ11 and NCGR/NCLR/NSCR/NCER/NANR |
-| `episode_titles.py` | Optional official episode names |
+| `episode_titles.py` | The official episode names in the save-screen strings (on since 1.5.0) |
+| `title_assets.py` | Title logo, episode-title sprites and Logic cards: pulls the assets from the Collection and applies `extract_logo` / `title_logo` / `title_text` / `logic_cards` |
+| `title_version.py` | Paints the build's version into the title screen's empty corner |
+| `condense.py` / `condense_generated.py` | The word-index edits that fit 111 official descriptions into the DS box (result-hashed, no Capcom text) |
+| `coverage.py` | The coverage figures above, recomputed from a built ROM |
+| `desc_overflow.py` | Lists every condensed description four ways from your own extracted data |
 
 ---
 
@@ -609,8 +621,9 @@ This repository distributes **no copyrighted material**: no ROM, no script, no e
 text, no graphics. It is a set of tools that operate on files you already own.
 
 Building requires your own legally-obtained copy of both games. Do not redistribute the
-output: it contains both Capcom's copyrighted localization and the fan translation's
-assets. **If you want Capcom's translation, buy the Collection. It is very good, and it
+output: it contains Capcom's copyrighted localization, and since 1.5.0 Capcom's logo
+art, two of their fonts and thirteen of their voice recordings, alongside the fan
+translation's assets. **If you want Capcom's translation, buy the Collection. It is very good, and it
 is the reason this project can exist at all.**
 
 ### Why there is no patch file
@@ -620,7 +633,7 @@ Collection at all. That patch would *be* Capcom's script: a delta from the fan R
 the ported one contains the entire localization as its payload, which is the thing being
 avoided, not a way around it. The same goes for the extracted `dump/` tree: the three
 `.json` files in it are integers and filenames and do ship here, but `dump/eng` is
-Capcom's text.
+Capcom's text, and `dump/title` and `dump/voice` are Capcom's logo, fonts and audio.
 
 Owning the Collection isn't a hurdle this project failed to remove. It's the reason the
 project is allowed to exist.
