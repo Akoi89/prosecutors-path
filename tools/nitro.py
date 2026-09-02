@@ -25,10 +25,14 @@ def ncgr(d):
     return data, bpp, len(data) // per, w, h
 
 def nclr(d):
+    # PLTT body: u32 bit depth, u32 padding, u32 data size, u32 colours per
+    # palette, then the BGR555 data at offset 16. The old reader treated the
+    # fourth field as a data offset and started 4 bytes (2 colours) late, which
+    # scrambled every colour on 8bpp screens (title_local.bin). 4bpp glyph work
+    # never noticed because plates.py compares shapes, not colours.
     s = _sections(d)[b'TTLP'][2]
-    n = struct.unpack_from('<I', s, 8)[0]
-    doff = struct.unpack_from('<I', s, 12)[0]
-    raw = s[4 + doff:]
+    dsize = struct.unpack_from('<I', s, 8)[0]
+    raw = s[16:16 + dsize]
     pal = []
     for i in range(0, len(raw) - 1, 2):
         v = struct.unpack_from('<H', raw, i)[0]
