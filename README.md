@@ -10,7 +10,7 @@ Collection* (2024).
 This toolchain takes Capcom's script and injects it into the DS game, so you can play
 the official localization on original hardware, on a flashcart, or in an emulator.
 
-**93.7% of the script's text is Capcom's writing**, measured by `tools/coverage.py`, so
+**94.3% of the script's text is Capcom's writing**, measured by `tools/coverage.py`, so
 you can recompute it. Earlier releases said 96.5%; that figure counted fan-written rows
 as official once Capcom's character names had been swapped into them, which is not the
 same thing. The remainder stays in the fan translation, for reasons documented in
@@ -205,8 +205,8 @@ hit the thing they now prevent.
 | 3. *Turnabout Legacy* | 97.6% | 368,827 / 377,751 |
 | 4. *A Turnabout Forsaken* | 95.9% | 285,437 / 297,663 |
 | 5. *Turnabout for the Ages* | 96.6% | 481,053 / 497,811 |
-| Menus & UI | 81.1% | 90,460 / 111,588 |
-| **Total** | **93.7%** | 1,717,473 / 1,832,983 |
+| Menus & UI | 90.2% | 100,645 / 111,588 |
+| **Total** | **94.3%** | 1,727,658 / 1,832,983 |
 
 **These are lower than the 96.5% every release since v1.4.0 quoted, and the ROM did not
 get worse; the counting got honest.** `tools/coverage.py` used to call a string official
@@ -410,7 +410,7 @@ times. Nothing is hiding.
 
 The floor isn't laziness. It's structural, and it breaks down cleanly:
 
-What remains fan (~6.3% of the script):
+What remains fan (~5.7% of the script):
 
 - **DS-only tutorial and interaction strings**: 105 rows whose official replacement
   drops an engine command the DS build needs. The largest single category, and the newest:
@@ -419,16 +419,21 @@ What remains fan (~6.3% of the script):
 - **Relaid strings with no rebuildable partner**: 38 strings whose box counts moved
   against the retail layout in ways the run-rebuild cannot verify (lone strings, or
   runs where the official uses a different box-end variant, e.g. `DS[236]`).
-- **Evidence descriptions that overflow their box**: official English exists for
-  ~111 of them but does not fit the DS's 4-line description box. Editing Capcom's
-  wording to fit is rejected as a general answer (evidence text is contradiction
-  material; a dropped hedge changes the game), so these keep the fan's descriptions,
-  which fit because they were written for this box. **Thirteen rows are the
-  deliberate exception**, and each is written out in full where it lives: 3
-  descriptions in `tools/condense.py`, 8 over-wide card titles in `tools/plates.py`
-  (`TRIMS`), and 2 renamed rows in `tools/names.py` (`ROWFIX`). The 3 descriptions
-  were condensed only because the *fan* wording contradicted official dialogue, and
-  the title trims use only words from the official title itself.
+- **Evidence descriptions and Logic cards that overflow their box**: official English
+  exists for 108 of them but does not fit the DS's 4-line description box (or the 3-line
+  Logic card). Until 1.5.0 those rows kept the fan's text. **As of 1.5.0 they carry Capcom's
+  wording, condensed to fit**: the Japanese source says what must survive, Capcom's English
+  supplies the words, and the fan line proves what fits. Nothing is paraphrased where a
+  deletion will do, names and facts are kept, and hedges are kept ("appears to", "I have my
+  doubts"). The edits ship as word-index operations over the official text
+  (`tools/condense_generated.py`, produced by `rig/desc_fit.py` from a reviewed list), so no
+  Capcom text sits in the repo, and each entry carries a result hash: a Collection whose
+  wording differs falls back to the fan line instead of applying a stale edit. To check
+  them, `python tools/desc_overflow.py OUT.txt` lists every affected row four ways
+  (Japanese, Capcom, condensed, fan) from your own extracted data. Together with the earlier exceptions that makes **121
+  rows where Capcom's wording is edited**: these 108, 3 hand-condensed descriptions in
+  `tools/condense.py`, 8 over-wide card titles in `tools/plates.py` (`TRIMS`), and 2 renamed
+  rows in `tools/names.py` (`ROWFIX`).
 - **Hollow official strings**: a few strings are empty or `DEMO TEXT` in the
   Collection's own files.
 - **Menus & UI residue**: DS-only interface text with no official counterpart.

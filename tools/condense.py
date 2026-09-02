@@ -71,3 +71,15 @@ def apply(norm_ja, eng):
     if want and hashlib.sha1(out.encode('utf-8')).hexdigest()[:16] != want:
         return None          # the Collection's wording differs - do not touch
     return out
+
+
+# The 108 descriptions and Logic cards condensed in 1.5.0 live in a generated
+# table (rig/desc_fit.py emits it from the reviewed condensed text). Same shape:
+# word-index edits over the OFFICIAL text, keyed by the Japanese source hash,
+# guarded by a result hash. The three hand-written entries above take precedence.
+try:
+    from condense_generated import CONDENSE_GENERATED as _GEN
+    for _k, _v in _GEN.items():
+        CONDENSE.setdefault(_k, _v)
+except ImportError:
+    pass
