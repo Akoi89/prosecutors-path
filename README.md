@@ -459,7 +459,9 @@ same thing:
   outside the sprites the game already draws.
 - **Title screen**: the official English logo sprite (`GK2_Logo_R_eng`) is read from the
   Collection, laid out over the fan's copyright line, and written into `jpn/title_local.bin`
-  by `tools/extract_logo.py` and `tools/title_logo.py`.
+  by `tools/extract_logo.py` and `tools/title_logo.py`. The build's version number is painted into the
+  empty top-right corner of that picture (`tools/title_version.py`), so any screenshot says
+  which build it came from.
 - **Logic keyword cards**: the 133 keyword cards on the Logic board (and the banner each one
   shows above its description) are images in `jpn/logic_keyword_local.bin`, lettered by the
   fan team in their own words ("Ruptured balloon" where Capcom wrote "Popped balloon"). The

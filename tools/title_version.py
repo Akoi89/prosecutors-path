@@ -48,6 +48,28 @@ def text_width(text):
     return max(0, len(text) * 4 - 1)
 
 
+def paint_marker(picture, text, ink=(255, 255, 255)):
+    """Draw `text` in the 3x5 font into the top-right corner of a PIL image,
+    same placement as stamp() (row 1, MARGIN px from the right edge).
+
+    Used since 1.5.0, when the title picture is composed from the official
+    logo and re-tiled whole by title_logo.build: painting the marker into that
+    picture before tiling is simpler than repointing tiles afterwards, and the
+    corner is uniform black so no backing is needed."""
+    px = picture.load()
+    x0 = picture.width - MARGIN - text_width(text)
+    for ch in text:
+        rows = FONT.get(ch)
+        if rows is None:
+            raise ValueError('no glyph for %r' % ch)
+        for dy, row in enumerate(rows):
+            for dx, bit in enumerate(row):
+                if bit == '1':
+                    px[x0 + dx, 1 + dy] = ink
+        x0 += 4
+    return picture
+
+
 def _entries(d):
     """(offset, size_field) pairs until the table runs into the first blob."""
     out = []

@@ -78,9 +78,12 @@ number got honest. Per-episode figures are in the README.
   `logic_names.py`, `logic_cards.py`.
 - The build now has five steps; the Collection is needed for the title assets as well as
   the script, and `--skip-extract` checks for them.
+- The title screen now shows the build's version ("v1.5.0") in small white digits in its
+  top-right corner, so a screenshot or a bug report says which build it came from. Painted
+  into the composed picture by `tools/title_version.py`; no artwork is covered.
 
 ```
-sha256  be34168feb5b441ed353261f605abbc46df47b1709aa4116ba75889f7382ef14
+sha256  6ae331a65e66f7d91692dec6fd57d916d061c1cd4a2df08e5b4d141ef8d4314e
 ```
 
 ```bash
