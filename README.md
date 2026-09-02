@@ -460,6 +460,15 @@ same thing:
 - **Title screen**: the official English logo sprite (`GK2_Logo_R_eng`) is read from the
   Collection, laid out over the fan's copyright line, and written into `jpn/title_local.bin`
   by `tools/extract_logo.py` and `tools/title_logo.py`.
+- **Logic keyword cards**: the 133 keyword cards on the Logic board (and the banner each one
+  shows above its description) are images in `jpn/logic_keyword_local.bin`, lettered by the
+  fan team in their own words ("Ruptured balloon" where Capcom wrote "Popped balloon"). The
+  DS never stores those names as text, only each keyword's Japanese description, so
+  `tools/logic_names.py` joins the DS description to the Collection's description table and
+  from there to the official name table, and `tools/logic_cards.py` repaints the card interior
+  and renders the official name in UD Kakugo M, two lines on the card and one on the banner.
+  97 of the 133 slots have an official name; the rest (30 unused dummies, 6 real keywords
+  with no Collection counterpart) keep the fan lettering.
 
 No artwork or font ships with the tool; like the script, all of it comes out of the
 player's own install. `tools/ncer.py` is the cell-bank reader that made the sprite work
@@ -499,6 +508,8 @@ python audits/audit_fixtures.py         # prove the audits can actually fail
 | `ctrl_args.py` | Regenerates `dump/ctrl_args.json`; `--check` diffs a fresh derivation against it |
 | `inject.py` | Mapping, structural guards, ROM rebuild |
 | `loc_patch.py` | Evidence, profiles and Logic cards from the Unity Localization tables |
+| `logic_names.py` | Maps each DS Logic keyword slot to Capcom's official short name |
+| `logic_cards.py` | Renders those names into the Logic card and banner images |
 | `names.py` | The fan→official character-name map, applied only to strings that kept fan text |
 | `plates.py` | Redraws the nameplate and title-card graphics in the fan's own pixel font |
 | `build_map.py` / `map_ids.py` | Fuzzy n-gram matching of DS entries to Collection files |

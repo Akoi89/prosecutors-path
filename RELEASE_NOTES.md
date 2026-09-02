@@ -18,6 +18,15 @@ to be Modé Mina, so those cards read as the same design with the official words
 Verified in melonDS on a cleared save: title screen, save panel ("Turnabout for the
 Ages"), episode select and splash card ("Turnabout Trigger"), all at 60/60.
 
+### Logic keyword cards in Capcom's words
+
+The cards on the Logic board were the last large fan-lettered surface. They are images,
+not text, and the fan team drew their own English into 206 of them. 194 of those images
+(97 keywords, card plus banner) now carry the official short names, rendered in UD Kakugo M
+from your Collection over a cleaned card face; the six keywords the Collection has no name
+for, and the unused dummy slots, keep the fan's lettering. Verified in melonDS on the
+Episode 1 Logic board ("Assassination attempt", "Six-shot revolver").
+
 ### Character names: line by line
 
 v1.4.4 left ten whole conversations in the fan's names because one line in each could not
@@ -65,12 +74,13 @@ number got honest. Per-episode figures are in the README.
   nameplates, wrong colours on every 8bpp screen). Fixed; a rebuild of 1.4.4 hashed
   identically.
 - New tools, all build-time, none shipping game data: `ncer.py`, `title_art.py`,
-  `title_logo.py`, `extract_logo.py`, `title_text.py`, `title_assets.py`.
+  `title_logo.py`, `extract_logo.py`, `title_text.py`, `title_assets.py`,
+  `logic_names.py`, `logic_cards.py`.
 - The build now has five steps; the Collection is needed for the title assets as well as
   the script, and `--skip-extract` checks for them.
 
 ```
-sha256  e338df2d85ecb4c54bd467f879291bf4582e41bc4f73d49c2f5e70b9953ab9f6
+sha256  be34168feb5b441ed353261f605abbc46df47b1709aa4116ba75889f7382ef14
 ```
 
 ```bash
