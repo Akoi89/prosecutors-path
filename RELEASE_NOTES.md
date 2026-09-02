@@ -92,12 +92,16 @@ number got honest. Per-episode figures are in the README.
   `logic_names.py`, `logic_cards.py`, `voices.py`.
 - The build now has five steps; the Collection is needed for the title assets as well as
   the script, and `--skip-extract` checks for them.
+- The splash-card episode titles are now anti-aliased in the same grey steps as the fan's
+  "Episode N" line above them, and drawn at the same weight, so the two rows read as one
+  piece of lettering (edge pixels used to be thresholded, which left the second line
+  harder-edged and lighter than the first).
 - The title screen now shows the build's version ("v1.5.0") in small white digits in its
   top-right corner, so a screenshot or a bug report says which build it came from. Painted
   into the composed picture by `tools/title_version.py`; no artwork is covered.
 
 ```
-sha256  c383f155e60f17e3404ec579265c2a2687e43fb7459ffa46a1813df27bb625dd
+sha256  689c599401d3f5221fc71a778d53217649cc0af941db28514f503f8576c46263
 ```
 
 ```bash
