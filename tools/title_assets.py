@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Title-screen logo and episode titles, from the player's own Collection.
 
-Two halves, called by build.py:
+Two halves, called by build.py (title screen, episode titles, Logic keyword cards):
 
   extract(bdir, dumpdir)   pull the English logo sprite and the two fonts out of
                            the Collection bundles into dump/title/, next to the
@@ -100,6 +100,15 @@ def apply(dumpdir, rom_path, log=print):
         rom = title_logo.splice(rom, 'jpn/' + name, open(path, 'rb').read())
     for l in lines:
         log(l.strip())
+
+    # 3) Logic keyword cards: Capcom's short names rendered into the fan's card images
+    import logic_names, logic_cards
+    names, total = logic_names.keyword_names(dumpdir)
+    card_bin, repl, clog = logic_cards.build(t, names)
+    rom = title_logo.splice(rom, 'jpn/logic_keyword_local.bin', open(card_bin, 'rb').read())
+    bad = [l for l in clog if 'DOES NOT FIT' in l]
+    log('logic keyword cards: %d of %d slots named officially, %d card images rewritten%s'
+        % (len(names), total, len(repl), ('; NOT FITTING: %d' % len(bad)) if bad else ''))
 
     open(rom_path, 'wb').write(rom)
     return rom_path

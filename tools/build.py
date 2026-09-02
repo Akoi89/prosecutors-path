@@ -23,7 +23,7 @@ ISSUES = 'https://github.com/Akoi89/prosecutors-path/issues'
 # --verify checks a built ROM against it. Update ONLY when the injector changes
 # the output on purpose (v1.4.3: strings that dropped a DS-only engine command
 # keep the fan's line - the Episode 1 hang at the handoff to player control).
-REFERENCE_ROM_SHA256 = 'e338df2d85ecb4c54bd467f879291bf4582e41bc4f73d49c2f5e70b9953ab9f6'
+REFERENCE_ROM_SHA256 = 'be34168feb5b441ed353261f605abbc46df47b1709aa4116ba75889f7382ef14'
 
 # Bundle name prefixes -> where their TextAssets go. Addressables appends a content
 # hash to every bundle, so these must be matched by prefix, never by full name.
@@ -85,6 +85,30 @@ def extract_scripts(bdir, dumpdir):
         print('      %-10s %4d script files' % (sub, n), flush=True)
         total += n
     return total
+
+
+def extract_loc_keys(bdir, dumpdir):
+    """Key names of every gk2 localization table (SharedTableData): id -> key.
+    The Logic keyword names have no text on the DS, and joining the Collection's
+    name and description tables needs these keys (see tools/logic_names.py)."""
+    import UnityPy
+    out = {}
+    for pat in ('localization-assets-shared*.bundle', 'localization-string-tables-english(en)*.bundle'):
+        for b in glob.glob(os.path.join(bdir, pat)):
+            env = UnityPy.load(b)
+            for o in env.objects:
+                if o.type.name != 'MonoBehaviour':
+                    continue
+                try:
+                    tt = o.read_typetree()
+                except Exception:
+                    continue
+                ents = tt.get('m_Entries')
+                name = tt.get('m_Name', '')
+                if ents and isinstance(ents, list) and ents and 'm_Key' in ents[0] and 'gk2' in name.lower():
+                    out[name.replace(' Shared Data', '')] = {str(e['m_Id']): e['m_Key'] for e in ents}
+    json.dump(out, open(os.path.join(dumpdir, 'loc_keys.json'), 'w', encoding='utf-8'), ensure_ascii=False)
+    return len(out)
 
 
 def extract_loc(bdir, dumpdir):
@@ -396,6 +420,7 @@ def main(argv=None):
         extract_scripts(bdir, dumpdir)
         step(3, total, 'Extracting the localization string tables')
         extract_loc(bdir, dumpdir)
+        extract_loc_keys(bdir, dumpdir)
         import title_assets
         title_assets.extract(bdir, dumpdir)
     else:
@@ -403,7 +428,7 @@ def main(argv=None):
                    if not os.path.isdir(os.path.join(dumpdir, d))]
         # ...and the specific files the injector opens, so a truncated or
         # half-deleted dump fails HERE instead of minutes into the injection
-        missing += [f for f in ('loc_en.json', 'loc_ja.json',
+        missing += [f for f in ('loc_en.json', 'loc_ja.json', 'loc_keys.json',
                                 os.path.join('ds_fan', 'jpn', 'spt.bin'),
                                 os.path.join('jpn_trial', 'detailMsg.bin'),
                                 os.path.join('jpn', 'logicKW.bin'))
@@ -420,7 +445,7 @@ def main(argv=None):
     step(4, total, 'Injecting\n')
     import inject
     inject.main(a.fan_rom, a.out)
-    step(5, total, 'Title screen and episode titles')
+    step(5, total, 'Title screen, episode titles and Logic keyword cards')
     import title_assets
     out_path = a.out or os.path.join(work(), inject.DEFAULT_OUT)
     title_assets.apply(dumpdir, out_path)
