@@ -1,14 +1,16 @@
 # Prosecutor's Path
 
-**Port Capcom's official English localization of *Gyakuten Kenji 2* into the Nintendo DS ROM.**
+**Port Capcom's official English localization of *Gyakuten Kenji 2* into the Nintendo DS ROM:
+the script, the title logo, the episode titles, the Logic keyword cards and the voice clips.**
 
 *Gyakuten Kenji 2* (2011) never received an official English release on the DS. The
 community filled the gap with the excellent **AAI2 Final v2** fan translation. Thirteen
 years later, Capcom localized the game themselves for the *Ace Attorney Investigations
 Collection* (2024).
 
-This toolchain takes Capcom's script and injects it into the DS game, so you can play
-the official localization on original hardware, on a flashcart, or in an emulator.
+This toolchain takes Capcom's own script, art and voice recordings and injects them into
+the DS game, so you can play the official localization on original hardware, on a
+flashcart, or in an emulator.
 
 **94.3% of the script's text is Capcom's writing**, measured by `tools/coverage.py`, so
 you can recompute it. Earlier releases said 96.5%; that figure counted fan-written rows
