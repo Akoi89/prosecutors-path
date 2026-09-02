@@ -35,7 +35,7 @@ BOXEND = {0xE102, 0xE104, 0xE106, 0xE185, 0xE081}
 # BITMAP we have not located (it is somewhere in jpn/idlocal.bin, 676 entries).
 # Switching only the save slots puts two different names for the same episode one menu
 # apart, so leave the fan's names until the bitmap can be redrawn to match.
-RETITLE = False
+RETITLE = True
 
 # Recover entries whose string COUNTS differ because the fan patch restructured
 # them: joining long retail strings was split back, and regions re-cut into a

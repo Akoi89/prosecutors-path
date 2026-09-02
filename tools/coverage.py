@@ -68,6 +68,10 @@ def main(argv=None):
             return 'Episode %d' % (int(name[3]) + 1)
         return 'Menus & UI'
 
+    # A fan row that only had character names (or, in bank 460, episode names)
+    # swapped in is still the fan's writing: count it as FAN, not official.
+    # Otherwise the rename pass would inflate this figure for free.
+    import names as _names, episode_titles as _titles
     tab = {}
     for i, fent in fan.items():
         b = built.get(i)
@@ -77,13 +81,22 @@ def main(argv=None):
         bs = list(all_strings(b, True))
         if len(fs) != len(bs):
             continue          # never happens: the injector preserves string counts
-        for (fa, fb, fc, fu), (_, _, _, bu) in zip(fs, bs):
+        try:
+            hf = _names.harmonize_entry(fent, fent, i)[0]
+            hf = _titles.retitle(hf)[0] if i == 460 else hf
+            hs = [tuple(u) for _, _, _, u in all_strings(hf, True)]
+        except Exception:
+            hs = [tuple(u) for _, _, _, u in fs]
+        if len(hs) != len(fs):
+            hs = [tuple(u) for _, _, _, u in fs]
+        for (fa, fb, fc, fu), (_, _, _, bu), hu in zip(fs, bs, hs):
             n = charunits(fu)
             if not n:
                 continue
             k = bucket(i)
             off, tot = tab.get(k, (0, 0))
-            tab[k] = (off + (n if list(fu) != list(bu) else 0), tot + n)
+            is_fan = list(fu) == list(bu) or tuple(bu) == hu
+            tab[k] = (off + (0 if is_fan else n), tot + n)
 
     print('%-12s %9s %12s' % ('', 'official', 'char units'))
     to = tt = 0

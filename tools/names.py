@@ -93,7 +93,7 @@ def _fwc(c):
     if c == ' ': return SPACE
     return ord(c) - 0x21 + 0xFF01
 
-LETTER = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-')
+LETTER = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')   # '-' is a boundary: 'Courtney-pie' must rename
 
 def substitute(u):
     """Apply PAIRS to one unit list. Returns (new_units, n_changes) - word
@@ -139,6 +139,11 @@ def substitute(u):
 LIMITS = {432: (180, 4), 438: (180, 4), 395: (176, 3), 391: (176, 3),
           453: (306, 1), 454: (306, 1), 455: (306, 1), 456: (306, 1), 457: (306, 1)}
 DIALOG_LIMIT = 200
+# Acceptance bound for a RENAMED line (no re-wrapping involved). 200 is the wrap
+# budget for reflowing official text; the fan patch itself shipped 1,224 dialogue
+# lines wider than 216 px (max 238, p99 218), so a renamed line up to 216 is within
+# what the fan already proved the box draws.
+RENAME_LIMIT = 216
 
 # row-specific trims where a longer official name cannot fit a full box
 # (drop a filler word - same discipline as tools/condense.py)
@@ -238,8 +243,28 @@ def rebreak(u, limit, orig=None):
 
 # Official surnames, for the one line where the full official name will not fit.
 # Capcom's own script refers to most characters by surname anyway.
-SHORT_PAIRS = [(src, dst.split()[-1]) if (' ' in dst and src != dst) else (src, dst)
-               for src, dst in PAIRS]
+def _short_pairs():
+    # From every full-name pair, learn the official SURNAME for the fan full name,
+    # the fan first name and the fan surname alike ('Sirhan' -> 'Kanis', not
+    # 'Bodhidharma'), keeping PAIRS' longest-first order. Pairs with no full-name
+    # parent stay as they are.
+    surname = {}
+    for src, dst in PAIRS:
+        if src != dst and ' ' in src and ' ' in dst:
+            last = dst.split()[-1]
+            surname.setdefault(src, last)
+            for part in src.split():
+                surname.setdefault(part, last)
+    out = []
+    for src, dst in PAIRS:
+        if src == dst:
+            out.append((src, dst))
+        else:
+            out.append((src, surname.get(src, dst.split()[-1] if ' ' in dst else dst)))
+    return out
+
+
+SHORT_PAIRS = _short_pairs()
 
 
 def _substitute_with(u, pairs):
@@ -278,7 +303,7 @@ def per_line_harmonize(uu, lim):
             if not c:
                 best = seg; break
             w = row_px(nu)
-            if w <= lim or w <= orig_w:      # fits, or no wider than the fan drew it
+            if w <= max(lim, RENAME_LIMIT) or w <= orig_w:   # fits the proven box, or no wider than the fan drew it
                 best = nu; changed += 1; break
         if best is None:
             best = seg; kept += 1
