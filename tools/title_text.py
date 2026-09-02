@@ -41,7 +41,7 @@ SURFACES = {
     # tag: (file, cell entry, tile entry, pal entry, cell ids, font asset, bundle prefix, start px, style)
     'splash': dict(file='dump/ds_fan/jpn/opening_local.bin', ci=2, gi=0, pi=1, ids=[0, 1, 2, 3, 4],
                    font='FOT-MODEMINALARGEPRO-B', bundle='gk_common_title_assets_all_', px=13,
-                   align='right', outline=False, bold=False, regrid=False),
+                   align='right', outline=False, bold=True, regrid=False, tracking=0),
     'button': dict(file='dump/ds_fan/jpn/save_local.bin', ci=1, gi=2, pi=3, ids=[14, 15, 16, 17, 18],
                    font='FOT-UDKAKUGO_SMALLPR6-M', bundle='gk_common_title_assets_all_', px=15,
                    align='center', outline=False, bold=False, regrid=True),
@@ -191,21 +191,35 @@ def band_of(cov):
     return min(xs), min(ys), max(xs), max(ys)
 
 
-def render_text(text, fontfile, px, fill, outline, bold=False):
+def render_text(text, fontfile, px, fill, outline, bold=False, tracking=0):
+    """Render `text` to RGBA. `tracking` adds that many pixels between glyphs
+    (negative tightens; the fan's hand lettering sits tighter than the font's
+    default advances)."""
     f = ImageFont.truetype(fontfile, px)
     bb = f.getbbox(text)
     pad = 2
-    im = Image.new('RGBA', (bb[2] - bb[0] + 2 * pad, bb[3] - bb[1] + 2 * pad), (0, 0, 0, 0))
+    extra = tracking * max(0, len(text) - 1)
+    im = Image.new('RGBA', (bb[2] - bb[0] + 2 * pad + max(0, extra), bb[3] - bb[1] + 2 * pad), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
     ox, oy = pad - bb[0], pad - bb[1]
+
+    def draw(dx, dy, colour):
+        if tracking == 0:
+            d.text((ox + dx, oy + dy), text, font=f, fill=colour)
+            return
+        x = ox + dx
+        for ch in text:
+            d.text((x, oy + dy), ch, font=f, fill=colour)
+            x += f.getlength(ch) + tracking
+
     if outline:
         for dx in (-1, 0, 1):
             for dy in (-1, 0, 1):
                 if dx or dy:
-                    d.text((ox + dx, oy + dy), text, font=f, fill=outline)
-    d.text((ox, oy), text, font=f, fill=fill)
+                    draw(dx, dy, outline)
+    draw(0, 0, fill)
     if bold:
-        d.text((ox + 1, oy), text, font=f, fill=fill)
+        draw(1, 0, fill)
     bb = im.getchannel('A').getbbox()          # crop to the ink so placement uses real bounds
     return im.crop(bb) if bb else im
 
@@ -221,22 +235,33 @@ def nearest_index(rgb, pal, allowed):
     return best
 
 
-def paint_cell(rows, cov, text_img, place, pal, allowed):
+def paint_cell(rows, cov, text_img, place, pal, allowed, base=(0, 0, 0)):
     """Composite text_img (RGBA) at `place` into the index canvas `rows`, only where
-    covered. Returns the number of ink pixels that fell outside coverage."""
+    covered. Edge pixels are blended over `base` (the colour the cleared sprite
+    shows) by their alpha and then snapped to the nearest palette entry the fan
+    text used, so the anti-aliasing comes out in the same grey steps as the
+    fan's own lettering instead of a hard threshold. Returns the number of ink
+    pixels that fell outside coverage."""
     H, W = len(rows), len(rows[0])
     px = text_img.load()
     lost = 0
     for yy in range(text_img.height):
         for xx in range(text_img.width):
             r, g, b, a = px[xx, yy]
-            if a < 96:
+            if a < 24:
                 continue
             X, Y = place[0] + xx, place[1] + yy
             if not (0 <= X < W and 0 <= Y < H) or not cov[Y][X]:
-                lost += 1
+                if a >= 96:
+                    lost += 1
                 continue
-            rows[Y][X] = nearest_index((r, g, b), pal, allowed)
+            k = a / 255.0
+            rgb = tuple(int(round(c * k + bc * (1 - k))) for c, bc in zip((r, g, b), base))
+            idx = nearest_index(rgb, pal, allowed)
+            # a faint edge that snaps back to the base colour stays transparent
+            if pal[idx] == tuple(base) and a < 128:
+                continue
+            rows[Y][X] = idx
     return lost
 
 
@@ -370,7 +395,8 @@ def build_surface(tag, spec, bundle_dir, outdir, fontcache, log):
                       rows[y][x] = 0
           px = uniform if uniform else spec['px']
           while True:
-              img = render_text(title, fontfile, px, ink_rgb + (255,), (out_rgb + (255,)) if out_rgb else None, bold=spec.get('bold', False))
+              img = render_text(title, fontfile, px, ink_rgb + (255,), (out_rgb + (255,)) if out_rgb else None,
+                                bold=spec.get('bold', False), tracking=spec.get('tracking', 0))
               band_w, band_h = bx1 - bx0 + 1, by1 - by0 + 1
               if img.width > band_w:
                   img = img.resize((band_w, img.height), Image.LANCZOS)   # condense, as the fan did
@@ -389,7 +415,8 @@ def build_surface(tag, spec, bundle_dir, outdir, fontcache, log):
                       px -= 1
                       continue
               trial = [r[:] for r in rows]
-              lost = paint_cell(trial, cov, img, place, pal, allowed)
+              lost = paint_cell(trial, cov, img, place, pal, allowed,
+                                base=(0, 0, 0) if tag == 'splash' else pal[bg])
               if lost == 0 or px <= 11:
                   rows = trial
                   break
