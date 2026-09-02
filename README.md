@@ -534,14 +534,15 @@ The **AAI2 fan translation team** did the hard part:
 > on romhacking.net
 
 This project is built entirely on top of their work: their variable-width font engine,
-their English graphics, their menus, their ROM. Without the Final v2 patch there is
-nothing to inject *into*, and no font capable of rendering the result. They also solved
+most of their English graphics, their voice recordings for the shouts Capcom never
+localised, their menus, their ROM. Without the Final v2 patch there is nothing to inject
+*into*, and no font capable of rendering the result. They also solved
 problems this project simply inherits, like fitting English into a script laid out for
 Japanese, and reworking the engine's string offsets to buy back address space.
 
 If you have not played their translation, play it. It stood alone for over a decade and
 it is genuinely good. This project is a different thing, not a better one: it swaps in
-Capcom's wording for people who want to read the official script on hardware.
+Capcom's wording, titles and voices for people who want the official script on hardware.
 
 Their ATTENTION notice is left intact in every build, and should stay that way.
 
