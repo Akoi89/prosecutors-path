@@ -1,6 +1,6 @@
 Port Capcom's official English localization of *Gyakuten Kenji 2* into the Nintendo DS ROM.
 
-**93.7% of the script's text is Capcom's writing** (1,717,473 of 1,832,983 character
+**94.3% of the script's text is Capcom's writing** (1,727,658 of 1,832,983 character
 units, measured by `tools/coverage.py`). Earlier notes said 96.5% and, before that,
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
@@ -33,6 +33,16 @@ the fan drew that line already at the edge of the box:
 - `DS[99]` str 4: "Mr. Elbird would have seen it"
 - `DS[117]` str 28: "(The true killer is Warden Roland.)"
 
+### 108 descriptions and Logic cards, condensed to fit
+
+Official English existed for 108 evidence descriptions, profiles and Logic cards but did not
+fit the DS box, so every release until now showed the fan's text there. They now carry
+Capcom's wording, condensed: deletions first, names and facts kept, hedges kept. The
+Japanese line was the guide for what had to survive and the fan line for what fits. The
+edits are word-index operations with result hashes (no Capcom text in the repo), and all
+108 can be listed Japanese / Capcom / condensed / fan with `tools/desc_overflow.py`. Menus &
+UI coverage rises from 81.1% to 90.2%; total from 93.7% to 94.3%.
+
 ### One evidence description, one hedge
 
 The Episode 2 autopsy description used to say "Death was instant." Capcom wrote "would
@@ -46,7 +56,7 @@ that is not a decoration. It now reads "Death was likely instant," paid for by d
 ROM's. Since v1.4.0 the rename pass has been swapping Capcom's character names into
 fan-written rows, and every one of those rows was being counted as official. It now counts
 a row as official only if it differs from the fan row *after* names and titles are applied.
-By that rule v1.4.4 was **93.8%**, and 1.5.0 is **93.7%**. The ROM did not get worse; the
+By that rule v1.4.4 was **93.8%**, and 1.5.0 is **94.3%** (93.7% before the 108 condensed rows). The ROM did not get worse; the
 number got honest. Per-episode figures are in the README.
 
 ### Also
@@ -60,7 +70,7 @@ number got honest. Per-episode figures are in the README.
   the script, and `--skip-extract` checks for them.
 
 ```
-sha256  261479387d7eb08047ec93696605faf0635363e19bf245739afab7b8f98b9ef9
+sha256  789f82b67a2447035b6efb9b781e6cae3ad991d7d6619cc29516c23c9e507ae6
 ```
 
 ```bash
