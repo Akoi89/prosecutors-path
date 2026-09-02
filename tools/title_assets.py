@@ -75,16 +75,21 @@ def render_fan_title_screen(title_local_path):
     return img
 
 
-def apply(dumpdir, rom_path, log=print):
+def apply(dumpdir, rom_path, log=print, version=None):
     t = title_dir(dumpdir)
     fan_title = os.path.join(dumpdir, 'ds_fan', 'jpn', 'title_local.bin')
     rom = open(rom_path, 'rb').read()
 
-    # 1) top screen: the official logo over the fan copyright band
+    # 1) top screen: the official logo over the fan copyright band, plus the
+    #    build version in the empty top-right corner (title_version's 3x5 font)
     fan_screen = render_fan_title_screen(fan_title)
     tmp_screen = os.path.join(t, 'fan_title_1x.png'); fan_screen.save(tmp_screen)
     logo = Image.open(os.path.join(t, LOGO_PNG)).convert('RGBA')
     picture, (ox, oy, lw, lh, scale) = extract_logo.compose(logo, tmp_screen)
+    picture = picture.convert('RGB')
+    if version:
+        import title_version
+        title_version.paint_marker(picture, 'v' + version)
     pic_path = os.path.join(t, 'title_screen_official_1x.png'); picture.save(pic_path)
     new_title, st = title_logo.build(pic_path, open(fan_title, 'rb').read())
     rom = title_logo.splice(rom, 'jpn/title_local.bin', new_title)

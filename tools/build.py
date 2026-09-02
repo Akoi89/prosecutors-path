@@ -23,7 +23,7 @@ ISSUES = 'https://github.com/Akoi89/prosecutors-path/issues'
 # --verify checks a built ROM against it. Update ONLY when the injector changes
 # the output on purpose (v1.4.3: strings that dropped a DS-only engine command
 # keep the fan's line - the Episode 1 hang at the handoff to player control).
-REFERENCE_ROM_SHA256 = 'be34168feb5b441ed353261f605abbc46df47b1709aa4116ba75889f7382ef14'
+REFERENCE_ROM_SHA256 = '6ae331a65e66f7d91692dec6fd57d916d061c1cd4a2df08e5b4d141ef8d4314e'
 
 # Bundle name prefixes -> where their TextAssets go. Addressables appends a content
 # hash to every bundle, so these must be matched by prefix, never by full name.
@@ -448,7 +448,7 @@ def main(argv=None):
     step(5, total, 'Title screen, episode titles and Logic keyword cards')
     import title_assets
     out_path = a.out or os.path.join(work(), inject.DEFAULT_OUT)
-    title_assets.apply(dumpdir, out_path)
+    title_assets.apply(dumpdir, out_path, version=VERSION)
     return 0
 
 
