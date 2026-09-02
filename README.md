@@ -472,7 +472,12 @@ same thing:
   97 of the 133 slots have an official name; the rest (30 unused dummies, 6 real keywords
   with no Collection counterpart) keep the fan lettering.
 
-No artwork or font ships with the tool; like the script, all of it comes out of the
+- **Voices**: thirteen of the shouts ("Objection!" and friends) are Capcom's 2024 English
+  recordings, pulled from the Collection's sound bundle by `tools/voices.py`, resampled to
+  each slot's retail format and rebuilt into `com/kenji2_sound.sdat`. The seven shout
+  samples the Collection does not localise stay as the fan team recorded them.
+
+No artwork, font or audio ships with the tool; like the script, all of it comes out of the
 player's own install. `tools/ncer.py` is the cell-bank reader that made the sprite work
 possible, and `tools/title_art.py` exports the pieces for inspection.
 
@@ -512,6 +517,7 @@ python audits/audit_fixtures.py         # prove the audits can actually fail
 | `loc_patch.py` | Evidence, profiles and Logic cards from the Unity Localization tables |
 | `logic_names.py` | Maps each DS Logic keyword slot to Capcom's official short name |
 | `logic_cards.py` | Renders those names into the Logic card and banner images |
+| `voices.py` | Capcom's English shouts from the Collection into the DS sound archive |
 | `names.py` | The fan→official character-name map, applied only to strings that kept fan text |
 | `plates.py` | Redraws the nameplate and title-card graphics in the fan's own pixel font |
 | `build_map.py` / `map_ids.py` | Fuzzy n-gram matching of DS entries to Collection files |
