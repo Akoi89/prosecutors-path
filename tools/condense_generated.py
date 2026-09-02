@@ -58,8 +58,8 @@ CONDENSE_GENERATED = {
         'want': '3f9c33101a9d87f7',
     },
     'c9637726e19bce57': {  # bank 395 str 114
-        'ops': [['del', 1, 2], ['sub', 6, 9, ['Usually']], ['del', 10, 11], ['sub', 13, 20, ['trailer', 'roof,', 'as']], ['sub', 22, 28, ['yesterday.']]],
-        'want': '81cbd911cfee56bf',
+        'ops': [['sub', 1, 4, ['by']], ['sub', 6, 11, ['Should', 'have', 'been']], ['ins', 13, ['trailer']], ['sub', 14, 26, ['yesterday,']], ['sub', 27, 28, ['usual.']]],
+        'want': '96daef0f0f154086',
     },
     'de3f509d3c09e811': {  # bank 395 str 123
         'ops': [['sub', 0, 2, ['The']], ['sub', 7, 13, ['put']], ['del', 15, 16]],
@@ -178,8 +178,8 @@ CONDENSE_GENERATED = {
         'want': 'fda59813ac395080',
     },
     '198dfcc41f096620': {  # bank 432 str 180
-        'ops': [['del', 7, 8], ['sub', 9, 10, ['flower']], ['del', 11, 12], ['sub', 13, 16, ['A']], ['sub', 17, 18, ['showed', 'under']], ['sub', 19, 27, ['mask.']]],
-        'want': '4c1526ce73322cc4',
+        'ops': [['sub', 0, 3, ['Ringleader:']], ['del', 7, 8], ['sub', 9, 10, ['flower']], ['del', 11, 12], ['sub', 13, 16, ['A', 'facial']], ['sub', 17, 18, ['showed', 'past']], ['sub', 19, 27, ['mask.']]],
+        'want': 'eb61d0c5c7002178',
     },
     'a53e19a2f97b364b': {  # bank 432 str 184
         'ops': [['sub', 0, 6, ['Its', 'recorder']]],
@@ -238,8 +238,8 @@ CONDENSE_GENERATED = {
         'want': 'a57605a00305022a',
     },
     '16b74b029cd18069': {  # bank 432 str 260
-        'ops': [['sub', 4, 12, ['security.', 'A']], ['sub', 13, 18, ['with']]],
-        'want': '8ffa017655c45ffc',
+        'ops': [['sub', 0, 4, ["President's"]], ['sub', 5, 6, ['second-in-command.']], ['del', 9, 11], ['sub', 12, 19, ['firearms', 'specialist.']]],
+        'want': '7dab8c0bf921b6bc',
     },
     'd788c1e0926c870a': {  # bank 432 str 261
         'ops': [['sub', 4, 14, ['security.', "Can't"]], ['del', 17, 19]],
@@ -262,8 +262,8 @@ CONDENSE_GENERATED = {
         'want': 'e6d7dd16883c1907',
     },
     '2299ecc38fafa883': {  # bank 432 str 268
-        'ops': [['sub', 3, 5, ["I've", 'long']], ['del', 6, 10], ['sub', 11, 12, ['not']], ['sub', 15, 17, ['He']]],
-        'want': 'aa002f4eca8435ce',
+        'ops': [['sub', 3, 8, ["I've"]], ['sub', 9, 12, ['known,', 'not']], ['sub', 15, 17, ['Apparently']], ['sub', 18, 22, ['abroad.']]],
+        'want': '70a9c5efc737732f',
     },
     'eb4e98140aa98485': {  # bank 432 str 269
         'ops': [['sub', 6, 10, ['once']], ['sub', 11, 14, ["father's", 'aide.']]],
@@ -278,8 +278,8 @@ CONDENSE_GENERATED = {
         'want': '4e1f3a6bb3598794',
     },
     '6ef1013881196b1b': {  # bank 432 str 272
-        'ops': [['sub', 0, 3, ['District']], ['sub', 5, 6, ['mouthpiece']], ['sub', 11, 18, ['Excellence.']]],
-        'want': '91f0ca099203e2ad',
+        'ops': [['sub', 0, 3, ['District']], ['del', 5, 8], ['sub', 9, 14, ['member;']]],
+        'want': '96342e614fd311d1',
     },
     '26fa55168ca9b21b': {  # bank 432 str 276
         'ops': [['sub', 0, 2, ['An']], ['sub', 7, 8, ['found']], ['sub', 9, 15, ['body', 'first,']], ['sub', 19, 22, ['doubts...']]],
@@ -378,8 +378,8 @@ CONDENSE_GENERATED = {
         'want': '0db45510eac1f78f',
     },
     'bdc940dcda78d0bd': {  # bank 432 str 314
-        'ops': [['sub', 0, 2, ['Props']], ['sub', 5, 11, ['Studios', 'who', 'found']]],
-        'want': '8d2f6ef65297b228',
+        'ops': [['sub', 0, 2, ['Props']], ['sub', 5, 8, ['Studios;']], ['sub', 10, 11, ['find']], ['sub', 13, 16, ['Named']]],
+        'want': 'd21b6cd6dba98ba8',
     },
     '3b6ac43aecbf4d9e': {  # bank 432 str 315
         'ops': [['sub', 0, 2, ['Child']], ['sub', 6, 9, ['movie.']], ['sub', 12, 13, ['age,']]],
@@ -426,8 +426,8 @@ CONDENSE_GENERATED = {
         'want': '0043c5dfec38ff21',
     },
     'b8fb135c8245f6f5': {  # bank 432 str 331
-        'ops': [['sub', 1, 5, ['victim.']], ['sub', 9, 10, ['killed']], ['sub', 13, 19, ['Wang']]],
-        'want': 'bfcb138f34c51466',
+        'ops': [['sub', 1, 5, ['victim.']], ['del', 6, 7], ['sub', 9, 10, ['killed', 'and', 'replaced']], ['sub', 12, 19, ['Wang']]],
+        'want': '89d83f23e5ab2a12',
     },
     '19a4e1c45e58b922': {  # bank 432 str 334
         'ops': [['sub', 0, 5, ['Journalist']], ['del', 9, 10]],

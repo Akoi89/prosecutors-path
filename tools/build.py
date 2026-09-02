@@ -23,7 +23,7 @@ ISSUES = 'https://github.com/Akoi89/prosecutors-path/issues'
 # --verify checks a built ROM against it. Update ONLY when the injector changes
 # the output on purpose (v1.4.3: strings that dropped a DS-only engine command
 # keep the fan's line - the Episode 1 hang at the handoff to player control).
-REFERENCE_ROM_SHA256 = '789f82b67a2447035b6efb9b781e6cae3ad991d7d6619cc29516c23c9e507ae6'
+REFERENCE_ROM_SHA256 = 'e338df2d85ecb4c54bd467f879291bf4582e41bc4f73d49c2f5e70b9953ab9f6'
 
 # Bundle name prefixes -> where their TextAssets go. Addressables appends a content
 # hash to every bundle, so these must be matched by prefix, never by full name.

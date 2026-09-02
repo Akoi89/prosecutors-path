@@ -70,7 +70,7 @@ number got honest. Per-episode figures are in the README.
   the script, and `--skip-extract` checks for them.
 
 ```
-sha256  789f82b67a2447035b6efb9b781e6cae3ad991d7d6619cc29516c23c9e507ae6
+sha256  e338df2d85ecb4c54bd467f879291bf4582e41bc4f73d49c2f5e70b9953ab9f6
 ```
 
 ```bash
