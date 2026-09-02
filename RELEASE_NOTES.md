@@ -423,19 +423,24 @@ was built against, verified mechanically at build time.
 
 ## Testing status — read this if you play deep into the game
 
-This release was verified structurally (every recovered string byte-audited against
-the fan layout), independently reviewed, and exercised with roughly fifteen thousand
-scripted inputs across Episode 1 and 2 chapters in melonDS with zero defects. But
-the newly recovered scenes in **Episodes 2, 4 and 5 have never been played
-end-to-end by a human** — true of every release of this project so far, now true of
-less text than ever.
+Every release is verified structurally (every string audited against the fan layout,
+seven audits covering the defect classes that have shipped before) and exercised in
+melonDS by a scripted rig. What that rig has actually executed, measured: all 25 chapter
+saves boot, load and advance; about 5,100 of the game's 41,706 message boxes have been
+displayed, weighted toward chapter openings and finales; and on the 1.5.0 candidate an
+Episode 1 run from a cold-boot New Game, following a walkthrough, has covered the opening,
+the first investigation, the first Logic connections, the first Mind Chess to checkmate
+and the second investigation area with zero defects. **Nobody has finished an episode
+yet**, on any release. Both hangs this project ever shipped were found by playing, not by
+audits, and both were in interactive scenes rather than dialogue, so that is where a
+report helps most.
 
-The scenes to watch, if you want to help: the *"How Knight Wound Up in the Prison
-Proper"* argument and the *Kanis testimony* (Ep 2, End Part 1), the circus-performer
-conversation (Ep 2), and a handful of Ep 1/4 scene transitions. If the game ever
-hangs mid-scene: **your save is not damaged** — text is read-only data. Restart the
-chapter, and please open an issue saying where it happened. v1.1.0 remains
-downloadable if you prefer the more conservative build.
+On hardware, 1.4.4 booted and reached gameplay from a DSPico flashcart on a 3DS; nothing
+deeper has been tried on real hardware, and no original DS has been tried at all.
+
+If the game ever hangs mid-scene: **your save is not damaged**, text is read-only data.
+Restart the chapter and open an issue saying where it happened. Issue #1 is the thread
+for playtest reports.
 
 ## Downloads
 
