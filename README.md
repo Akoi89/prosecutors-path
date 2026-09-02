@@ -12,7 +12,7 @@ This toolchain takes Capcom's own script, art and voice recordings and injects t
 the DS game, so you can play the official localization on original hardware, on a
 flashcart, or in an emulator.
 
-**94.3% of the script's text is Capcom's writing**, measured by `tools/coverage.py`, so
+**93.9% of the script's text is Capcom's writing**, measured by `tools/coverage.py`, so
 you can recompute it. Earlier releases said 96.5%; that figure counted fan-written rows
 as official once Capcom's character names had been swapped into them, which is not the
 same thing. The remainder stays in the fan translation, for reasons documented in
@@ -188,6 +188,7 @@ sparse official banks swapped row-by-row: 2 (853 rows kept fan)
 records kept as fan - still Japanese:       347
 records kept as fan - fan relaid it vs JP:    38
 records kept as fan - would lose a message box: 3
+records kept as fan - official-only control code: 21
 kept fan text - string count mismatch:  3
 kept fan text - control-code shape off:  8
 nameplates redrawn with official names:      147
@@ -208,12 +209,12 @@ hit the thing they now prevent.
 | Episode | Official | character units |
 |---|---|---|
 | 1. *Turnabout Trigger* | 86.4% | 155,050 / 179,474 |
-| 2. *The Captive Turnabout* | 91.3% | 336,646 / 368,696 |
+| 2. *The Captive Turnabout* | 91.0% | 335,523 / 368,696 |
 | 3. *Turnabout Legacy* | 97.6% | 368,827 / 377,751 |
 | 4. *A Turnabout Forsaken* | 95.9% | 285,437 / 297,663 |
-| 5. *Turnabout for the Ages* | 96.6% | 481,053 / 497,811 |
-| Menus & UI | 90.2% | 100,645 / 111,588 |
-| **Total** | **94.3%** | 1,727,658 / 1,832,983 |
+| 5. *Turnabout for the Ages* | 96.1% | 478,208 / 497,811 |
+| Menus & UI | 88.7% | 98,987 / 111,588 |
+| **Total** | **93.9%** | 1,722,032 / 1,832,983 |
 
 **These are lower than the 96.5% every release since v1.4.0 quoted, and the ROM did not
 get worse; the counting got honest.** `tools/coverage.py` used to call a string official
@@ -365,6 +366,16 @@ game hangs anyway. Each guard below exists because it happened:
   row, the replacement has no message box at all, and a box that opens with nothing in
   it never closes. Such a row keeps the fan's, *in any language*: untranslated text is a
   blemish, a lost box is a lock.
+- **Official-only control codes** (v1.5.2): the Collection's script carries two codes the
+  DS engine has never seen, `E2A0` (its form of the DS `E10D`, the opener of the
+  `E10D`/`E10E` scripted-wait pair) and `E2B0` (an inline button icon). The engine skips a
+  code it does not know and then reads the code's arguments as text; a `0` argument ends
+  the string, `E10E` is left orphaned, and the scene stops with the music playing and no
+  input accepted. Every release through 1.5.1 hung there, 15 sites in 12 strings, the first
+  one in Episode 1 right after the bodyguard's introduction. `dstext.OFFICIAL_TO_DS`
+  translates `E2A0`; the injector keeps the fan's string whenever a converted string still
+  carries any code absent from the fan script (`records kept as fan - official-only
+  control code`), which is what handles the five `E2B0` tutorial lines.
 - **DS-only engine commands** (v1.4.3): the guard that matters most, and the one that
   took three tries to get right. See below.
 - **Option-widget width**: the confrontation and Logic Chess widgets have no measured

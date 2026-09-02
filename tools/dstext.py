@@ -77,6 +77,15 @@ DQ_CLOSE = 0x201D
 from paths import data as _data
 ARGS = {int(k, 16): v for k, v in json.load(open(_data('ctrl_args.json'))).items()}
 DEFAULT_ARGS = 0
+# Control codes that exist only in the Collection's script and have a direct DS
+# equivalent. The DS engine skips a code it does not know and then reads the
+# code's argument units as text; an argument of 0 ends the string early, and the
+# closing {E10E} of the pair is left orphaned - the scene stops and the game hangs
+# (Ep1 Audience Area, right after Knight's introduction: {E2A0 2,1,0} where the
+# fan ROM has {E10D 2,1,0}; 15 such sites in every release through v1.5.0).
+# Codes with no DS equivalent (E2B0 = inline button icon) are left in place here
+# and the injector keeps the fan's string for that message instead.
+OFFICIAL_TO_DS = {0xE2A0: 0xE10D}
 
 def _w(ch):
     o = ord(ch)
@@ -277,7 +286,7 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
     while i < n:
         v = units[i]
         if CTRL(v):
-            tok = [v]; i += 1
+            tok = [OFFICIAL_TO_DS.get(v, v)]; i += 1
             for _ in range(ARGS.get(v, DEFAULT_ARGS)):
                 if i < n and not CTRL(units[i]):
                     tok.append(units[i]); i += 1
