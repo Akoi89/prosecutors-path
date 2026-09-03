@@ -184,3 +184,17 @@ them with a `SHA256SUMS` file. Nothing is uploaded from a local machine, and the
 is created with `--target $GITHUB_SHA` so the tag and the assets cannot drift apart — an
 earlier release had a tag three commits behind its own binary, which is impossible to
 audit.
+
+The `.xdelta` is the one asset CI does not produce, because it needs the fan ROM and the
+built output, and neither of those may live on a runner. Encode it locally with the flags
+in [The xdelta patch](#the-xdelta-patch), decode-verify it against `REFERENCE_ROM_SHA256`,
+and attach it by hand once CI has finished:
+
+```bash
+gh release upload vX.Y.Z "xdelta/Prosecutors-Path-X.Y.Z-fan-base.xdelta"
+```
+
+It is deliberately absent from `SHA256SUMS`, which CI writes from `dist/` before the
+upload happens; GitHub's own digest on the asset row is what a downloader checks. The
+patch is also outside the "no game data" claim in NOTICE, for the reason set out under
+[The patch file](README.md#the-patch-file) - encode it knowing that, or skip it.
