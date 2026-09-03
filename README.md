@@ -21,9 +21,11 @@ same thing. The remainder stays in the fan translation, for reasons documented i
 > ### Playtesters wanted
 >
 > Nobody has finished an episode, and solving a rebuttal has never been tested by
-> anyone. About 5,100 of the game's ~41,700 message boxes have been executed, all by
-> a script that can only press A and tap. Every bug this project has had was found
-> by a person playing, and none by an offline check.
+> anyone. Of the game's ~41,700 message boxes, about 5,100 have been executed by a
+> script that can only press A and tap, and several hundred more by hand: Episode 1
+> chapter 1 end to end, Episode 2 chapters 1 and 2, and part of chapter 3. Every bug
+> this project has had was found by a person playing, and none by an offline check,
+> including the two most recent.
 >
 > **[Report anything that stops in issue #1](../../issues/1)**, which episode and
 > chapter is enough. Your save is never at risk; the text is read-only data, so a
