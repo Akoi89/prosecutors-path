@@ -1,0 +1,363 @@
+{
+ "note": "Evidence/profile description card font, measured in game 2026-09-02 from 55 rendered lines on 687x1064 captures (2.5625 px/DS px). ink = sum(advances) + intercept; the card clips ink beyond 140 DS px, so line_px = field - margin - intercept in advance units.",
+ "field_px": 140.0,
+ "margin_px": 3.0,
+ "intercept": -3.5,
+ "line_px": 140.5,
+ "advances": {
+  " ": 1.92,
+  "'": 2.38,
+  ",": 2.71,
+  "-": 4.55,
+  ".": 2.59,
+  "7": 6.28,
+  ":": 3.19,
+  ";": 2.89,
+  "?": 6.59,
+  "A": 8.0,
+  "B": 7.61,
+  "C": 7.11,
+  "D": 7.92,
+  "E": 7.54,
+  "F": 7.54,
+  "G": 7.94,
+  "H": 6.85,
+  "I": 3.19,
+  "K": 7.35,
+  "L": 7.54,
+  "M": 9.5,
+  "P": 7.54,
+  "S": 7.72,
+  "T": 8.0,
+  "Y": 7.54,
+  "Z": 7.54,
+  "a": 6.02,
+  "b": 6.07,
+  "c": 6.04,
+  "d": 6.16,
+  "e": 6.21,
+  "f": 3.83,
+  "g": 6.02,
+  "h": 5.99,
+  "i": 2.14,
+  "j": 3.42,
+  "k": 5.7,
+  "l": 2.21,
+  "m": 9.09,
+  "n": 5.96,
+  "o": 6.0,
+  "p": 6.19,
+  "r": 3.78,
+  "s": 5.98,
+  "t": 4.01,
+  "u": 6.1,
+  "v": 5.72,
+  "w": 8.13,
+  "y": 5.91,
+  "z": 6.05
+ },
+ "fallback": {
+  "space": 2.5,
+  "narrow": 4.0,
+  "wide": 11.0,
+  "upper": 10.0,
+  "lower": 6.8,
+  "digit": 6.5,
+  "other": 4.5,
+  "cjk": 12.0
+ },
+ "narrow": "!',-.1:;Ifijlrt",
+ "wide": "MWmw",
+ "samples": [
+  [
+   "Senior partner at Edgeworth",
+   133.07,
+   false
+  ],
+  [
+   "and Co. My father's old aide;",
+   130.34,
+   false
+  ],
+  [
+   "worked the IS-7 case.",
+   103.41,
+   false
+  ],
+  [
+   "Confectioner found collapsed",
+   138.93,
+   false
+  ],
+  [
+   "outside the Autumn Wing after",
+   140.1,
+   true
+  ],
+  [
+   "inhaling poison gas.",
+   89.76,
+   false
+  ],
+  [
+   "Pseudonym of Larry Butz, my",
+   138.93,
+   false
+  ],
+  [
+   "childhood friend. Fancies",
+   115.51,
+   false
+  ],
+  [
+   "himself an artist.",
+   76.88,
+   false
+  ],
+  [
+   "Tangaroa's former assistant;",
+   138.15,
+   false
+  ],
+  [
+   "now owns Zodiac Hall. Loves",
+   133.07,
+   false
+  ],
+  [
+   "to sing and dance.",
+   83.9,
+   false
+  ],
+  [
+   "A British pharmacist of",
+   107.71,
+   false
+  ],
+  [
+   "indeterminate age who can't",
+   132.29,
+   false
+  ],
+  [
+   "resist sweet foods.",
+   89.76,
+   false
+  ],
+  [
+   "Homicide detective from the",
+   132.29,
+   false
+  ],
+  [
+   "local precinct, always first",
+   121.37,
+   false
+  ],
+  [
+   "on the scene of any murder.",
+   130.34,
+   false
+  ],
+  [
+   "Self-styled Great Thief and",
+   130.34,
+   false
+  ],
+  [
+   "second Yatagarasu, out to",
+   125.27,
+   false
+  ],
+  [
+   "steal the truth itself.",
+   93.66,
+   false
+  ],
+  [
+   "District judge and Committee",
+   138.15,
+   false
+  ],
+  [
+   "member; acts as its",
+   91.71,
+   false
+  ],
+  [
+   "mouthpiece.",
+   57.37,
+   false
+  ],
+  [
+   "The Yatagarasu pin that Kay",
+   135.02,
+   false
+  ],
+  [
+   "always wears.",
+   65.95,
+   false
+  ],
+  [
+   "A mask modeled on the",
+   108.49,
+   false
+  ],
+  [
+   "Jammin' Ninja's face. Made of",
+   140.1,
+   true
+  ],
+  [
+   "cheap plastic.",
+   64.0,
+   false
+  ],
+  [
+   "Greatest prosecutor ever, by",
+   136.98,
+   false
+  ],
+  [
+   "his own account. His grasp of",
+   136.2,
+   false
+  ],
+  [
+   "logic is tenuous.",
+   74.15,
+   false
+  ],
+  [
+   "Discovered on top of Knight's",
+   138.93,
+   false
+  ],
+  [
+   "body. Does this mean the",
+   140.1,
+   true
+  ],
+  [
+   "victim was tied up?",
+   89.76,
+   false
+  ],
+  [
+   "A letter Kay was carrying. It",
+   129.17,
+   false
+  ],
+  [
+   "is addressed to her.",
+   91.71,
+   false
+  ],
+  [
+   "Touch Check for details.",
+   114.34,
+   false
+  ],
+  [
+   "A magenta fabric flower,",
+   114.34,
+   false
+  ],
+  [
+   "usually worn on the chest as",
+   133.07,
+   false
+  ],
+  [
+   "a decoration. Torn from the",
+   128.39,
+   false
+  ],
+  [
+   "victim's clothes.",
+   74.93,
+   false
+  ],
+  [
+   "Kay remembers a person",
+   117.46,
+   false
+  ],
+  [
+   "coming from beyond the",
+   113.56,
+   false
+  ],
+  [
+   "concession stand and",
+   103.41,
+   false
+  ],
+  [
+   "pushing her off the building.",
+   127.22,
+   false
+  ],
+  [
+   "A three-armed candle holder",
+   136.2,
+   false
+  ],
+  [
+   "that may be the murder",
+   109.66,
+   false
+  ],
+  [
+   "weapon, judging by the",
+   107.71,
+   false
+  ],
+  [
+   "wounds to the victim's chest.",
+   136.2,
+   false
+  ],
+  [
+   "Initial findings of Dr. Hilda",
+   115.51,
+   false
+  ],
+  [
+   "Hertz. Cause of death: Stab",
+   129.17,
+   false
+  ],
+  [
+   "wounds to chest. Head injury",
+   136.2,
+   false
+  ],
+  [
+   "sustained post mortem.",
+   111.61,
+   false
+  ],
+  [
+   "A letter that appears to have",
+   135.02,
+   false
+  ],
+  [
+   "been written to the victim by",
+   132.29,
+   false
+  ],
+  [
+   "Kay.",
+   18.73,
+   false
+  ],
+  [
+   "Touch Check for details.",
+   114.34,
+   false
+  ]
+ ]
+}

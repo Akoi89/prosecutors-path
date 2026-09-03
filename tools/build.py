@@ -17,13 +17,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import locate
 from paths import work, data, FROZEN
 
-VERSION = '1.5.2'
+VERSION = '1.5.3'
 ISSUES = 'https://github.com/Akoi89/prosecutors-path/issues'
 # sha256 of the ROM this version's tools produce from the AAI2 Final v2 base.
 # --verify checks a built ROM against it. Update ONLY when the injector changes
 # the output on purpose (v1.4.3: strings that dropped a DS-only engine command
 # keep the fan's line - the Episode 1 hang at the handoff to player control).
-REFERENCE_ROM_SHA256 = 'd9d27354ecbd734cc4d01683d57f51a0a447e6c0ed826318baa76b776a899047'
+REFERENCE_ROM_SHA256 = '00f2ccfeb408fdb53de2cb3282c7f2686dc32e188804632601ebbe2ef9687a4a'
 
 # Bundle name prefixes -> where their TextAssets go. Addressables appends a content
 # hash to every bundle, so these must be matched by prefix, never by full name.

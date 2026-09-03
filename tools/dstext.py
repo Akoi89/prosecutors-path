@@ -97,6 +97,15 @@ def _w(ch):
     if ch in WIDE: return 9
     return 7
 
+# The width model above is the DIALOGUE box's. Other widgets draw other fonts: the
+# evidence/profile description card uses a smaller face whose advances were measured
+# in game on 2026-09-02 (see loc_patch.DESC_FONT). Callers that wrap for such a widget
+# set WIDTH_FN for the duration of their convert() call; everything below measures
+# through W() so the swap is complete.
+WIDTH_FN = _w
+def W(ch):
+    return WIDTH_FN(ch)
+
 def _fw(ch):
     o = ord(ch)
     if o == 0x20: return chr(SPACE)
@@ -115,8 +124,8 @@ def _layout(tokens):
     placed = []
     for kind, val in tokens:
         if kind == 'w':
-            ww = sum(_w(chr(u)) for u in val)
-            gap = _w(chr(SPACE)) if pending else 0
+            ww = sum(W(chr(u)) for u in val)
+            gap = W(chr(SPACE)) if pending else 0
             if cells and cells + gap + ww > LINE_PX:
                 line += 1; cells = ww; pending = False
                 placed.append((kind, val, line, False))
@@ -198,7 +207,7 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
         idx, cum, total = [], [], 0
         for k, (kind, val) in enumerate(tokens):
             if kind == 'w':
-                total += sum(_w(chr(u)) for u in val) + _w(chr(SPACE))
+                total += sum(W(chr(u)) for u in val) + W(chr(SPACE))
                 idx.append(k); cum.append(total)
         if len(idx) < nb: return [tokens]
         cuts = []

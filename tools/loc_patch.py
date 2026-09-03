@@ -84,10 +84,50 @@ def _to_units(s):
 # which clipped every description at the right edge.
 #   detailMsg (excl. header): p95 179, p99 184, max 197
 #   logicKW:                  p95 175, p99 181, max 185
+# The evidence/profile description card draws a SMALLER font than the dialogue box, and
+# dstext._w (the dialogue model) does not describe it: a budget of 180 dialogue-units let
+# lines run past the card's edge and the game clipped their last glyph in v1.4.x-1.5.2
+# ('outside the Autumn Wing after' lost its "r", "Jammin' Ninja's face. Made of" its "f").
+# The card was therefore measured in game (2026-09-02): the text field is 140 DS px wide
+# (window x 259..617 in a 687x1064 capture, 2.5625 px per DS px) and every line whose
+# ink reached that column was cut, so the field is the hard limit. Per-glyph advances of
+# the card's font were fitted from rendered lines and live in tools/desc_font.json; the
+# fitter wraps with those advances and a margin below the field width. Glyphs never seen
+# in the samples get a deliberately generous advance so an unmeasured letter can only
+# wrap early, never clip. logicKW keeps the old dialogue-unit budget: it was measured the
+# same flawed way but no clipped Logic card has been observed.
 BOXES = {
-    'detailMsg': (180, 4),   # evidence / profile descriptions
+    'detailMsg': (None, 4),  # width comes from DESC_FONT below (real DS px)
     'logicKW':   (176, 3),   # Logic cards
 }
+_DESC_FONT = None
+def desc_font():
+    """(width_fn, line_px) for the description card, loaded from tools/desc_font.json."""
+    global _DESC_FONT
+    if _DESC_FONT is None:
+        import json as _json, os as _os
+        d = _json.load(open(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'desc_font.json'), encoding='utf-8'))
+        adv = {k: float(v) for k, v in d['advances'].items()}
+        fb = d['fallback']           # {'space','narrow','wide','upper','lower','digit','other'}
+        narrow, wide = set(d['narrow']), set(d['wide'])
+        def w(ch):
+            o = ord(ch)
+            if o == 0xFF3F: ch = ' '
+            elif 0xFF01 <= o <= 0xFF5E: ch = chr(o - 0xFF01 + 0x21)
+            elif o == 0x201D or o == 0x2019: ch = "'"
+            elif o == 0x2025: ch = '.'
+            if ch in adv: return adv[ch]
+            if ch == ' ': return fb['space']
+            if ch in narrow: return fb['narrow']
+            if ch in wide: return fb['wide']
+            if ch.isupper(): return fb['upper']
+            if ch.isdigit(): return fb['digit']
+            if ch.islower(): return fb['lower']
+            if ord(ch) >= 0x2E80: return fb['cjk']
+            return fb['other']
+        _DESC_FONT = (w, float(d['line_px']))
+    return _DESC_FONT
+
 DESC_PX = 224
 DESC_LINES = 4
 
@@ -133,6 +173,9 @@ def patch_entry(ds_entry, jp_src, lookup, box='detailMsg'):
         age = _fan_age_line(u[len(head):])
         px, maxln = BOXES.get(box, (DESC_PX, DESC_LINES))
         old = dstext.LINE_PX
+        old_fn = dstext.WIDTH_FN
+        if px is None:                       # measured widget font (description card)
+            dstext.WIDTH_FN, px = desc_font()
         dstext.LINE_PX = px
         try:
             # These tables are wrapped for the Collection's own card (~35 chars),
@@ -144,6 +187,7 @@ def patch_entry(ds_entry, jp_src, lookup, box='detailMsg'):
                 conv = conv + [0x0A] + sc
         finally:
             dstext.LINE_PX = old
+            dstext.WIDTH_FN = old_fn
         if age: conv = age + [0x0A] + conv
         if 1 + sum(1 for v in conv if v == 0x0A) > maxln:
             # Official wording overruns the box; the fan's fits. Keep the fan's.
