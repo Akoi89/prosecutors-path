@@ -109,7 +109,8 @@ for k, rows in en.items():
             known.add(t.strip())
 missing = []
 for i, (fan, off) in sorted(P.TITLES.items()):
-    base = P.Titles.TRIMS.get(off, off)
+    # trims (P.Titles.candidates) are built from the official title's own words,
+    # so the full official title is what must exist in the Collection tables
     if off not in known:
         missing.append((i, off))
 print('official names checked: %d' % len(P.TITLES))

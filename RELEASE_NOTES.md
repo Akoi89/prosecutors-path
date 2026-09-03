@@ -6,6 +6,26 @@ lines went back to the fan text in 1.5.2 and twelve description rows in 1.6.0, s
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
 
+## v1.6.3: long evidence titles are no longer squashed
+
+The evidence and profile card titles are drawn strips 128 px wide, and 18 of the 119
+official titles do not fit that at normal letter spacing. Through 1.6.2 the renderer
+squashed those to zero letter gap before it would consider a shorter title, so cards
+like *Creature Feature Flyer*, *Mr. Aldown's Final Call* and *Behind-the-Scenes Photo*
+were drawn with their letters touching and were hard to read.
+
+Now every candidate title is tried at normal spacing before any candidate is squashed,
+and 17 of the 18 have a shorter form built only from words in Capcom's own title, with
+the Japanese name used to decide which words carry the meaning: *Creature Flyer*,
+*Gemini Results*, *Statutes Book*, *Guard Uniform*, *Poison Ingredients*, *Building
+Pamphlet*, *Behind-the-Scenes*, *Rehearsal Tape*, *SS-5 Case File*, *Blood Stain*, and
+the honorific dropped from *Tangaroa's Teapot*, *Scone's Statement*, *Niedler's
+Statement*, *Wang's Autopsy*, *Aldown's Autopsy*, *Aldown's Photograph* and *Aldown's
+Final Call* (the Japanese names carry no honorific either). *Ringleader's Appearance*
+has no shorter form that keeps its meaning and still squashes. The 101 titles that
+already fit are byte-identical. Nothing else in the ROM changed; all audits identical;
+coverage unchanged at 93.8%.
+
 ## v1.6.2: closing quotation marks no longer draw as an apostrophe
 
 Every closing double quote in the ported text came out as an apostrophe:
