@@ -19,14 +19,18 @@ from spt import all_strings
 
 
 def wrap_lines(eng, suffix, age_text, px):
-    old = dstext.LINE_PX; dstext.LINE_PX = px
+    old = dstext.LINE_PX; old_fn = dstext.WIDTH_FN
+    if px is None:                      # description card: measured font, see loc_patch.desc_font
+        from loc_patch import desc_font
+        dstext.WIDTH_FN, px = desc_font()
+    dstext.LINE_PX = px
     try:
         conv, _ = dstext.convert(_to_units(eng), page=False, hard_nl=False)
         if suffix:
             sc, _ = dstext.convert(_to_units(suffix), page=False, hard_nl=False)
             conv = conv + [0x0A] + sc
     finally:
-        dstext.LINE_PX = old
+        dstext.LINE_PX = old; dstext.WIDTH_FN = old_fn
     n_age = 1 if age_text else 0
     lines, cur = [], []
     for v in conv:

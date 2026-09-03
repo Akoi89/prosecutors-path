@@ -34,14 +34,18 @@ def plain(u):
 
 
 def wrapped(eng, suffix, age, px):
-    old = dstext.LINE_PX; dstext.LINE_PX = px
+    old = dstext.LINE_PX; old_fn = dstext.WIDTH_FN
+    if px is None:                      # description card: measured font, see loc_patch.desc_font
+        from loc_patch import desc_font
+        dstext.WIDTH_FN, px = desc_font()
+    dstext.LINE_PX = px
     try:
         conv, _ = dstext.convert(_to_units(eng), page=False, hard_nl=False)
         if suffix:
             sc, _ = dstext.convert(_to_units(suffix), page=False, hard_nl=False)
             conv = conv + [0x0A] + sc
     finally:
-        dstext.LINE_PX = old
+        dstext.LINE_PX = old; dstext.WIDTH_FN = old_fn
     if age:
         conv = age + [0x0A] + conv
     lines, cur = [], []
@@ -99,8 +103,8 @@ def main(out_txt, out_json=None):
         by = Counter((r['bank'], r['needed']) for r in rows)
         f.write('count by bank and lines needed: %s\n\n' % dict(by))
         for r in rows:
-            f.write('[bank %d str %d]  %s box: %d lines at %dpx; official needs %d%s%s\n' % (
-                r['bank'], r['str'], r['box'], r['allowed'], r['px'], r['needed'],
+            f.write('[bank %d str %d]  %s box: %d lines at %spx; official needs %d%s%s\n' % (
+                r['bank'], r['str'], r['box'], r['allowed'], (r['px'] if r['px'] is not None else 'measured-font'), r['needed'],
                 '  (+Age line)' if r['age'] else '', '  (+suffix line)' if r['suffix'] else ''))
             f.write('  JAPANESE : %s\n' % r['ja'])
             f.write('  CAPCOM   : %s\n' % r['official'])
