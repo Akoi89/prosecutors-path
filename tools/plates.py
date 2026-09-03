@@ -476,18 +476,40 @@ class Titles(object):
             self.glyphs['\u00e8'] = [tuple(c) for c in e]
         if '\u2019' in FAN_TITLES and False: pass
 
-    # official titles too wide for the 128px strip fall back to a trim built
-    # only from the official title's own words (same discipline as condense.py)
+    # Official titles too wide for the 128px strip fall back to trims built only
+    # from the official title's own words (same discipline as condense.py), in
+    # order of preference. A trim at normal letter spacing beats the full title
+    # with its letters touching: through 1.6.2 compose() squashed 18 titles to
+    # gap 0 before it would consider a trim, and "Creature Feature Flyer" drawn
+    # that way is hard to read (rig playtest, 2026-09-03). Only "Ringleader's
+    # Appearance" has no trim that keeps its meaning; it still squashes.
     TRIMS = {
-        'Gemini Case Analysis Results': 'Gemini Analysis Results',
-        'Statutes of Limitations Book': 'Statutes of Limitations',
-        "President Wang's Autopsy Report": "Wang's Autopsy Report",
-        'Correspondence Chess Diagram': 'Chess Diagram',
-        "Mr. Aldown's Autopsy Report": "Aldown's Autopsy Report",
-        "Nurse Niedler's Statement": "Niedler's Statement",
-        'Security Camera Footage': 'Security Footage',
-        'Committee Chamber Blood': 'Chamber Blood',
+        'Missing Guard Uniform': ['Guard Uniform'],
+        "Mr. Tangaroa's Teapot": ["Tangaroa's Teapot"],
+        "Ms. Scone's Statement": ["Scone's Statement"],
+        'Poison Gas Ingredients': ['Poison Ingredients'],
+        'Gemini Case Analysis Results': ['Gemini Analysis Results', 'Gemini Results'],
+        'Statutes of Limitations Book': ['Statutes of Limitations', 'Statutes Book'],
+        'Bigg Building Pamphlet': ['Building Pamphlet'],
+        "President Wang's Autopsy Report": ["Wang's Autopsy Report", "Wang's Autopsy"],
+        'Correspondence Chess Diagram': ['Chess Diagram'],
+        'Creature Feature Flyer': ['Creature Flyer'],
+        'Behind-the-Scenes Photo': ['Behind-the-Scenes'],
+        "Shaun's Rehearsal Tape": ['Rehearsal Tape'],
+        'SS-5 Incident Case File': ['SS-5 Case File'],
+        "Mr. Aldown's Autopsy Report": ["Aldown's Autopsy Report", "Aldown's Autopsy"],
+        "Mr. Aldown's Photograph": ["Aldown's Photograph"],
+        "Mr. Aldown's Final Call": ["Aldown's Final Call"],
+        "Nurse Niedler's Statement": ["Niedler's Statement"],
+        'Security Camera Footage': ['Security Footage'],
+        'Committee Chamber Blood': ['Chamber Blood'],
+        'Mysterious Blood Stain': ['Blood Stain'],
     }
+
+    @classmethod
+    def candidates(cls, official):
+        """The texts compose() may draw for a title, best first."""
+        return [official] + list(cls.TRIMS.get(official, []))
 
     def compose(self, i, fan_expected, official):
         g = self._grid(i)
@@ -508,10 +530,12 @@ class Titles(object):
         for y in range(16):
             for x in range(128):
                 if g[y][x] == 1: g[y][x] = 2
-        texts = [official] + ([self.TRIMS[official]] if official in self.TRIMS else [])
+        # Every candidate is tried at normal letter spacing (gap 1) before any
+        # candidate is squashed to gap 0 - see TRIMS.
+        texts = self.candidates(official)
         cols = None
-        for text in texts:
-            for gap, sp in ((1, 4), (1, 3), (0, 3), (0, 2)):
+        for gap, sp in ((1, 4), (1, 3), (0, 3), (0, 2)):
+            for text in texts:
                 cand = []
                 for ch in text:
                     if ch == ' ':
