@@ -14,7 +14,7 @@ Two halves, called by build.py (title screen, episode titles, Logic keyword card
 Everything here is derived from the user's install at build time. Nothing
 Capcom-owned ships with the tool.
 """
-import os, struct
+import json, io, os, struct
 import extract_logo, title_logo, title_text
 from lz11 import decompress
 from nitro import ncgr, nclr, nscr, tile_pixels
@@ -114,6 +114,13 @@ def apply(dumpdir, rom_path, log=print, version=None):
     bad = [l for l in clog if 'DOES NOT FIT' in l]
     log('logic keyword cards: %d of %d slots named officially, %d card images rewritten%s'
         % (len(names), total, len(repl), ('; NOT FITTING: %d' % len(bad)) if bad else ''))
+
+    # 4) choice/prompt buttons: Capcom's option text on the fan's plates
+    import choice_strips
+    loc_en = json.load(io.open(os.path.join(dumpdir, 'loc_en.json'), encoding='utf-8'))
+    rom, st = choice_strips.apply_to_rom(rom, loc_en, fonts['FOT-UDKAKUGO_SMALLPR6-M'], log)
+    log('choice strips redrawn with official text: %d (%d condensed, %d at a smaller size, %d without English)'
+        % (st['drawn'], st['condensed'], st['stepped'], st['skipped']))
 
     open(rom_path, 'wb').write(rom)
     return rom_path

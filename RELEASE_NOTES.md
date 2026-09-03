@@ -1,10 +1,39 @@
 Port Capcom's official English localization of *Gyakuten Kenji 2* into the Nintendo DS ROM.
 
-**93.9% of the script's text is Capcom's writing** (1,722,032 of 1,832,983 character
-units, measured by `tools/coverage.py`). 1.5.1 said 94.3%; four tutorial lines went back
-to the fan text in 1.5.2, see below. Earlier notes said 96.5% and, before that,
+**93.8% of the script's text is Capcom's writing** (measured by `tools/coverage.py`;
+the exact unit count is in the README). 1.5.2 said 93.9%, 1.5.1 said 94.3%: four tutorial
+lines went back to the fan text in 1.5.2 and twelve description rows in 1.6.0, see below. Earlier notes said 96.5% and, before that,
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
+
+## New in v1.6.0: the choice buttons are in Capcom's words, and descriptions no longer clip
+
+The option plates of every choice menu and talk-topic list were still the fan's
+lettering, and one of them put a fan character name on screen: in Episode 1 the
+choice "the owner of the red raincoat" offered *Nicole Swift* while the script
+around it said *Tabby Lloyd*. The 297 plates (`jpn/idlocal.bin` 364-670, all of
+them graphics) are now redrawn with the official option text, read from your
+Collection at build time and set in its UD Kakugo M face.
+
+Each plate was paired with its Collection string through the retail Japanese ROM,
+whose plates sit at the same entries: the Japanese lettering was matched glyph by
+glyph to Capcom's own Japanese select tables, and the English follows from the id.
+Nothing was matched by meaning. Nine strings Capcom lists twice with different
+English are resolved by episode; three plates Capcom's own data labels with debug
+text ("Her position aaaaaa") take their twin's clean line. 48 long options are
+condensed by up to 12% and 20 step down a size to fit, the way the episode titles do.
+
+**Evidence and profile descriptions no longer lose their last letter.** The
+description card draws a smaller font than the dialogue box, but the fitter had been
+using the dialogue box's budget for it, so lines near the top of the range ran off the
+140-pixel field and the game cut the final glyph ("outside the Autumn Wing afte[r]" on
+Carmelo Gusto's profile, "Jammin' Ninja's face. Made o[f]" on the mask). Every release
+through 1.5.2 had this. The card font was measured in game (per-glyph advances fitted
+from 58 rendered lines on 18 cards, `tools/desc_font.json`) and 84 description rows are
+re-wrapped against it; twelve more rows stay on the fan's text because the official
+wording needs a fifth line the card does not have (rows kept as fan: 78 -> 90). Verified
+on the chapter saves: Fender, Gusto, Deauxnim and the mask card all read complete.
+Coverage is 93.8% (was 93.9%).
 
 ## New in v1.5.2: a hang in Episode 1 that every release had
 

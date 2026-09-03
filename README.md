@@ -12,7 +12,7 @@ This toolchain takes Capcom's own script, art and voice recordings and injects t
 the DS game, so you can play the official localization on original hardware, on a
 flashcart, or in an emulator.
 
-**93.9% of the script's text is Capcom's writing**, measured by `tools/coverage.py`, so
+**93.8% of the script's text is Capcom's writing**, measured by `tools/coverage.py`, so
 you can recompute it. Earlier releases said 96.5%; that figure counted fan-written rows
 as official once Capcom's character names had been swapped into them, which is not the
 same thing. The remainder stays in the fan translation, for reasons documented in
@@ -194,6 +194,7 @@ kept fan text - control-code shape off:  8
 nameplates redrawn with official names:      147
 title screen: official logo 248x116 at (4,30), 439/768 tiles, 222 colours
 logic keyword cards: 97 of 133 slots named officially, 194 card images rewritten
+choice strips redrawn with official text: 297 (48 condensed, 20 at a smaller size, 0 without English)
 voices: 13 shouts in Capcom's English, sound archive 11066644 -> 11282047 bytes
 ```
 
@@ -213,8 +214,8 @@ hit the thing they now prevent.
 | 3. *Turnabout Legacy* | 97.6% | 368,827 / 377,751 |
 | 4. *A Turnabout Forsaken* | 95.9% | 285,437 / 297,663 |
 | 5. *Turnabout for the Ages* | 96.1% | 478,208 / 497,811 |
-| Menus & UI | 88.7% | 98,987 / 111,588 |
-| **Total** | **93.9%** | 1,722,032 / 1,832,983 |
+| Menus & UI | 86.9% | 96,934 / 111,588 |
+| **Total** | **93.8%** | 1,719,979 / 1,832,983 |
 
 **These are lower than the 96.5% every release since v1.4.0 quoted, and the ROM did not
 get worse; the counting got honest.** `tools/coverage.py` used to call a string official
@@ -255,6 +256,11 @@ All three now agree. The text is the easy part; the other two are **graphics**:
   strip each, with a 43-pixel text field.
 - **119 evidence and profile title cards**: 128×16 strips inside that same file's
   sprite bundles, drawn as four 32×16 OAM objects.
+- **297 choice and topic buttons**: the option plates of every choice menu and
+  talk-topic list, entries 364-670 of the same file (224×32 and 144×32 sprite bundles).
+  These are where a fan name could still reach the screen after 1.5.1: one Episode 1
+  choice offered *Nicole Swift* as an option while the script around it said *Tabby
+  Lloyd*.
 
 Neither can be swapped as text, so they are **redrawn at build time in the fan patch's
 own pixel font**, which the tool recovers from your own ROM, by cutting the letters out
@@ -266,6 +272,16 @@ every line present in both translations, fan names were paired with the official
 the same line. That caught what recall would have missed: *Nicole Swift* is officially
 *Tabby Lloyd*, the monster *Moozilla* is *Taurusaurus*, and the chairman's nickname
 *Blaisie* is *Celsius*.
+
+The choice buttons are different again: their wording is Capcom's option text, not a
+name, so each plate had to be paired with its Collection string first. That pairing was
+made from the retail Japanese ROM, whose plates sit at the same entries: the Japanese
+lettering on each was matched glyph by glyph to the Collection's own Japanese select
+tables, and the English follows from the id, never from guessing which English sentence
+"means the same" as the fan's. `tools/select_strips.json` ships that pairing as numbers
+only; the text is read from your Collection at build time and set in its UD Kakugo M
+face on the fan's plates (`tools/choice_strips.py`). Long options condense by up to 12%
+and then step down a size, as the episode titles do.
 
 `tools/names.py` holds the map and rewrites only strings that are byte-identical to the
 fan ROM's, so official text is never touched: 64 whole rows in the current build, more
@@ -540,6 +556,7 @@ python audits/audit_fixtures.py         # prove the audits can actually fail
 | `voices.py` | Capcom's English shouts from the Collection into the DS sound archive |
 | `names.py` | The fan→official character-name map, applied only to strings that kept fan text |
 | `plates.py` | Redraws the nameplate and title-card graphics in the fan's own pixel font |
+| `choice_strips.py` | Sets Capcom's option text on the 297 choice/topic button plates; `select_strips.json` is the plate→string pairing |
 | `build_map.py` / `map_ids.py` | Fuzzy n-gram matching of DS entries to Collection files |
 | `lz11.py` / `nitro.py` | Nintendo LZ11 and NCGR/NCLR/NSCR/NCER/NANR |
 | `episode_titles.py` | The official episode names in the save-screen strings (on since 1.5.0) |
