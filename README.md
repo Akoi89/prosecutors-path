@@ -502,10 +502,11 @@ What remains fan (~5.7% of the script):
   Capcom text sits in the repo, and each entry carries a result hash: a Collection whose
   wording differs falls back to the fan line instead of applying a stale edit. To check
   them, `python tools/desc_overflow.py OUT.txt` lists every affected row four ways
-  (Japanese, Capcom, condensed, fan) from your own extracted data. Together with the earlier exceptions that makes **126
-  rows where Capcom's wording is edited**: these 108, 3 hand-condensed descriptions in
-  `tools/condense.py`, 8 over-wide card titles in `tools/plates.py` (`TRIMS`), and 7 renamed
-  rows in `tools/names.py` (`ROWFIX`).
+  (Japanese, Capcom, condensed, fan) from your own extracted data. Together with the earlier exceptions that makes **135
+  rows where Capcom's wording is edited**: the 108 in `tools/condense.py` (105 generated,
+  plus 3 hand-written entries that take precedence over their generated versions), 20
+  over-wide card titles in `tools/plates.py` (`TRIMS`, 8 of them until 1.6.3 widened the
+  set), and 7 renamed rows in `tools/names.py` (`ROWFIX`).
 - **Hollow official strings**: a few strings are empty or `DEMO TEXT` in the
   Collection's own files.
 - **Menus & UI residue**: DS-only interface text with no official counterpart.
