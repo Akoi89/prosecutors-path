@@ -57,6 +57,22 @@ NEW_BOX_ARG = 0x0003
 # same box. Splitting "(...)" across a page break leaves the new box without an opening
 # paren, and it renders white. So a break inside parens closes and reopens them, which
 # is exactly how the original script formats multi-box thoughts.
+# A box-terminating code RESETS the engine's inline style register, exactly as it drops the
+# blue thought colour when a "(" is stranded. Proved on hardware 2026-09-03: flip one byte so
+# a term opens with {E043} instead of {E041} and box 1 turns green while box 2 stays WHITE
+# either way - yet a span OPENED inside box 2 still renders. Box 2 can draw style; it just
+# cannot inherit it. So a break inside a styled span must close and re-open it, exactly as
+# parens are, and it must re-emit the CACHED opener, never a hard-coded {E041}: most of the
+# affected spans in the script are {E043}.
+# {E041} (orange keyword) and {E043} (green) OPEN a styled span; {E040} and {E042} both
+# CLOSE one - e.g. "(The {E041}rolls of blue cloth{E042} and the {E041}rock crystals{E042}
+# inside the castle...)". Do NOT read {E042} as an opener because it is frequent and often
+# follows {E041}: that inference is wrong, and caching it as a style makes the emitter
+# re-open a CLOSER after a break. Emit {E040} as the closer (the dominant one, 1276 uses,
+# and it pairs with both openers).
+STYLE_OFF = 0xE040
+STYLE_CLOSERS = (0xE040, 0xE042)
+STYLE_ON = (0xE041, 0xE043)
 PAREN_OPEN = 0xFF08
 PAREN_CLOSE = 0xFF09
 # The source's newlines are almost all SOFT wrap for the Collection's own box, which is
@@ -179,6 +195,21 @@ def _boxes(nlines, ends=None):
         out.append(st - prev); prev = st
     return out
 
+def _opens_with_close(chunk):
+    """True when the first style code in a chunk is the CLOSER, so re-opening the span
+    across the break would wrap {E040} in an opener around nothing - two wasted units and
+    no visual change. Only leading control tokens count: a word means the term really does
+    continue into this box and must keep its colour."""
+    for kind, val in chunk:
+        if kind == 'w':
+            return False
+        if kind == 'c':
+            for c in val:
+                if c in STYLE_CLOSERS: return True
+                if c in STYLE_ON: return False
+    return False
+
+
 def convert(units, wrap=True, page=True, hard_nl='e20d'):
     """hard_nl: 'e20d' keeps a source newline as a line break only when {E20D} follows
     (location/date cards); True keeps every newline; False folds them all to spaces."""
@@ -268,14 +299,22 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
                 else: merged.append(c)
             chunks = merged
         depth = 0
+        style = None            # the {E04x} opener currently in effect, or None
         for ci, chunk in enumerate(chunks):
             if ci:
+                # Close the open span before the break and re-open it after, innermost
+                # first. `style` is None whenever the span closed on its own earlier in
+                # this chunk, so a term that ends just before the break re-opens nothing.
+                reopen = style if style is not None and not _opens_with_close(chunk) else None
+                if style is not None: out.append(STYLE_OFF)
                 if depth > 0: out.append(PAREN_CLOSE)
                 if term == AUTO_BREAK:
                     out.extend((0xE108, AUTO_DELAY, AUTO_BREAK, 0xE107, NEW_BOX_ARG))
                 else:
                     out.extend((WAIT_BREAK, 0xE107, NEW_BOX_ARG))
                 if depth > 0: out.append(PAREN_OPEN)
+                if reopen is not None: out.append(reopen)
+                style = reopen
             placed, _ = _layout(chunk)
             cur = 0
             for kind, val, ln, sp in placed:
@@ -283,6 +322,9 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
                     cur += 1; out.append(0x0A)
                 if kind == 'c':
                     out.extend(val)
+                    for c in val:
+                        if c in STYLE_ON: style = c
+                        elif c in STYLE_CLOSERS: style = None
                 elif kind == 'n':
                     out.append(0)
                 elif kind == 'w':
