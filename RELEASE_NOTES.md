@@ -6,6 +6,22 @@ lines went back to the fan text in 1.5.2 and twelve description rows in 1.6.0, s
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
 
+## v1.6.2: closing quotation marks no longer draw as an apostrophe
+
+Every closing double quote in the ported text came out as an apostrophe:
+`"Taurusaurus Vs. Gourdy'.` where the script says `"Taurusaurus Vs. Gourdy".` The fan
+patch's font has no separate closing-quote glyph. Its U+201D slot *is* the apostrophe
+(the fan script uses it that way 16,482 times), and the fan team drew both ends of a
+quotation with the same U+201C glyph, 925 times. The converter emitted U+201D for the
+closing half, so every release through 1.6.1 had this: 995 places in 657 strings.
+
+One line changed (`DQ_CLOSE` in `tools/dstext.py`). Judged by the ROM rather than by
+the build running: the 1.6.1 tools reproduce the 1.6.1 hash exactly, the fixed tools
+change one file in the ROM, and every one of the 657 string changes is that single
+character substitution. No line re-wrapped, every audit's output is identical, coverage
+is unchanged at 93.8%. Found by the rig playtest on the Creature Feature Flyer card in
+Episode 5 and verified on that card with the fixed build.
+
 ## v1.6.1: the 1.6.0 downloads were incomplete
 
 The 1.6.0 executables crashed before finishing: two data files the tools read from

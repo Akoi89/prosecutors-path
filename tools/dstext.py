@@ -69,10 +69,13 @@ PAREN_CLOSE = 0xFF09
 LAYOUT_ROW = 0xE20D
 # The DS font has no fullwidth apostrophe/quote (U+FF07 / U+FF02) - they render as a
 # stray underline. The fan patch uses the curly forms instead: U+201D as the apostrophe
-# (16,482 uses) and U+201C/U+201D as the double-quote pair.
+# (16,482 uses) and U+201C as the double quote - at BOTH ends (925 of its quotations
+# open and close on U+201C). The font has no separate closing-quote glyph: U+201D IS
+# the apostrophe, so closing with it drew "Gourdy'. for "Gourdy". in every release
+# through 1.6.1 (~1,070 sites; found by the 2026-09-03 rig playtest).
 APOS = 0x201D
 DQ_OPEN = 0x201C
-DQ_CLOSE = 0x201D
+DQ_CLOSE = 0x201C
 
 from paths import data as _data
 ARGS = {int(k, 16): v for k, v in json.load(open(_data('ctrl_args.json'))).items()}
