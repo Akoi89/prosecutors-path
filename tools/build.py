@@ -17,13 +17,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import locate
 from paths import work, data, FROZEN
 
-VERSION = '1.6.0'
+VERSION = '1.6.1'
 ISSUES = 'https://github.com/Akoi89/prosecutors-path/issues'
 # sha256 of the ROM this version's tools produce from the AAI2 Final v2 base.
 # --verify checks a built ROM against it. Update ONLY when the injector changes
 # the output on purpose (v1.4.3: strings that dropped a DS-only engine command
 # keep the fan's line - the Episode 1 hang at the handoff to player control).
-REFERENCE_ROM_SHA256 = 'eeb264fee77d79de9bfdac272901c751c6ba0e5ebff05b67930fb35c119e52dd'
+REFERENCE_ROM_SHA256 = '6765704d1f84dad54b67e624167aa5b9e0ddd93af6b73c7e528ee25507486700'
 
 # Bundle name prefixes -> where their TextAssets go. Addressables appends a content
 # hash to every bundle, so these must be matched by prefix, never by full name.
@@ -172,6 +172,14 @@ def selftest():
         good = os.path.exists(data(f))
         ok &= good
         print('  data  %-30s %s' % (f, 'ok' if good else 'MISSING'))
+    # data files that live beside the tool modules and are opened relative to
+    # __file__: in a frozen build that is the bundle root. v1.6.0 shipped
+    # without them and crashed at the description step.
+    tools_dir = sys._MEIPASS if FROZEN else os.path.dirname(os.path.abspath(__file__))
+    for f in ('desc_font.json', 'select_strips.json'):
+        good = os.path.exists(os.path.join(tools_dir, f))
+        ok &= good
+        print('  tools %-30s %s' % (f, 'ok' if good else 'MISSING'))
     # UnityPy.UnityPyBoost is a C extension and lz4 is how Addressables bundles are
     # actually compressed - both are reached only during extraction, so a build
     # missing them looks perfectly healthy until someone points it at the game.

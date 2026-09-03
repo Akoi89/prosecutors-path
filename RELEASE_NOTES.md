@@ -6,6 +6,15 @@ lines went back to the fan text in 1.5.2 and twelve description rows in 1.6.0, s
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
 
+## v1.6.1: the 1.6.0 downloads were incomplete
+
+The 1.6.0 executables crashed before finishing: two data files the tools read from
+beside their own code (`desc_font.json`, the measured description-card font, and
+`select_strips.json`, the choice-button pairing) were not bundled into the frozen
+build. Building from source was unaffected. 1.6.1 is the same tools with both files
+bundled, the self-test now checks for them, and the version stamp on the title screen
+reads 1.6.1, which is the only reason the ROM hash differs from 1.6.0.
+
 ## New in v1.6.0: the choice buttons are in Capcom's words, and descriptions no longer clip
 
 The option plates of every choice menu and talk-topic list were still the fan's
