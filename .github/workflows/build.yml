@@ -62,7 +62,7 @@ jobs:
           python -m PyInstaller --onefile --name gk2port \
             --add-data "$root/dump/ctrl_args.json${{ matrix.sep }}dump" \
             --add-data "$root/dump/ds_to_collection_final.json${{ matrix.sep }}dump" \
-            --add-data "$root/dump/jp_structure.json${{ matrix.sep }}dump" \
+            --add-data "$root/dump/jp_structure.json${{ matrix.sep }}dump"             --add-data "$root/tools/desc_font.json${{ matrix.sep }}."             --add-data "$root/tools/select_strips.json${{ matrix.sep }}." \
             --paths "$root/tools" --collect-all UnityPy \
             --exclude-module tkinter --exclude-module matplotlib --exclude-module numpy \
             tools/build.py
