@@ -6,6 +6,32 @@ lines went back to the fan text in 1.5.2 and twelve description rows in 1.6.0, s
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
 
+## v1.6.4: a highlighted term split across two boxes keeps its colour
+
+When a coloured term was too long for one text box, the half that landed in the second box
+lost its colour and drew plain white. So a keyword the game had marked as important stopped
+looking important halfway through — most visibly on the green testimony and deduction lines,
+and on orange keywords like *Animal Taming Department*, where the box ends on
+*"She's head of the **Animal**"* and the next one opens with a colourless *"Taming
+Department."*
+
+A box-terminating code resets the engine's inline style, the same way a thought box loses its
+blue when its opening "(" is stranded on the previous page. The converter already put the
+parenthesis back across a break; it never put the *style* back. It does now: whichever colour
+is open is closed before the break and re-opened after it. **98 places across all five
+episodes**, and 81 of them are the green style — a fix written only for the orange keywords
+would have missed five sixths of it.
+
+Judged by the ROM rather than by the build running: the previous tools reproduce the 1.6.3
+hash exactly, so this change is the only difference; every audit's output is identical, the
+guard counts are unchanged, and coverage is unchanged at 93.8%. The ROM grows by 512 bytes.
+
+Confirmed on the hardware, not on paper. The Episode 2 line above was checked in game before
+and after — white, then orange. The green case was proved the same way, by changing a single
+byte in a test ROM so that term used the green style instead: both halves come back green,
+while a *separate* coloured term in that same second box was orange throughout. The engine
+can draw colour in the second box perfectly well; what it could not do was carry one over.
+
 ## v1.6.3: long evidence titles are no longer squashed
 
 The evidence and profile card titles are drawn strips 128 px wide, and 18 of the 119

@@ -145,6 +145,32 @@ and a rendered-text diff that loses nothing.
 
 ---
 
+## The xdelta patch
+
+The exact flags matter and were not written down until 1.6.4, when they had to be
+rediscovered by matching a re-encode against the shipped 1.6.3 patch byte for byte:
+
+```bash
+xdelta3 -e -9 -A \
+  -s "Gyakuten Kenji 2 (AAI2 Final v2).nds" \
+  "out/GK2 (Official English, DS port).nds" \
+  "xdelta/Prosecutors-Path-X.Y.Z-fan-base.xdelta"
+```
+
+`-9` is the compression level and **`-A` disables the application header**, which otherwise
+embeds the local output filename in the patch. Without `-A` the patch is ~206 bytes larger
+and differs on every machine; with it, the same inputs give a byte-identical patch anywhere.
+Dropping `-9` costs ~200 KB; `-S lzma` makes no difference; `-N` makes it much worse.
+
+Then decode-verify before shipping - the patch, not the build log, is what users apply:
+
+```bash
+xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds" xdelta/...xdelta /tmp/check.nds
+sha256sum /tmp/check.nds     # must equal REFERENCE_ROM_SHA256
+```
+
+---
+
 ## Releasing
 
 Update `RELEASE_NOTES.md` and `VERSION` in `tools/build.py`, then:
