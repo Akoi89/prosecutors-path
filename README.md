@@ -44,8 +44,9 @@ read out of your own Collection at build time and rendered into the DS graphics.
 [Episode titles and the title screen](#episode-titles-and-the-title-screen).
 
 > **This repository contains no game data.** No ROM, no script, no extracted text: only
-> the tools. You supply your own legally-obtained copy of the DS game and your own
-> installation of the Collection.
+> the tools. You supply your own legally-obtained copy of the DS game, and, if you build
+> rather than patch, your own installation of the Collection. The `.xdelta` attached to a
+> release is a separate matter, set out in [The patch file](#the-patch-file).
 
 ---
 
@@ -53,11 +54,44 @@ read out of your own Collection at build time and rendered into the DS graphics.
 
 | | |
 |---|---|
-| **Gyakuten Kenji 2 (AAI2 Final v2)** | The fan-patched DS ROM. It supplies the variable-width font and English graphics, without it, nothing renders |
-| **Ace Attorney Investigations Collection** | The **PC** build, tested on Steam. The script lives in the Unity Addressables bundles under `GK12_Data/StreamingAssets/aa/` |
+| **Gyakuten Kenji 2 (AAI2 Final v2)** | The fan-patched DS ROM. It supplies the variable-width font and English graphics, without it, nothing renders. Needed on both routes |
+| **Ace Attorney Investigations Collection** | Only if you build. The **PC** build, tested on Steam. The script lives in the Unity Addressables bundles under `GK12_Data/StreamingAssets/aa/` |
+| **xdelta3, or DeltaPatcher** | Only if you patch. Any xdelta3 build will do; DeltaPatcher is the usual one on Windows |
 | **Python 3.9+** | Only if building from source. `pip install UnityPy Pillow` |
 
 ## Usage
+
+Two ways in, ending at the same ROM, and `--verify` confirms it either way: **apply the
+patch** if you have the fan ROM and want it done in seconds, or **build it yourself** if
+you have the Collection and would rather the localization came out of your own copy than
+out of a file someone uploaded.
+
+### Applying the patch
+
+`Prosecutors-Path-X.Y.Z-fan-base.xdelta` on the
+[Releases](https://github.com/Akoi89/prosecutors-path/releases) page is a delta from the
+fan ROM to the built one. Apply it to your own AAI2 Final v2 ROM:
+
+```bash
+xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds"   "Prosecutors-Path-1.6.4-fan-base.xdelta"   "GK2 (Official English, DS port).nds"
+```
+
+On Windows, DeltaPatcher asks for the same two files and writes the same output. The
+source has to be the AAI2 Final v2 ROM exactly (`sha256 08e1f7af...`, 45,165,392 bytes).
+Any other ROM either fails to decode or produces a file that boots to a black screen, for
+the same reason the builder refuses one.
+
+Check the result against the version's reference hash, `1c8d2432...` for 1.6.4, which
+`gk2port --version` prints and `--verify` checks:
+
+```
+gk2port-windows-x64.exe --verify "GK2 (Official English, DS port).nds"
+```
+
+Neither the Collection nor Python is involved on this route. What the patch carries
+instead is set out in [The patch file](#the-patch-file).
+
+### Building it yourself
 
 Download the build for your platform from
 [Releases](https://github.com/Akoi89/prosecutors-path/releases). No Python, and nothing
@@ -73,7 +107,7 @@ CI, but nobody has run one on an actual Mac yet, and shipping a binary no one ha
 executed is not much of a favour. `pip install UnityPy Pillow` and use `tools/build.py`
 instead, which works the same way.
 
-### The short version
+#### The short version
 
 Put it in a folder of its own **next to your fan ROM** and run it with no arguments.
 On Windows that means double-clicking it. It finds the ROM, searches your Steam
@@ -100,7 +134,7 @@ gk2port-windows-x64.exe --fan-rom "GK2 (AAI2 Final v2).nds" --collection "C:\Pro
 folder inside it, and is only needed when auto-detection fails: a non-Steam copy, or a
 console dump you extracted yourself.
 
-### Linux
+#### Linux
 
 It's a terminal program. Mark it executable and run it:
 
@@ -126,7 +160,7 @@ money. Every release ships a `SHA256SUMS` file, the binaries are built in public
 [GitHub Actions](.github/workflows/build.yml) rather than on someone's desktop, and
 `gk2port --selftest` checks that the one you downloaded is complete.
 
-### Checks before it builds
+#### Checks before it builds
 
 - **The fan ROM is verified by hash.** Point it at a raw Japanese cart or a different
   patch and it stops and says so, instead of producing a ROM that boots to a black
@@ -134,7 +168,7 @@ money. Every release ships a `SHA256SUMS` file, the binaries are built in public
 - **It refuses to overwrite its own input**, which is easy to do by accident once a
   previous output is sitting next to the fan ROM.
 
-### Checking a build
+#### Checking a build
 
 `gk2port --verify` hashes a built ROM and checks it against the version's published
 reference. A MATCH means it is the genuine, unmodified output of the tool, so you can
@@ -142,7 +176,7 @@ trust a ROM without trusting whoever built it. Pass a path to check a specific f
 `gk2port --verify "path\to\rom.nds"`. Something going wrong? See
 [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
-### From source
+#### From source
 
 ```bash
 pip install UnityPy Pillow
@@ -152,7 +186,7 @@ python tools/build.py --fan-rom "...nds" --collection "..."
 See [BUILDING.md](BUILDING.md) to rebuild `gk2port.exe`, to regenerate the metadata
 files that ship in `dump/`, or for the one known gap in the control-code table.
 
-### Rebuilding without the Collection installed
+#### Rebuilding without the Collection installed
 
 The Collection is only read during *extraction*. Once `dump/` exists it holds everything
 the injection needs, so you can free the 7 GB install and still rebuild forever:
@@ -658,17 +692,27 @@ art, two of their fonts and thirteen of their voice recordings, alongside the fa
 translation's assets. **If you want Capcom's translation, buy the Collection. It is very good, and it
 is the reason this project can exist at all.**
 
-### Why there is no patch file
+### The patch file
 
-The obvious way to make this easier would be an xdelta or IPS patch, so nobody needs the
-Collection at all. That patch would *be* Capcom's script: a delta from the fan ROM to
-the ported one contains the entire localization as its payload, which is the thing being
-avoided, not a way around it. The same goes for the extracted `dump/` tree: the three
-`.json` files in it are integers and filenames and do ship here, but `dump/eng` is
-Capcom's text, and `dump/title` and `dump/voice` are Capcom's logo, fonts and audio.
+Releases carry `Prosecutors-Path-X.Y.Z-fan-base.xdelta`, a delta from the AAI2 Final v2
+fan ROM to the built one. It deserves a plain description rather than a quiet link: that
+delta *is* Capcom's script. The localization is its payload, which is what makes it 4.7 MB
+and what lets it produce the ported ROM without the Collection ever being installed.
+Earlier versions of this page argued against shipping one for exactly that reason. It
+ships anyway, so the trade is written down here instead of left implied.
 
-Owning the Collection isn't a hurdle this project failed to remove. It's the reason the
-project is allowed to exist.
+Three things that section got right and that still hold:
+
+- **The repository distributes nothing.** No ROM, no script, no extracted text, no
+  graphics. The three `.json` files under `dump/` are integers and filenames; `dump/eng`
+  is Capcom's text, and `dump/title` and `dump/voice` are their logo, fonts and audio.
+  None of those are in this tree, patch or no patch.
+- **The patch is inert without your own DS copy.** It has to be applied to the AAI2 Final
+  v2 ROM, which comes from applying the fan patch to a *Gyakuten Kenji 2* cart you own,
+  and the output is the same non-redistributable ROM a local build produces.
+- **Buy the Collection.** It is very good, and it is the reason there is anything to port
+  at all. Building from your own copy remains the route this project is built around, and
+  the only one where nothing has to be taken on trust from whoever uploaded a file.
 
 ## License
 

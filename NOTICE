@@ -26,5 +26,11 @@ legally obtained copy of both games, and the resulting ROM must not be
 redistributed: it contains both Capcom's copyrighted localization and the fan
 translation's assets.
 
+That first sentence is about this repository and does not extend to the
+.xdelta patch attached to a release. The patch is a delta from the AAI2 Final
+v2 fan ROM to the built ROM, so its payload is Capcom's localization. It needs
+the fan ROM to apply, and what it produces is the same ROM a local build
+produces, which is equally not redistributable.
+
 If you want Capcom's translation, buy the Collection. It is very good, and it
 is the reason this project can exist at all.

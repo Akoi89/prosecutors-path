@@ -12,6 +12,10 @@ itself seems broken, and `gk2port --verify` to check a ROM you already built.
 
 The tool ships **no game data** — both inputs are files you already own.
 
+If you applied the release `.xdelta` instead of building, only the first row applies; the
+Collection is never read on that route. Everything below about builds can be skipped, but
+`--verify` and the hang advice still apply, because the ROM is the same one.
+
 ## Common problems
 
 **"this is not the AAI2 Final v2 ROM"**
@@ -35,6 +39,12 @@ and no Collection.
 Run it from a terminal, or just double-click — recent versions keep the window open when
 double-clicked so you can read any message. `gk2port --selftest` confirms the download
 is intact.
+
+**The patch fails to apply, or the patched ROM boots to a black screen**
+The source ROM was wrong. `xdelta3` needs the AAI2 Final v2 ROM exactly (hash above): a
+raw Japanese cart, a different fan patch, or an already-built output will either be
+rejected outright or decode into something that will not boot. Hash your source before
+blaming the patch, and hash the output afterwards with `gk2port --verify`.
 
 **Windows SmartScreen / macOS Gatekeeper warns**
 The binaries are unsigned (certificates cost money). Verify the SHA-256 on the release
