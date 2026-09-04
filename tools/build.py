@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import locate
 from paths import work, data, FROZEN
 
-VERSION = '1.6.4'
+VERSION = '1.7.0'
 ISSUES = 'https://github.com/Akoi89/prosecutors-path/issues'
 # sha256 of the ROM this version's tools produce from the AAI2 Final v2 base.
 # --verify checks a built ROM against it. Update ONLY when the injector changes
@@ -27,7 +27,7 @@ ISSUES = 'https://github.com/Akoi89/prosecutors-path/issues'
 # second half keeps its colour - +512 bytes, 98 repaired spans).
 # NOTE this hash is VERSION-SPECIFIC: title_assets paints 'v' + VERSION onto the
 # title screen, so bumping VERSION alone changes the ROM. Move both together.
-REFERENCE_ROM_SHA256 = '1c8d2432690024f7b79f1b1ea41e57c39f11faeea63196c51950fefa5aadf6f1'
+REFERENCE_ROM_SHA256 = '7096b890e4ed49f30ffa40d151ce51ca53bb1ba9da00ada1d8fdd1f3d2f63a23'
 
 # Bundle name prefixes -> where their TextAssets go. Addressables appends a content
 # hash to every bundle, so these must be matched by prefix, never by full name.
@@ -180,7 +180,7 @@ def selftest():
     # __file__: in a frozen build that is the bundle root. v1.6.0 shipped
     # without them and crashed at the description step.
     tools_dir = sys._MEIPASS if FROZEN else os.path.dirname(os.path.abspath(__file__))
-    for f in ('desc_font.json', 'select_strips.json'):
+    for f in ('desc_font.json', 'select_strips.json', 'txtcut_font.json', 'txtcut_condensed.json'):
         good = os.path.exists(os.path.join(tools_dir, f))
         ok &= good
         print('  tools %-30s %s' % (f, 'ok' if good else 'MISSING'))
@@ -458,7 +458,7 @@ def main(argv=None):
     step(4, total, 'Injecting\n')
     import inject
     inject.main(a.fan_rom, a.out)
-    step(5, total, 'Title screen, episode titles, Logic keyword cards and voices')
+    step(5, total, 'Title screen, episode titles, Logic keyword cards, close-up text screens and voices')
     import title_assets, voices
     out_path = a.out or os.path.join(work(), inject.DEFAULT_OUT)
     title_assets.apply(dumpdir, out_path, version=VERSION)
