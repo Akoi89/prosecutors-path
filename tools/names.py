@@ -42,6 +42,7 @@ PAIRS = [
     ('Ethan Rooke', 'Bastian Rook'),
     ('Jill Crane', 'Rosie Ringer'),
     ('Katherine Hall', 'Judy Bound'),
+    ('Jeffrey Master', 'Samson Tangaroa'),   # fan long form, seen on the CG text screens
     ('Jeff Master', 'Samson Tangaroa'),
     ('Delicia Scones', 'Delicia Scone'),
     ('Dane Gustavia', 'Carmelo Gusto'),
@@ -53,6 +54,7 @@ PAIRS = [
     ('Pierre Hoquet', 'Paul Halique'),
     ('Amy Marsh', 'Amelie Fenn'),
     ('Dye-Young Hospital', 'Hertz Hospital'),
+    ('Dai-Long Lang', 'Da-Long Lang'),   # official spelling per gk2_txtcut_en
     # non-person names the official localization also changed
     ('Moozilla', 'Taurusaurus'),   # the movie monster
     ('Astique', 'Azea'),           # the elephant
@@ -66,7 +68,7 @@ PAIRS = [
     ('Hall', 'Bound'), ('Master', 'Tangaroa'), ('Gustavia', 'Gusto'),
     ('Scones', 'Scone'), ('Dover', 'Frost'), ('Marsh', 'Fenn'),
     ('Jenson', 'Niedler'), ('Cameron', 'Aldown'), ('Hoquet', 'Halique'),
-    ('Dye-Young', 'Hertz'),
+    ('Dye-Young', 'Hertz'), ('Dai-Long', 'Da-Long'),
     # NOTE: no bare ('Young','Hertz') - "Young girl..." is prose, and Bonnie
     # Young is always full-named or 'Dye-Young' in the fan text.
     # given names
@@ -75,7 +77,7 @@ PAIRS = [
     ('Raymond', 'Eddie'), ('Ray', 'Eddie'), ('Sirhan', 'Bodhidharma'),
     ('Nicole', 'Tabby'), ('Jay', 'Rocco'), ('Ethan', 'Bastian'),
     ('Jill', 'Rosie'), ('Katherine', 'Judy'), ('Kate', 'Judy'),
-    ('Jeff', 'Samson'), ('Dane', 'Carmelo'), ('Isaac', 'Artie'),
+    ('Jeffrey', 'Samson'), ('Jeff', 'Samson'), ('Dane', 'Carmelo'), ('Isaac', 'Artie'),
     ('John', 'Shaun'), ('Karin', 'Florence'), ('Bonnie', 'Hilda'),
     ('Jack', 'Alf'), ('Pierre', 'Paul'), ('Amy', 'Amelie'),
 ]
