@@ -24,7 +24,9 @@ ISSUES = 'https://github.com/Akoi89/prosecutors-path/issues'
 # the output on purpose (v1.4.3: strings that dropped a DS-only engine command
 # keep the fan's line - the Episode 1 hang at the handoff to player control;
 # v1.6.4: a styled span split across a page break is closed and re-opened, so its
-# second half keeps its colour - +512 bytes, 98 repaired spans).
+# second half keeps its colour - +512 bytes, 98 repaired spans;
+# v1.7.0: the 39 close-up text screens carry Capcom's rows - +6,276,096 bytes,
+# the rewritten upcut_local.bin appended as stored literals).
 # NOTE this hash is VERSION-SPECIFIC: title_assets paints 'v' + VERSION onto the
 # title screen, so bumping VERSION alone changes the ROM. Move both together.
 REFERENCE_ROM_SHA256 = '7096b890e4ed49f30ffa40d151ce51ca53bb1ba9da00ada1d8fdd1f3d2f63a23'
