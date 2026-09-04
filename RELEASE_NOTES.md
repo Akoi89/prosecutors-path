@@ -32,6 +32,12 @@ byte in a test ROM so that term used the green style instead: both halves come b
 while a *separate* coloured term in that same second box was orange throughout. The engine
 can draw colour in the second box perfectly well; what it could not do was carry one over.
 
+The green case is now confirmed in the wild as well, on the shipped ROM with nothing patched:
+a phone call in Episode 2 chapter 2 whose coloured span runs past the end of a box comes back
+green in the next box, from its first character, reached by ordinary play from a chapter save.
+And the colour is not a per-speaker or per-scene effect: elsewhere a single line turns from
+white to green and back within one box, exactly where the style opens and closes.
+
 ## v1.6.3: long evidence titles are no longer squashed
 
 The evidence and profile card titles are drawn strips 128 px wide, and 18 of the 119
