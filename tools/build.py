@@ -25,11 +25,12 @@ ISSUES = 'https://github.com/Akoi89/prosecutors-path/issues'
 # keep the fan's line - the Episode 1 hang at the handoff to player control;
 # v1.6.4: a styled span split across a page break is closed and re-opened, so its
 # second half keeps its colour - +512 bytes, 98 repaired spans;
-# v1.7.0: the 39 close-up text screens carry Capcom's rows - +6,276,096 bytes,
-# the rewritten upcut_local.bin appended as stored literals).
+# v1.7.0: the 39 close-up text screens carry Capcom's rows and the room map and
+# two log tables the official names - +6,433,792 bytes, the rewritten
+# upcut_local.bin appended as stored literals).
 # NOTE this hash is VERSION-SPECIFIC: title_assets paints 'v' + VERSION onto the
 # title screen, so bumping VERSION alone changes the ROM. Move both together.
-REFERENCE_ROM_SHA256 = '7096b890e4ed49f30ffa40d151ce51ca53bb1ba9da00ada1d8fdd1f3d2f63a23'
+REFERENCE_ROM_SHA256 = '71378f43a1fa35fc63c272d55b5df1876f0b03e2f75c8efe7f048ffbed10e909'
 
 # Bundle name prefixes -> where their TextAssets go. Addressables appends a content
 # hash to every bundle, so these must be matched by prefix, never by full name.
@@ -182,7 +183,7 @@ def selftest():
     # __file__: in a frozen build that is the bundle root. v1.6.0 shipped
     # without them and crashed at the description step.
     tools_dir = sys._MEIPASS if FROZEN else os.path.dirname(os.path.abspath(__file__))
-    for f in ('desc_font.json', 'select_strips.json', 'txtcut_font.json', 'txtcut_condensed.json'):
+    for f in ('desc_font.json', 'select_strips.json', 'txtcut_font.json', 'txtcut_condensed.json', 'map_font.json'):
         good = os.path.exists(os.path.join(tools_dir, f))
         ok &= good
         print('  tools %-30s %s' % (f, 'ok' if good else 'MISSING'))

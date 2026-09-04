@@ -125,13 +125,18 @@ def apply(dumpdir, rom_path, log=print, version=None):
     # 5) close-up text screens (reports, letters, notes): Capcom's rows rendered
     #    in the fan's own pixel face into the full-screen images. Stored as
     #    literals, so the container grows ~2 MB; accepted (2026-09-04).
-    import txtcut
+    import txtcut, cg_names
     cut_bin, repl, tlog = txtcut.build(t)
-    rom = title_logo.splice(rom, 'jpn/upcut_local.bin', open(cut_bin, 'rb').read())
     over = [l for l in tlog if 'OVERFLOW' in l]
     squeezed = sum(1 for l in tlog if any(k in l for k in ('gap', 'pitch', 'top')))
     log('close-up text screens rewritten with official text: %d (%d at tighter spacing%s)'
         % (len(repl), squeezed, ('; OVERFLOWING: %d' % len(over)) if over else ''))
+
+    # 6) the room map and the two log tables: fan character names re-lettered
+    #    in place with the official ones, on the container txtcut just wrote
+    names_bin, nrepl, nlog = cg_names.build(cut_bin, t)
+    rom = title_logo.splice(rom, 'jpn/upcut_local.bin', open(names_bin, 'rb').read())
+    log('close-up graphics re-lettered with official names: %d' % len(nrepl))
 
     open(rom_path, 'wb').write(rom)
     return rom_path

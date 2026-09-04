@@ -597,6 +597,7 @@ python audits/audit_fixtures.py         # prove the audits can actually fail
 | `plates.py` | Redraws the nameplate and title-card graphics in the fan's own pixel font |
 | `choice_strips.py` | Sets Capcom's option text on the 297 choice/topic button plates; `select_strips.json` is the plate→string pairing |
 | `txtcut.py` | Renders Capcom's close-up text screens (reports, letters, notes) into the 39 full-screen images the fan drew, in the fan's own pixel face harvested into `txtcut_font.json`; `txtcut_condensed.json` holds the six reviewed edits |
+| `cg_names.py` | Re-letters the fan character names drawn into the room map and the two log tables with the official ones; `map_font.json` is the fan's small map face |
 | `build_map.py` / `map_ids.py` | Fuzzy n-gram matching of DS entries to Collection files |
 | `lz11.py` / `nitro.py` | Nintendo LZ11 and NCGR/NCLR/NSCR/NCER/NANR |
 | `episode_titles.py` | The official episode names in the save-screen strings (on since 1.5.0) |
