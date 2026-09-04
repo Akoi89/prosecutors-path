@@ -122,5 +122,16 @@ def apply(dumpdir, rom_path, log=print, version=None):
     log('choice strips redrawn with official text: %d (%d condensed, %d at a smaller size, %d without English)'
         % (st['drawn'], st['condensed'], st['stepped'], st['skipped']))
 
+    # 5) close-up text screens (reports, letters, notes): Capcom's rows rendered
+    #    in the fan's own pixel face into the full-screen images. Stored as
+    #    literals, so the container grows ~2 MB; accepted (2026-09-04).
+    import txtcut
+    cut_bin, repl, tlog = txtcut.build(t)
+    rom = title_logo.splice(rom, 'jpn/upcut_local.bin', open(cut_bin, 'rb').read())
+    over = [l for l in tlog if 'OVERFLOW' in l]
+    squeezed = sum(1 for l in tlog if any(k in l for k in ('gap', 'pitch', 'top')))
+    log('close-up text screens rewritten with official text: %d (%d at tighter spacing%s)'
+        % (len(repl), squeezed, ('; OVERFLOWING: %d' % len(over)) if over else ''))
+
     open(rom_path, 'wb').write(rom)
     return rom_path

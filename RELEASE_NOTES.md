@@ -6,6 +6,14 @@ lines went back to the fan text in 1.5.2 and twelve description rows in 1.6.0, s
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
 
+## v1.7.0: the close-up text screens are in Capcom's words
+
+The game shows 39 documents as full-screen pictures on the bottom screen when you press Check in the Organizer: autopsy reports, case files, letters, notes, the tape transcripts. The fan team drew every one of those by hand in their own pixel lettering. Capcom's Collection has the same screens as text, so 1.7.0 renders Capcom's wording into those pictures, in the fan's own face (harvested from their screens, so the letters are theirs), with the fan's margins and spacing. 38 Capcom rows cover 39 screens; the three map and log-table pictures have no Capcom text and are unchanged for now.
+
+Capcom set those rows for a wide card, so they are re-flowed for the DS screen. Six rows carry a small edit, all in Capcom's own words and all checked against the Japanese: a label Capcom uses elsewhere, two line breaks inside a date, two dropped articles, and four short phrases cut from the letter and the contest rules, which cannot fit under the Organizer's Back button at any legible line spacing. The rest is verbatim. Thirteen screens sit at slightly tighter line spacing than the fan used.
+
+Checked in the game, not on paper: the Interim Autopsy Report was opened on the real engine and matched the render. The ROM grows by about 6 MB because the rewritten container is stored uncompressed and the old copy stays in the file. Coverage is unchanged; these screens were never counted as script.
+
 ## v1.6.4: a highlighted term split across two boxes keeps its colour
 
 When a coloured term was too long for one text box, the half that landed in the second box
