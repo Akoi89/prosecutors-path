@@ -16,11 +16,11 @@ Capcom's rows were set for a wide card (up to 64 chars a line), so paragraphs
 are re-flowed: consecutive lines that share an indent and are not fields
 ("Label: ...") or bullets are joined and re-wrapped to the DS width.
 
-    python tools/txtcut.py OUTDIR [--condensed] [--only 98,266] [--rom in.nds out.nds]
+    python tools/txtcut.py OUTDIR [--verbatim] [--only 98,266] [--rom in.nds out.nds]
 
 OUTDIR gets upcut_local.bin, one 3x preview per screen, and a contact sheet.
---condensed swaps in the reviewed rewordings from txtcut_condensed.json for the
-screens that otherwise only fit by tightening the line spacing.
+txtcut_condensed.json carries three reviewed formatting fixes in Capcom's own
+words (see its note); --verbatim renders every row exactly as stored instead.
 """
 import sys, os, re, struct, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -412,12 +412,13 @@ def write_gfx(gfx, im):
 CONDENSED = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'txtcut_condensed.json')
 
 
-def build(outdir, only=None, condensed=False):
+def build(outdir, only=None, verbatim=False):
     font, space = load_font()
     rows = [list(r) for r in json.load(open(LOC, encoding='utf-8'))['gk2_txtcut_en']]
-    if condensed and os.path.exists(CONDENSED):
-        # reviewed rewordings in Capcom's own words for the screens that only
-        # fit by tightening the spacing; keyed by row, off unless asked for
+    if not verbatim and os.path.exists(CONDENSED):
+        # three reviewed formatting fixes in Capcom's own words (a label Capcom
+        # uses elsewhere, a line break in a date, two dropped articles); keyed
+        # by row, see the file's note
         for k, text in json.load(open(CONDENSED, encoding='utf-8')).items():
             if not k.startswith('_'):
                 rows[int(k)][1] = text
@@ -455,7 +456,7 @@ if __name__ == '__main__':
     only = None
     if '--only' in sys.argv:
         only = {int(v) for v in sys.argv[sys.argv.index('--only') + 1].split(',')}
-    out, repl, log = build(outdir, only, condensed='--condensed' in sys.argv)
+    out, repl, log = build(outdir, only, verbatim='--verbatim' in sys.argv)
     print('\n'.join(log))
     print('screens rewritten: %d' % len(repl))
     if '--rom' in sys.argv:
