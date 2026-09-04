@@ -52,6 +52,10 @@ python -m PyInstaller --onefile --name gk2port \
   --add-data "$PWD/dump/ctrl_args.json;dump" \
   --add-data "$PWD/dump/ds_to_collection_final.json;dump" \
   --add-data "$PWD/dump/jp_structure.json;dump" \
+  --add-data "$PWD/tools/desc_font.json;." \
+  --add-data "$PWD/tools/select_strips.json;." \
+  --add-data "$PWD/tools/txtcut_font.json;." \
+  --add-data "$PWD/tools/txtcut_condensed.json;." \
   --paths "$PWD/tools" --collect-all UnityPy \
   --exclude-module tkinter --exclude-module matplotlib --exclude-module numpy \
   tools/build.py
