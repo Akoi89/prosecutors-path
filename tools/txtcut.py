@@ -16,9 +16,11 @@ Capcom's rows were set for a wide card (up to 64 chars a line), so paragraphs
 are re-flowed: consecutive lines that share an indent and are not fields
 ("Label: ...") or bullets are joined and re-wrapped to the DS width.
 
-    python tools/txtcut.py OUTDIR [--rom in.nds out.nds]
+    python tools/txtcut.py OUTDIR [--condensed] [--only 98,266] [--rom in.nds out.nds]
 
 OUTDIR gets upcut_local.bin, one 3x preview per screen, and a contact sheet.
+--condensed swaps in the reviewed rewordings from txtcut_condensed.json for the
+screens that otherwise only fit by tightening the line spacing.
 """
 import sys, os, re, struct, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -151,10 +153,13 @@ def paragraphs(lines, listy=False):
             x = X_BODY + 6
         elif ln['indent']:
             x = X_BODY + INDENT_PX * ln['indent']
-        # deeper-indented lines under a numbered item or a "Notes: ..." field
-        # are its hanging continuation, whatever their punctuation
-        hanging = (prev is not None and (prev.get('item') or (prev.get('field') and not prev.get('field_only')))
-                   and x > prev['x'] and not ln['align'])
+        # an ASCII indent deeper than the item's or the "Notes: ..." field's own
+        # is its hanging continuation, whatever the punctuation. U+3000 lines
+        # are sub-notes in their own right ("Victim: ..." then its findings)
+        hanging = (prev is not None and not ln['align']
+                   and (prev.get('item') or (prev.get('field') and not prev.get('field_only')))
+                   and ((not ln['wide'] and ln['indent'] > prev['indent'])
+                        or (ln['wide'] and prev['wide'] and prev.get('item'))))
         lower = text[:1].islower()
         if prev is None or ln['align'] or prev['align'] or starts_item(text) or is_field(text) \
                 or prev.get('field_only') or prev.get('header'):
@@ -170,7 +175,10 @@ def paragraphs(lines, listy=False):
         else:
             newpara = prev['last'].rstrip()[-1:] in TERMINAL
         if newpara:
-            p = {'x': x, 'x2': X_BODY if x == X_BULLET else x, 'wide': ln['wide'],
+            # a square's continuation returns to the body column; an asterisk
+            # or dot note hangs its continuation under its own text
+            x2 = X_BODY if x == X_BULLET else (x + 6 if text[:1] in '*•' else x)
+            p = {'x': x, 'x2': x2, 'wide': ln['wide'], 'indent': ln['indent'],
                  'align': ln['align'], 'runs': list(ln['runs']), 'gap_before': pending_gap,
                  'title': ln['align'] == 'center', 'field_only': is_field(text) and text.rstrip().endswith(':'),
                  'joined': 0, 'item': starts_item(text), 'field': is_field(text), 'last': text,
@@ -401,9 +409,18 @@ def write_gfx(gfx, im):
     return bytes(out)
 
 
-def build(outdir, only=None):
+CONDENSED = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'txtcut_condensed.json')
+
+
+def build(outdir, only=None, condensed=False):
     font, space = load_font()
-    rows = json.load(open(LOC, encoding='utf-8'))['gk2_txtcut_en']
+    rows = [list(r) for r in json.load(open(LOC, encoding='utf-8'))['gk2_txtcut_en']]
+    if condensed and os.path.exists(CONDENSED):
+        # reviewed rewordings in Capcom's own words for the screens that only
+        # fit by tightening the spacing; keyed by row, off unless asked for
+        for k, text in json.load(open(CONDENSED, encoding='utf-8')).items():
+            if not k.startswith('_'):
+                rows[int(k)][1] = text
     data = open(SRC, 'rb').read()
     E = table(data)
     repl, log, previews = {}, [], []
@@ -438,7 +455,7 @@ if __name__ == '__main__':
     only = None
     if '--only' in sys.argv:
         only = {int(v) for v in sys.argv[sys.argv.index('--only') + 1].split(',')}
-    out, repl, log = build(outdir, only)
+    out, repl, log = build(outdir, only, condensed='--condensed' in sys.argv)
     print('\n'.join(log))
     print('screens rewritten: %d' % len(repl))
     if '--rom' in sys.argv:
