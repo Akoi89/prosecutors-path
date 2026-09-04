@@ -64,14 +64,22 @@ def load_font():
 
 
 def table(d):
+    """Decoded entries. Each is sliced to the NEXT entry's offset, not to the
+    size field: that field is the decompressed size, and a stored-literal entry
+    written by repack is longer than it (the dumper had the same bug)."""
     n = struct.unpack_from('<I', d, 0)[0] // 8
+    slots = [struct.unpack_from('<II', d, i * 8) for i in range(n)]
+    live = sorted(o for o, s in slots if o)
     out = []
-    for i in range(n):
-        o, s = struct.unpack_from('<II', d, i * 8)
-        s &= 0x7FFFFFFF
-        b = d[o:o + s]
-        if s and b[:1] == b'\x11':
+    for o, s in slots:
+        if not o:
+            out.append(b''); continue
+        nxt = [q for q in live if q > o]
+        b = d[o:nxt[0] if nxt else len(d)]
+        if b[:1] == b'\x11':
             b = decompress(b)
+        else:
+            b = b[:s & 0x7FFFFFFF]
         out.append(b)
     return out
 
