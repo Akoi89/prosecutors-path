@@ -35,6 +35,11 @@ FONT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'txtcut_font.jso
 W, H = 256, 192
 X_BODY, X_BULLET, X_RIGHT = 11, 6, 244
 Y_TOP, CAP = 9, 8            # first cap-top row; baseline = cap-top + 8
+# The Organizer's Check view draws these on the bottom screen under a Back
+# button (x 0..68, y 173..191, measured live 2026-09-04) and, on multi-page
+# documents, a page counter bottom-right. The fan's lowest ink row across all
+# 39 text screens is 166. Ink may not go below this row.
+Y_BOTTOM = 170
 PITCH, PARA_GAP, TITLE_GAP = 13, 6, 18
 INDENT_PX = 3                # per leading ASCII space in Capcom's row
 BULLETS = ('■', '•', '*')
@@ -49,8 +54,12 @@ ROWS = {28: 3, 34: 5, 72: 0, 74: 1, 76: 2, 98: 15, 108: 16, 110: 17, 112: 18, 12
 LIST_ROWS = {15, 32}
 
 
+FONT_CACHE = [None, None]
+
+
 def load_font():
     f = json.load(open(FONT, encoding='utf-8'))
+    FONT_CACHE[0], FONT_CACHE[1] = f['font'], f['space']
     return f['font'], f['space']
 
 
@@ -148,8 +157,12 @@ def paragraphs(lines, listy=False):
             x = X_BULLET
         elif ln['wide']:
             x = X_BODY
+        elif ln['indent'] and under_square and re.match(r'^\d+\.\s', text):
+            # numbered rules under a square: the fan set the numeral in the
+            # square's own column and hung the text beside it
+            x = X_BULLET
         elif ln['indent'] and under_square:
-            # the fan hung everything under a square at the square's text column
+            # the fan hung everything else under a square at the square's text column
             x = X_BODY + 6
         elif ln['indent']:
             x = X_BODY + INDENT_PX * ln['indent']
@@ -177,7 +190,10 @@ def paragraphs(lines, listy=False):
         if newpara:
             # a square's continuation returns to the body column; an asterisk
             # or dot note hangs its continuation under its own text
-            x2 = X_BODY if x == X_BULLET else (x + 6 if text[:1] in '*•' else x)
+            if re.match(r'^\d+\.\s', text) and x == X_BULLET:
+                x2 = X_BULLET + text_width(FONT_CACHE[0], FONT_CACHE[1], text.split(' ', 1)[0] + ' ')
+            else:
+                x2 = X_BODY if x == X_BULLET else (x + 6 if text[:1] in '*•' else x)
             p = {'x': x, 'x2': x2, 'wide': ln['wide'], 'indent': ln['indent'],
                  'align': ln['align'], 'runs': list(ln['runs']), 'gap_before': pending_gap,
                  'title': ln['align'] == 'center', 'field_only': is_field(text) and text.rstrip().endswith(':'),
@@ -323,11 +339,12 @@ def render(entry, row_text, font, space, colours, log):
     lines = layout(font, space, paras)
     pitch, para_gap, title_gap, top = PITCH, PARA_GAP, TITLE_GAP, Y_TOP
     # budget runs from the first baseline to the last one; the last line keeps
-    # its 3 descender rows plus one clear row above the screen edge
+    # its 3 descender rows above Y_BOTTOM (the Back button's row 173 minus a
+    # clear row and the descenders)
     def avail():
-        return H - (top + CAP) - 4
+        return Y_BOTTOM - 3 - (top + CAP)
     squeeze = []
-    ladder = [('gap', 3), ('pitch', 12), ('top', 6), ('pitch', 11), ('top', 4)]
+    ladder = [('gap', 3), ('pitch', 12), ('top', 6), ('pitch', 11), ('top', 4), ('gap', 1)]
     while total_height(lines, pitch, para_gap, title_gap) > avail() and ladder:
         what, val = ladder.pop(0)
         if what == 'gap' and para_gap > val:
