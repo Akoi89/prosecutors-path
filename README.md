@@ -580,7 +580,7 @@ python audits/audit_fixtures.py         # prove the audits can actually fail
 | `audits/audit_widgets.py` | Option lines wider than the fan ever proved that widget can draw |
 | `audits/audit_titles.py` | Every redrawn card keyed off the right source title |
 | `audits/audit_hint.py` | Any SPT buffer hint too small for its own data |
-| `audits/audit_fixtures.py` | Breaks a copy of your build four ways and checks the audits notice |
+| `audits/audit_fixtures.py` | Breaks a copy of your build seven ways, one per audit, and checks each one notices |
 | `spt.py` | SPT container parser, both variants, with offset-scale detection |
 | `build_spt.py` | SPT writer |
 | `dstext.py` | Text conversion: fullwidth mapping, pixel wrapping, page breaks, control-code arity |
@@ -641,10 +641,11 @@ grounded in measurements over the real files rather than in anyone's recollectio
 be trusted without trusting whoever built it, and the published binary has been confirmed
 to reproduce that hash byte-for-byte.
 
-The seven audits in [`audits/`](audits) guard the structural failure classes, and **four
-of them are tested against deliberately corrupted ROMs**. `audits/audit_fixtures.py`
-breaks a copy of your build in exactly the way each one claims to detect and checks it
-notices. Run it yourself; it never touches `out/`. One of those fixtures immediately
+The seven audits in [`audits/`](audits) guard the structural failure classes, and **every
+one of them is tested against a deliberately corrupted input**. `audits/audit_fixtures.py`
+breaks a copy of your build (or, for the title audit, of the fan artwork it reads) in exactly
+the way each one claims to detect and checks it notices, reporting the line that changed.
+Run it yourself; it never touches `out/` or `dump/`. One of those fixtures immediately
 exposed a defect class that had no audit at all, which is why `audit_boxes.py` exists.
 An audit that has never failed has not been tested, it has only been run.
 
