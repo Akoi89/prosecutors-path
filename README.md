@@ -75,7 +75,7 @@ out of a file someone uploaded.
 fan ROM to the built one. Apply it to your own AAI2 Final v2 ROM:
 
 ```bash
-xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds"   "Prosecutors-Path-1.6.4-fan-base.xdelta"   "GK2 (Official English, DS port).nds"
+xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds"   "Prosecutors-Path-1.7.0-fan-base.xdelta"   "GK2 (Official English, DS port).nds"
 ```
 
 On Windows, DeltaPatcher asks for the same two files and writes the same output. The
@@ -83,7 +83,7 @@ source has to be the AAI2 Final v2 ROM exactly (`sha256 08e1f7af...`, 45,165,392
 Any other ROM either fails to decode or produces a file that boots to a black screen, for
 the same reason the builder refuses one.
 
-Check the result against the version's reference hash, `1c8d2432...` for 1.6.4, which
+Check the result against the version's reference hash, `71378f43...` for 1.7.0, which
 `gk2port --version` prints and `--verify` checks:
 
 ```
