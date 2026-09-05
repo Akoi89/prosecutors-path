@@ -44,7 +44,25 @@ import plates as P
 #   * Glyph matching cannot split the hand-squeezed long titles; those 12 were
 #     confirmed by eye once and are taken on trust since.
 
-PLA = P.Plates(open(_os.path.join(_REPO, 'dump', 'ds_fan', 'jpn', 'idlocal.bin'), 'rb').read())
+# Optional input override, so a deliberately broken fixture can be audited
+# without touching dump/. Accepts an idlocal.bin, or a .nds from which
+# jpn/idlocal.bin is pulled. NOTE: a BUILT ROM carries the REDRAWN strips, so
+# pointing this at out/ reports every retitled card as a disagreement; that is
+# the redraw, not a misread. See audits\audit_fixtures.py.
+def _idlocal_bytes(arg):
+    import struct
+    if arg is None:
+        return open(_os.path.join(_REPO, 'dump', 'ds_fan', 'jpn', 'idlocal.bin'), 'rb').read()
+    d = open(arg, 'rb').read()
+    if not arg.lower().endswith('.nds'):
+        return d
+    from inject import file_id
+    fat = struct.unpack_from('<I', d, 0x48)[0]
+    fid = file_id(d, 'jpn/idlocal.bin')
+    a, b = struct.unpack_from('<II', d, fat + fid * 8)
+    return d[a:b]
+
+PLA = P.Plates(_idlocal_bytes(sys.argv[1] if len(sys.argv) > 1 else None))
 T = P.Titles(PLA)
 
 def runs_of(g):

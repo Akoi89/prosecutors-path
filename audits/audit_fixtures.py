@@ -20,7 +20,7 @@ moves and the file stays structurally valid - a fixture that were merely corrupt
 would be detected for the wrong reason. Text is stored XOR 0x55AA, so unit u sits
 on disk as (u ^ 0x55AA) little-endian.
 
-    python rig\audit_fixtures.py
+    python audits\audit_fixtures.py
 """
 import os as _os
 import sys as _sys
@@ -172,24 +172,187 @@ def break_empty(rom):
     return bytes(out), done
 
 
+def _tps_entries(rom):
+    """(entry index, absolute offset, bytes) for every ' TPS' entry of spt.bin."""
+    a, b = spt_span(rom)
+    cont = bytes(rom[a:b])
+    n = struct.unpack_from('<I', cont, 0)[0] // 8
+    for i in range(n):
+        o, s = struct.unpack_from('<II', cont, i * 8)
+        e = cont[o:o + s] if s else b''
+        if e[:4] == b' TPS':
+            yield i, a + o, e
+
+
+def break_hint(rom):
+    """Shrink the 0x08 buffer-size hint below the longest string it must hold.
+
+    audit_hint compares the hint against the DATA, so a hint two units short of
+    the longest string is exactly the defect it claims to catch. Same width (u16
+    in place), nothing else moves.
+    """
+    out = bytearray(rom)
+    done = 0
+    for i, base, e in _tps_entries(rom):
+        if done >= 8:
+            break
+        try:
+            longest = max(len(u) for _, _, _, u in spt.all_strings(e, True))
+        except Exception:                                    # noqa: BLE001
+            continue
+        hint = struct.unpack_from('<H', e, 0x08)[0]
+        if longest < 4 or hint < longest:
+            continue
+        struct.pack_into('<H', out, base + 0x08, longest - 2)
+        done += 1
+    return bytes(out), done
+
+
+WIDE_UNIT = 0xFF37          # fullwidth 'W', 9px in the dialogue width model
+
+
+def break_widgets(rom):
+    """Widen option rows past anything the fan ever drew in that widget.
+
+    Bank 453 (confrontation lines) has a fan-proven maximum of about 251px.
+    Every visible unit and every line break in a row becomes a 9px 'W', so a row
+    of 32+ units renders at 288px or more on one line - wider than the widget
+    and wider than its own fan row. Control codes and their arguments are left
+    alone so the row is wide for the right reason, not corrupt.
+    """
+    a, b = spt_span(rom)
+    out = bytearray(rom)
+    done = 0
+    for i, base, e in _tps_entries(rom):
+        if i != 453:
+            continue
+        cnt = struct.unpack_from('<H', e, 0x06)[0]
+        for j in range(1, cnt):
+            if done >= 8:
+                break
+            off, clen = struct.unpack_from('<HH', e, 0x10 + (j - 1) * 8 + 4)
+            sbase = base + off * 2
+            if sbase + clen * 2 > b:
+                continue
+            units = [struct.unpack_from('<H', out, sbase + k * 2)[0] ^ XOR for k in range(clen)]
+            targets, skip = [], 0
+            for k, v in enumerate(units):
+                if skip:
+                    skip -= 1
+                    continue
+                if 0xE000 <= v <= 0xF8FF:
+                    skip = ARGS.get(v, 0)
+                    continue
+                if v == 0x0A or 0x21 <= v <= 0x7E or 0xFF01 <= v <= 0xFF5E:
+                    targets.append(k)
+            if len(targets) < 32:
+                continue
+            for k in targets:
+                out[sbase + k * 2:sbase + k * 2 + 2] = enc(WIDE_UNIT)
+            done += 1
+        break
+    return bytes(out), done
+
+
+def _repack_idlocal(D, repl):
+    """Rebuild the idlocal container with entries in `repl` (index -> decompressed
+    bytes) stored as literal-only LZ11 - the same shape plates.Plates.rebuild
+    writes, so the fixture differs from a real build only in the pixels."""
+    n = struct.unpack_from('<I', D, 0)[0] // 8
+    ents = [struct.unpack_from('<II', D, i * 8) for i in range(n)]
+    order = sorted(range(n), key=lambda i: ents[i][0])
+    ext = {}
+    for k, i in enumerate(order):
+        ext[i] = (ents[i][0], ents[order[k + 1]][0] if k + 1 < n else len(D))
+    table = bytearray(n * 8)
+    body = bytearray()
+    for i in range(n):
+        o, s = ents[i]
+        comp, size, stored = s & 0x80000000, s & 0x7FFFFFFF, D[ext[i][0]:ext[i][1]]
+        if i in repl:
+            raw = repl[i]
+            lz = bytearray(b'\x11' + len(raw).to_bytes(3, 'little'))
+            for p in range(0, len(raw), 8):
+                lz.append(0)
+                lz += raw[p:p + 8]
+            stored, size, comp = bytes(lz), len(raw), 0x80000000
+        while (n * 8 + len(body)) % 4:
+            body += b'\x00'
+        struct.pack_into('<II', table, i * 8, n * 8 + len(body), size | comp)
+        body += stored
+    return bytes(table) + bytes(body)
+
+
+def break_titles(_rom_unused):
+    """Erase the first letter of four fan title strips.
+
+    audit_titles re-reads every strip by glyph matching and compares to the
+    FAN_TITLES table plates.py keys off. A strip missing its first letter reads
+    as a different word, which is the misread-strip defect the audit exists for.
+    Works on the FAN idlocal.bin the audit reads (not a ROM) and only on strips
+    the audit currently reads correctly, so the disagreement count must rise.
+    """
+    import plates as P
+    fan_path = os.path.join(_REPO, 'dump', 'ds_fan', 'jpn', 'idlocal.bin')
+    D = open(fan_path, 'rb').read()
+    PLA = P.Plates(D)
+    T = P.Titles(PLA)
+    repl, done = {}, 0
+    for i in sorted(P.FAN_TITLES):
+        if done >= 4:
+            break
+        g = T._grid(i)
+        runs = T._runs(g)
+        # only strips the audit can read today: one glyph run per letter. The
+        # hand-squeezed titles fuse letters and already disagree, so breaking
+        # one of those would not move the count.
+        if not runs or len(runs) != len(P.FAN_TITLES[i].replace(' ', '')):
+            continue
+        a, b = runs[0]
+        for y in range(16):
+            for x in range(a, b):
+                if g[y][x] == 1:
+                    g[y][x] = 2                      # stroke -> bar: letter gone
+        repl[i] = T.encode(i, g)
+        done += 1
+    return _repack_idlocal(D, repl), done
+
+
+# (script, what the fixture breaks, how, what the audit reads)
+#   'rom'     the audit takes a ROM path; the fixture is a broken copy of out/
+#   'idlocal' the audit reads the FAN idlocal.bin; the fixture is a broken copy of
+#             that file and the clean run is the audit's default input
 FIXTURES = [
-    ('audit_boxes.py',   'strip box-ends from many strings (the v1.4.2 defect)', break_boxes),
-    ('audit_cmdloss.py', 'delete DS-only E041 codes (the v1.4.3 hang)',          break_dsonly),
-    ('audit_arity.py',   'fullwidth E108 arguments (the v1.3.3 Little Thief bug)', break_arity),
-    ('audit_empty.py',   'blank whole strings of visible text',                  break_empty),
+    ('audit_boxes.py',   'strip box-ends from many strings (the v1.4.2 defect)', break_boxes,   'rom'),
+    ('audit_cmdloss.py', 'delete DS-only E041 codes (the v1.4.3 hang)',          break_dsonly,  'rom'),
+    ('audit_arity.py',   'fullwidth E108 arguments (the v1.3.3 Little Thief bug)', break_arity, 'rom'),
+    ('audit_empty.py',   'blank whole strings of visible text',                  break_empty,   'rom'),
+    ('audit_hint.py',    'shrink SPT buffer hints below their longest string',   break_hint,    'rom'),
+    ('audit_widgets.py', 'widen bank-453 option rows past the fan maximum',      break_widgets, 'rom'),
+    ('audit_titles.py',  'erase the first letter of four fan title strips',      break_titles,  'idlocal'),
 ]
 
 
-def run(script, rom_path):
-    return subprocess.run([sys.executable, os.path.join(RIG, script), rom_path],
-                          capture_output=True, text=True, timeout=1800).stdout.strip()
+def run(script, arg):
+    cmd = [sys.executable, os.path.join(RIG, script)] + ([arg] if arg else [])
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=1800).stdout.strip()
+
+
+def _first_diff(clean, dirty):
+    """The first output line that changed, so the summary says WHAT the audit
+    noticed rather than only that something differed."""
+    c, d = clean.splitlines(), dirty.splitlines()
+    for x, y in zip(c, d):
+        if x != y:
+            return y.strip()
+    return (d[len(c)] if len(d) > len(c) else '').strip()
 
 
 def main():
     os.makedirs(WORK, exist_ok=True)
     rom = open(REAL, 'rb').read()
     results = []
-    for script, what, make in FIXTURES:
+    for script, what, make, kind in FIXTURES:
         print('\n=== %s ===' % script)
         print('  fixture: %s' % what)
         broken, n = make(rom)
@@ -198,13 +361,15 @@ def main():
             results.append((script, 'no fixture'))
             continue
         print('  patched %d site(s)' % n)
-        path = os.path.join(WORK, script.replace('.py', '.nds'))
+        path = os.path.join(WORK, script.replace('.py', '.nds' if kind == 'rom' else '.bin'))
         open(path, 'wb').write(broken)
-        clean, dirty = run(script, REAL), run(script, path)
+        clean, dirty = run(script, REAL if kind == 'rom' else None), run(script, path)
         ok = clean != dirty
         print('  audit notices: %s' % ok)
-        if not ok:
-            print('  >>> identical output on a ROM it should object to')
+        if ok:
+            print('  first changed line: %s' % _first_diff(clean, dirty))
+        else:
+            print('  >>> identical output on an input it should object to')
         results.append((script, 'DETECTED' if ok else 'MISSED'))
         os.remove(path)
 
