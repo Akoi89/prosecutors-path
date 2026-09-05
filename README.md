@@ -72,7 +72,7 @@ out of a file someone uploaded.
 
 `Prosecutors-Path-X.Y.Z-fan-base.xdelta` on the
 [Releases](https://github.com/Akoi89/prosecutors-path/releases) page is a delta from the
-fan ROM to the built one. Apply it to your own AAI2 Final v2 ROM:
+fan ROM to the built one. The same patch is also listed on [romhacking.net](https://www.romhacking.net/translations/7706/) and mirrored on [archive.org](https://archive.org/details/gyakuten-kenji-2-official-english-localization-port-nintendo-ds). Apply it to your own AAI2 Final v2 ROM:
 
 ```bash
 xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds"   "Prosecutors-Path-1.7.0-fan-base.xdelta"   "GK2 (Official English, DS port).nds"
