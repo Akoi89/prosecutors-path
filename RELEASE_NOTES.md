@@ -6,6 +6,18 @@ lines went back to the fan text in 1.5.2 and twelve description rows in 1.6.0, s
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
 
+## v1.8.1: silent boxes no longer move the speaker's mouth
+
+A Reddit tester playing 1.7.0 noticed that in the first Logic Chess of Episode 1, choosing to wait made Edgeworth's mouth move as if he were talking through a box that holds nothing but dots. He was right, and it was ours: every release so far did it, in every silent box in the game and, less visibly, on every ellipsis inside a line.
+
+The cause is a glyph, not a control code. The fan translation prints its ellipses with the two-dot leader character (U+2025), and the DS engine treats that character as silence: the mouth stays still while it prints. Capcom's script writes ellipses as ordinary periods, and the converter carried them across as fullwidth periods, which draw the identical dot but count as letters, so the engine animates the mouth for each one. The print-mode argument that precedes an ellipsis (7 in the Collection's script, 8 in the DS original) turned out not to matter: with the periods kept, both values flap; with the fan's glyph, neither does. This was settled in the emulator from one save state at the wait move, with three builds differing only in those two things, thirty-odd frames each at 60 ms.
+
+The fix in `tools/dstext.py` swaps every run of three or more periods for the same number of U+2025 after the line layout is done, so nothing re-wraps and no page break moves: the glyph has the same advance as a period in both the dialogue and description fonts. Read back from the built ROM against 1.8.0, exactly one file differs, the script bank, and inside it exactly one kind of change: 14,213 ellipsis runs in 2,894 strings, each period replaced one for one, no string changing length. The seven audits are identical to their 1.8.0 output. Checked in game at the reported site: the wait move now prints its dots with the mouth shut on all twenty printing frames, and the opponent's next line still animates.
+
+A lone period is still a period, and so is a pair.
+
+Reference sha256 for 1.8.1 is `7050029a...`. The six pictures, the coverage figure and everything else are as in 1.8.0.
+
 ## v1.8.0: the six pictures with lettering drawn into the artwork carry Capcom's names
 
 Six close-up pictures in the fan translation had English drawn straight into real artwork rather than onto a flat page: the two Secret Service briefing diagrams, the three placards on the cake-contest table, the logo of the TV baking show (one drawing shown across 61 pictures as the camera pulls back from the screen), the monster movie poster, and the magazine cover with the child actor. All six still carried the fan translation's character names and titles, which contradicted the dialogue around them. This release replaces them.

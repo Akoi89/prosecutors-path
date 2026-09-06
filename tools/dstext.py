@@ -106,12 +106,24 @@ DEFAULT_ARGS = 0
 # and the injector keeps the fan's string for that message instead.
 OFFICIAL_TO_DS = {0xE2A0: 0xE10D}
 
+# Ellipses print as U+2025, the glyph the fan ROM uses for every one of its own, and not
+# as fullwidth periods, which draw the same dot but are LETTERS to the engine: it flaps
+# the speaker's mouth while printing them. A silent '............' box (a Logic Chess
+# wait, a stunned pause) therefore had Edgeworth talking through it in 1.4.0 through
+# 1.8.0 (Reddit report, reproduced in the rig 2026-09-06 from one save state: fullwidth
+# periods flap with print-mode argument 7 and 8 alike; U+2025 is still on every printing
+# frame, and normal speech keeps animating). Same count of units, same advance, so
+# nothing re-wraps and nothing moves. Runs of three or more only; a lone period is a
+# period.
+ELLIPSIS_UNIT = 0x2025
+
 def _w(ch):
     o = ord(ch)
     if o == SPACE: return 5                       # the game's space glyph
     if 0xFF01 <= o <= 0xFF5E:                     # fullwidth Latin -> its ASCII form
         ch = chr(o - 0xFF01 + 0x21); o = ord(ch)
     if o >= 0x2E80: return 12                     # real CJK keeps a full cell
+    if o == 0x2025: return 4                      # ellipsis dot, same advance as '.'
     if ch in NARROW: return 4
     if ch in WIDE: return 9
     return 7
@@ -373,4 +385,16 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
                 cur.append(u)
         if cur: buf.append(('w', word_units(cur)))
     emit(buf, WAIT_BREAK)
+    # Glyph swap after layout, so wrapping and page breaks are decided on the periods
+    # exactly as before and only the code points change.
+    i = 0
+    while i < len(out):
+        if out[i] == 0xFF0E:
+            j = i
+            while j < len(out) and out[j] == 0xFF0E: j += 1
+            if j - i >= 3:
+                for k in range(i, j): out[k] = ELLIPSIS_UNIT
+            i = j
+        else:
+            i += 1
     return out, unmapped

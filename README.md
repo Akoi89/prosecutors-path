@@ -76,7 +76,7 @@ out of a file someone uploaded.
 fan ROM to the built one. The same patch is also listed on [romhacking.net](https://www.romhacking.net/translations/7706/) and mirrored on [archive.org](https://archive.org/details/gyakuten-kenji-2-official-english-localization-port-nintendo-ds). Apply it to your own AAI2 Final v2 ROM:
 
 ```bash
-xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds"   "Prosecutors-Path-1.8.0-fan-base.xdelta"   "GK2 (Official English, DS port).nds"
+xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds"   "Prosecutors-Path-1.8.1-fan-base.xdelta"   "GK2 (Official English, DS port).nds"
 ```
 
 On Windows, DeltaPatcher asks for the same two files and writes the same output. The
@@ -84,7 +84,7 @@ source has to be the AAI2 Final v2 ROM exactly (`sha256 08e1f7af...`, 45,165,392
 Any other ROM either fails to decode or produces a file that boots to a black screen, for
 the same reason the builder refuses one.
 
-Check the result against the version's reference hash, `d226ea87...` for 1.8.0, which
+Check the result against the version's reference hash, `7050029a...` for 1.8.1, which
 `gk2port --version` prints and `--verify` checks:
 
 ```
