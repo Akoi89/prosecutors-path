@@ -16,7 +16,9 @@ Unlike every other graphic in this port, these six are not composed by the build
 
 Each of these pictures carries its own 256-colour palette in the ROM, so every one is re-quantised with a fresh palette. The 60 zoom frames share one palette with the in-room view and are quantised together. Translation coverage is unchanged: pictures were never counted as script.
 
-Building from source now needs numpy as well as UnityPy and Pillow, and the frozen executables no longer exclude it. The Collection is not needed for this step.
+A look over every other redrawn graphic (28 nameplates, 119 title cards, 297 option strips, 39 text screens, all compared against the fan pictures at 2x and 3x) found one cosmetic fault, fixed here: the four option strips that carry quotation marks ("Kay", "scoop" twice, "Non-standard means") drew the ASCII quote as a small raised tick in Capcom's face. They now use the face's own curly quotes.
+
+Building from source now needs numpy as well as UnityPy and Pillow, and the frozen executables no longer exclude it. The Collection is not needed for the shipped pictures.
 
 ## v1.7.0: the close-up text screens use Capcom's official words
 

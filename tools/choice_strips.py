@@ -162,11 +162,24 @@ def load_map():
     return json.load(io.open(MAP, encoding='utf-8'))['strips']
 
 
+def curly(s):
+    """ASCII double quotes -> the face's curly pair, alternating open/close.
+    UD Kakugo draws the ASCII quote as a small raised tick, which read as a
+    stray mark on the four option strips that carry quotes (1.8.0)."""
+    out, open_ = [], True
+    for ch in s:
+        if ch == '"':
+            out.append('“' if open_ else '”'); open_ = not open_
+        else:
+            out.append(ch)
+    return ''.join(out)
+
+
 def english(loc_en):
     out = {}
     for key in ('gk2_select_long_en', 'gk2_select_short_en'):
         for sid, s in loc_en[key]:
-            out[sid] = s
+            out[sid] = curly(s)
     return out
 
 
