@@ -6,7 +6,7 @@ lines went back to the fan text in 1.5.2 and twelve description rows in 1.6.0, s
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
 
-## Unreleased (next: v1.8.0): the six pictures with lettering drawn into the artwork carry Capcom's names
+## v1.8.0: the six pictures with lettering drawn into the artwork carry Capcom's names
 
 Six close-up pictures in the fan translation had English drawn straight into real artwork rather than onto a flat page: the two Secret Service briefing diagrams, the three placards on the cake-contest table, the logo of the TV baking show (one drawing shown across 61 pictures as the camera pulls back from the screen), the monster movie poster, and the magazine cover with the child actor. All six still carried the fan translation's character names and titles, which contradicted the dialogue around them. This release replaces them.
 
