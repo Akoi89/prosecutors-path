@@ -376,15 +376,45 @@ def feather_paste(base, src, box, r=3):
     base.paste(src, (0, 0), m)
 
 
+BAND_SCALE = 1.25
+
+
 @piece(268)
 def compose_268(fan, jp, dumpdir, log):
     """Magazine cover: the fan art keeps everything except the headline band
     and the poster thumbnail, which come from Capcom's English cover through
     the registered warp (same composition, ncc 0.91)."""
-    eng = warp(official(dumpdir, 'cut04_017_eng').convert('RGB'), 268)
+    full = official(dumpdir, 'cut04_017_eng').convert('RGB')
+    eng = warp(full, 268)
     out = fan.copy()
-    feather_paste(out, eng, (50, 12, 178, 48), 2)      # red band: headline + name
-    feather_paste(out, eng, (46, 108, 120, 152), 2)    # poster thumbnail
+    # first clear the fan's own headline and its red star: their ink (dark
+    # text, red star) inside the headline area, refilled from Capcom's page,
+    # which is plain white there. The hair below right is left alone.
+    fa = np.array(fan).astype(int)
+    ink = (fa.max(axis=2) < 120) | (fa[:, :, 0] - np.minimum(fa[:, :, 1], fa[:, :, 2]) > 30)   # dark text, red star and its pink rim
+    area = np.zeros(ink.shape, bool); area[1:64, 28:186] = True; area[38:64, 148:186] = False
+    m0 = grow(ink & area, 1)
+    out.paste(eng, (0, 0), Image.fromarray((m0 * 255).astype(np.uint8)))
+    # red band: Capcom's headline band is set for 1080p and its sub-headline
+    # is unreadable at a straight 5.6x reduction, so the band is enlarged by
+    # BAND_SCALE about its own centre (it stays on the page) and pasted through
+    # a hard-edged mask of its own red pixels (+2 px for the white lettering
+    # and the rim); a feathered rectangle blurred the hair next to it
+    s_, ox, oy = REG[268]
+    bx0, by0, bx1, by1 = 48, 8, 180, 50                     # band bbox in DS px
+    crop = full.crop((ox + bx0 * s_, oy + by0 * s_, ox + bx1 * s_, oy + by1 * s_))
+    bw, bh = int(round((bx1 - bx0) * BAND_SCALE)), int(round((by1 - by0) * BAND_SCALE))
+    band = crop.resize((bw, bh), Image.LANCZOS)
+    cx, cy = (bx0 + bx1) / 2.0, (by0 + by1) / 2.0
+    px, py = int(round(cx - bw / 2.0)), int(round(cy - bh / 2.0))
+    layer = Image.new('RGB', (W, H)); layer.paste(band, (px, py))
+    a = np.array(layer).astype(int)
+    red = (a[:, :, 0] > 150) & (a[:, :, 1] < 110) & (a[:, :, 2] < 110)
+    m = ~grow(~grow(red, 7), 6)        # closing: fills the white letters, net +1 px rim
+    bg = np.abs(fa - np.array(fa[2, 2])).max(axis=2) < 10      # the flat grey backdrop behind the page
+    m &= ~bg                           # never over the backdrop, only on the page
+    out.paste(layer, (0, 0), Image.fromarray((m * 255).astype(np.uint8)))
+    feather_paste(out, eng, (46, 108, 120, 152), 1)    # poster thumbnail
     log.append('entry 268: official headline band and thumbnail')
     return out
 
@@ -435,14 +465,15 @@ def compose_260(fan, jp, dumpdir, log):
         (-8, -8, 264, 33),      # THE BATTLE OF THE CENTURY! band
         (14, 33, 110, 98),      # Now... It meets its greatest rival!
         (-8, 126, 82, 176),     # A GLOBAL STUDIOS PICTURE
-        (104, 88, 264, 200),    # MIGHTY MOOZILLA vs GOURDY
-    ], 3)
+        (106, 101, 255, 190),   # MIGHTY MOOZILLA vs GOURDY: the fan ink's own extent, so
+                                # the new logo and credit cover nearly all of the fill
+    ], 2)
     tag = fit(text_layer(eng_full, jp_full, (50, 35, 1225, 150), thr=14, soft=40, close=7), width=246)
     out.paste(tag, (5, 5), tag)
-    logo = fit(text_layer(eng_full, jp_full, (870, 550, 1840, 995), thr=14, soft=40, close=7), width=134)
-    out.paste(logo, (118, 106), logo)
-    credit = fit(text_layer(eng_full, jp_full, (1050, 995, 1670, 1060)), width=112)
-    out.paste(credit, (130, 172), credit)
+    logo = fit(text_layer(eng_full, jp_full, (870, 550, 1840, 995), thr=14, soft=40, close=7), width=148)
+    out.paste(logo, (105, 99), logo)
+    credit = fit(text_layer(eng_full, jp_full, (1050, 995, 1670, 1060)), width=122)
+    out.paste(credit, (120, 169), credit)
     log.append('entry 260: tagline %s, logo %s, credit %s' % (tag.size, logo.size, credit.size))
     return out
 
@@ -459,22 +490,40 @@ def tv_reg(entry):
     return _TV[str(entry)]
 
 
-def compose_tv(entry, dumpdir, log):
+# The TV's screen glass in Capcom's picture: exactly the window frame 140 shows
+# (its registration), confirmed on the in-room frame 138 where the glass edge
+# sits at DS (36,27)-(219,163) = official (449,153)-(1474,915).
+SCREEN = (449, 154, 1478, 926)
+
+
+def compose_tv(entry, dumpdir, log, fan=None):
     """One TV frame: Capcom's English picture cropped and scaled to the DS
-    framing (ncc 0.91-0.96 on every frame), then softened to the DS look."""
+    framing (ncc 0.89-0.96 on every frame), softened to the DS look, and
+    pasted over the fan frame inside the screen glass only, so the room around
+    the TV keeps the fan's (retail DS) pixels."""
     s, ox, oy, blur, ncc = tv_reg(entry)
     eng = official(dumpdir, 'cut02_037_eng').convert('RGB')
-    out = eng.crop((ox, oy, ox + W * s, oy + H * s)).resize((W, H), Image.LANCZOS)
+    pic = eng.crop((ox, oy, ox + W * s, oy + H * s)).resize((W, H), Image.LANCZOS)
     if blur:
-        out = out.filter(ImageFilter.GaussianBlur(blur))
-    log.append('entry %d: TV frame s=%.2f (%d,%d) blur %.1f ncc %.2f' % (entry, s, ox, oy, blur, ncc))
+        pic = pic.filter(ImageFilter.GaussianBlur(blur))
+    x0, y0 = (SCREEN[0] - ox) / s, (SCREEN[1] - oy) / s
+    x1, y1 = (SCREEN[2] - ox) / s, (SCREEN[3] - oy) / s
+    if fan is None or (x0 <= 0 and y0 <= 0 and x1 >= W and y1 >= H):
+        out = pic; how = 'whole frame'
+    else:
+        out = fan.copy()
+        m = Image.new('L', (W, H), 0)
+        ImageDraw.Draw(m).rectangle([int(round(x0)), int(round(y0)), int(round(x1)) - 1, int(round(y1)) - 1], fill=255)
+        out.paste(pic, (0, 0), m)
+        how = 'screen (%d,%d)-(%d,%d)' % (round(x0), round(y0), round(x1), round(y1))
+    log.append('entry %d: TV frame s=%.2f (%d,%d) blur %.1f ncc %.2f, %s' % (entry, s, ox, oy, blur, ncc, how))
     return out
 
 
 def _tv_piece(entry):
     @piece(entry)
     def compose(fan, jp, dumpdir, log, entry=entry):
-        return compose_tv(entry, dumpdir, log)
+        return compose_tv(entry, dumpdir, log, fan)
 
 
 for _e in [138] + list(range(140, 200)):
