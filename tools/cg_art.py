@@ -457,6 +457,17 @@ def fill_boxes(base, plate, clean, boxes, feather=3):
     return out
 
 
+# the fan lettering's own extents on the poster; boxes run past the picture
+# edge so a feather never thins at the border
+POSTER_ERASE = [
+    (-8, -8, 264, 33),      # THE BATTLE OF THE CENTURY! band
+    (14, 33, 110, 98),      # Now... It meets its greatest rival!
+    (-8, 126, 82, 176),     # A GLOBAL STUDIOS PICTURE
+    (106, 101, 255, 190),   # MIGHTY MOOZILLA vs GOURDY
+]
+FILL_260 = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cg_art_fill_260.png')
+
+
 @piece(260)
 def compose_260(fan, jp, dumpdir, log):
     """Movie poster: the DS composition with Capcom's three text elements
@@ -467,15 +478,14 @@ def compose_260(fan, jp, dumpdir, log):
     eng_full = official(dumpdir, 'cut04_004_eng').convert('RGB')
     jp_full = official(dumpdir, 'cut04_004').convert('RGB')
     plate, clean = clean_official(dumpdir, 260, 'cut04_004_eng', 'cut04_004')
-    out = fan.copy()
-    # boxes run past the picture edge so the feather never thins at the border
-    out = fill_boxes(out, plate, clean, [
-        (-8, -8, 264, 33),      # THE BATTLE OF THE CENTURY! band
-        (14, 33, 110, 98),      # Now... It meets its greatest rival!
-        (-8, 126, 82, 176),     # A GLOBAL STUDIOS PICTURE
-        (106, 101, 255, 190),   # MIGHTY MOOZILLA vs GOURDY: the fan ink's own extent, so
-                                # the new logo and credit cover nearly all of the fill
-    ], 2)
+    out = fill_boxes(fan.copy(), plate, clean, POSTER_ERASE, 2)
+    if os.path.exists(FILL_260):
+        # over the pixels no clean source covers (tagline band and title box
+        # where Capcom's picture carries text too): flame and sky synthesised
+        # once by an inpainter (rig/cg_lama_fill.py) and shipped as a patch,
+        # pasted as-is so every build is identical
+        patch = Image.open(FILL_260).convert('RGBA')
+        out.paste(patch, (0, 0), patch)
     tag = fit(text_layer(eng_full, jp_full, (50, 35, 1225, 150), thr=14, soft=40, close=7), width=246)
     out.paste(tag, (5, 5), tag)
     logo = fit(text_layer(eng_full, jp_full, (870, 550, 1840, 995), thr=14, soft=40, close=7), width=148)
