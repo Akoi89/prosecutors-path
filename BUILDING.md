@@ -57,6 +57,8 @@ python -m PyInstaller --onefile --name gk2port \
   --add-data "$PWD/tools/txtcut_font.json;." \
   --add-data "$PWD/tools/txtcut_condensed.json;." \
   --add-data "$PWD/tools/map_font.json;." \
+  --add-data "$PWD/tools/cg_art_reg.json;." \
+  --add-data "$PWD/tools/cg_art_final;cg_art_final" \
   --paths "$PWD/tools" --collect-all UnityPy \
   --exclude-module tkinter --exclude-module matplotlib \
   tools/build.py

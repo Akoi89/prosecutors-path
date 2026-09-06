@@ -143,13 +143,14 @@ def apply(dumpdir, rom_path, log=print, version=None):
 
     # 7) the six close-up ARTWORKS with lettering baked in (briefing diagrams,
     #    cake placards, TV logo and its 60 zoom frames, movie poster, magazine):
-    #    Capcom's own English pictures from the Collection, scaled onto the DS
-    #    compositions; each picture is re-quantised with a new palette
+    #    finished pictures shipped in tools/cg_art_final/ (prepared outside the
+    #    build from Capcom's Collection pictures), the zoom frames derived from
+    #    the TV master; each picture is re-quantised with a new palette
     import cg_art
     art_bin, arepl, alog = cg_art.build(names_bin, dumpdir, t)
     rom = title_logo.splice(rom, 'jpn/upcut_local.bin', open(art_bin, 'rb').read())
-    log('close-up artwork re-lettered from the Collection: %d pictures (%d TV zoom frames)'
-        % (sum(1 for e in arepl if e in cg_art.PIECES), sum(1 for e in arepl if e in cg_art.PIECES and 138 <= e <= 199)))
+    log('close-up artwork with official names: %d shipped pictures, %d TV zoom frames derived'
+        % (sum(1 for e in arepl if e in cg_art.FINAL), sum(1 for e in arepl if e in cg_art.TV_FRAMES)))
 
     open(rom_path, 'wb').write(rom)
     return rom_path
