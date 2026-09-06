@@ -42,3 +42,6 @@ dist/
 
 # a local copy of the built tool
 *.exe
+
+# the six shipped close-up pictures (README, Legal)
+!tools/cg_art_final/*.png
