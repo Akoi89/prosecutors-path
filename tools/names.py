@@ -87,8 +87,11 @@ SPACE = 0xFF3F
 APOS = 0x201D
 
 def _ch(v):
-    if 0xFF01 <= v <= 0xFF5E: return chr(v - 0xFF01 + 0x21)
+    # The space glyph (U+FF3F) sits inside the fullwidth range and must be tested
+    # first, or it projects to '_' and no pair containing a space can ever match:
+    # that is how 'John Doe' lost its protection and became 'Shaun Doe' (1.8.1).
     if v == SPACE: return ' '
+    if 0xFF01 <= v <= 0xFF5E: return chr(v - 0xFF01 + 0x21)
     return None
 
 def _fwc(c):

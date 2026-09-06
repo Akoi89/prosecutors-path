@@ -6,6 +6,16 @@ lines went back to the fan text in 1.5.2 and twelve description rows in 1.6.0, s
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
 
+## v1.8.2: "John Doe" is John Doe again, and two more names come out right
+
+The same tester, an hour after 1.8.1: the unidentified man in Episode 1 was being introduced as "Shaun Doe". The rename table has always carried a protection pair for "John Doe" so that the given-name swap for the character whose fan name is John cannot touch it. The protection never worked, and neither did any other pair with a space in it. The renamer projects the fan text to ASCII before matching, and the fan ROM's space glyph sits inside the fullwidth range it tests first, so every space became an underscore and "John Doe" could never equal "John Doe". Single-word pairs did all the work, which is why nobody noticed: given name plus surname usually adds up to the same result as the full-name pair.
+
+Testing the space first changes exactly three strings in the whole ROM, read back against 1.8.1: the Episode 1 introduction says John Doe again; an Episode 3 line that named the blind assassin twice over ("Kanis Kanis") now names him once; and a nurse's profile that called the coroner "Hilda Young" now says Hilda Hertz, which is what the Collection calls her. The seven audits are unchanged apart from the first of those strings dropping out of the "swapped" count, because it is now byte-identical to the fan ROM's.
+
+Not checked in the emulator this time: the change is three text strings, the read-back is exact, and nothing else in the ROM moved.
+
+Reference sha256 for 1.8.2 is `ff5b6ea2...`.
+
 ## v1.8.1: silent boxes no longer move the speaker's mouth
 
 A Reddit tester playing 1.7.0 noticed that in the first Logic Chess of Episode 1, choosing to wait made Edgeworth's mouth move as if he were talking through a box that holds nothing but dots. He was right, and it was ours: every release so far did it, in every silent box in the game and, less visibly, on every ellipsis inside a line.
