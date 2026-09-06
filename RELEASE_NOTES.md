@@ -6,6 +6,18 @@ lines went back to the fan text in 1.5.2 and twelve description rows in 1.6.0, s
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
 
+## Unreleased (next: v1.8.0): the six pictures with lettering drawn into the artwork use Capcom's art
+
+Six close-up pictures in the fan translation had English drawn straight into real artwork rather than onto a flat page: the two Secret Service briefing diagrams, the three placards on the cake-contest table, the logo of the TV baking show (one drawing shown across 61 pictures as the camera pulls back from the screen), the monster movie poster, and the magazine cover with the child actor. All six still carried the fan translation's character names and titles, which contradicted the dialogue around them. This release re-letters them.
+
+For four of the six, Capcom's Collection contains its own English version of the same picture, re-lettered by Capcom's artists with the official names: the placards read Scone, Frost and Gusto; the show is Samson & Judy's Bake 'n' Bop; the poster is The Legendary Taurusaurus vs. Gourdy; the magazine headline names Shaun Fenn. The build reads those pictures out of the player's own Collection install at build time, exactly as it already does for the title logo and the fonts, and fits them to the DS pictures. The TV logo and the magazine are the same drawings at a different size, so Capcom's picture is scaled straight onto the DS frame; each of the 61 TV frames was registered against Capcom's picture individually. The movie poster is recomposed for widescreen, so there Capcom's three text elements (tagline, title logo, studio credit) are lifted off the official picture and set into the fan layout's slots. The placards are Capcom's three plaques scaled onto the fan's plaque positions.
+
+The two briefing diagrams have no Collection counterpart. Every official name there is shorter than the fan one (Rook for Rooke, Knight for Knightley), so the trailing letters are erased from the fan's own lettering, in the printed legend and in the two handwritten lines, and the rest of each handwritten line slides up to close the gap.
+
+Each of these pictures carries its own 256-colour palette in the ROM, so every re-lettered picture is re-quantised with a fresh palette. The 60 zoom frames share one palette with the in-room view and are quantised together. Translation coverage is unchanged: pictures were never counted as script.
+
+Building from source now needs numpy as well as UnityPy and Pillow, and the frozen executables no longer exclude it.
+
 ## v1.7.0: the close-up text screens use Capcom's official words
 
 The game displays 39 documents as full-screen pictures on the bottom screen when you press Check in the Organizer: autopsy reports, case files, letters, notes, and the tape transcripts. The fan translation team drew every one of those by hand in their own pixel lettering. Capcom's Collection provides the official text for the same screens, so 1.7.0 renders Capcom's exact wording into the pictures, in the fan team's own face (harvested from their screens, so the letters are theirs) and with their margins and spacing. 38 Capcom text rows cover all 39 screens. Three more pictures contain no Capcom text but carried fan character names in their artwork, a room map and two log tables. Those names are re-lettered in place with the official ones using the fan team's map lettering, and the room names follow Capcom's official English map.

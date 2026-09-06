@@ -33,8 +33,10 @@ def title_dir(dumpdir):
 
 def required(dumpdir):
     """Files apply() needs; build.py checks these under --skip-extract."""
+    import cg_art
     t = title_dir(dumpdir)
-    return [os.path.join(t, LOGO_PNG)] + [os.path.join(t, 'fonts', n + '.otf') for n in FONTS]
+    return ([os.path.join(t, LOGO_PNG)] + [os.path.join(t, 'fonts', n + '.otf') for n in FONTS]
+            + cg_art.required(dumpdir))
 
 
 def extract(bdir, dumpdir):
@@ -47,6 +49,8 @@ def extract(bdir, dumpdir):
         src = title_text.extract_font(bdir, prefix, name, cache)
         with open(src, 'rb') as f, open(os.path.join(t, 'fonts', name + '.otf'), 'wb') as g:
             g.write(f.read())
+    import cg_art
+    cg_art.extract(bdir, dumpdir)
     return t
 
 
@@ -135,8 +139,17 @@ def apply(dumpdir, rom_path, log=print, version=None):
     # 6) the room map and the two log tables: fan character names re-lettered
     #    in place with the official ones, on the container txtcut just wrote
     names_bin, nrepl, nlog = cg_names.build(cut_bin, t)
-    rom = title_logo.splice(rom, 'jpn/upcut_local.bin', open(names_bin, 'rb').read())
     log('close-up graphics re-lettered with official names: %d' % len(nrepl))
+
+    # 7) the six close-up ARTWORKS with lettering baked in (briefing diagrams,
+    #    cake placards, TV logo and its 60 zoom frames, movie poster, magazine):
+    #    Capcom's own English pictures from the Collection, scaled onto the DS
+    #    compositions; each picture is re-quantised with a new palette
+    import cg_art
+    art_bin, arepl, alog = cg_art.build(names_bin, dumpdir, t)
+    rom = title_logo.splice(rom, 'jpn/upcut_local.bin', open(art_bin, 'rb').read())
+    log('close-up artwork re-lettered from the Collection: %d pictures (%d TV zoom frames)'
+        % (sum(1 for e in arepl if e in cg_art.PIECES), sum(1 for e in arepl if e in cg_art.PIECES and 138 <= e <= 199)))
 
     open(rom_path, 'wb').write(rom)
     return rom_path

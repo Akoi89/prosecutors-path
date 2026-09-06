@@ -59,7 +59,7 @@ read out of your own Collection at build time and rendered into the DS graphics.
 | **Gyakuten Kenji 2 (AAI2 Final v2)** | The fan-patched DS ROM. It supplies the variable-width font and English graphics, without it, nothing renders. Needed on both routes |
 | **Ace Attorney Investigations Collection** | Only if you build. The **PC** build, tested on Steam. The script lives in the Unity Addressables bundles under `GK12_Data/StreamingAssets/aa/` |
 | **xdelta3, or DeltaPatcher** | Only if you patch. Any xdelta3 build will do; DeltaPatcher is the usual one on Windows |
-| **Python 3.9+** | Only if building from source. `pip install UnityPy Pillow` |
+| **Python 3.9+** | Only if building from source. `pip install UnityPy Pillow numpy` |
 
 ## Usage
 
@@ -106,7 +106,7 @@ else to install.
 
 **macOS: build from source for now.** A macOS binary compiles and self-tests fine in
 CI, but nobody has run one on an actual Mac yet, and shipping a binary no one has
-executed is not much of a favour. `pip install UnityPy Pillow` and use `tools/build.py`
+executed is not much of a favour. `pip install UnityPy Pillow numpy` and use `tools/build.py`
 instead, which works the same way.
 
 #### The short version
@@ -181,7 +181,7 @@ trust a ROM without trusting whoever built it. Pass a path to check a specific f
 #### From source
 
 ```bash
-pip install UnityPy Pillow
+pip install UnityPy Pillow numpy
 python tools/build.py --fan-rom "...nds" --collection "..."
 ```
 
@@ -598,6 +598,7 @@ python audits/audit_fixtures.py         # prove the audits can actually fail
 | `choice_strips.py` | Sets Capcom's option text on the 297 choice/topic button plates; `select_strips.json` is the plate→string pairing |
 | `txtcut.py` | Renders Capcom's close-up text screens (reports, letters, notes) into the 39 full-screen images the fan drew, in the fan's own pixel face harvested into `txtcut_font.json`; `txtcut_condensed.json` holds the six reviewed edits |
 | `cg_names.py` | Re-letters the fan character names drawn into the room map and the two log tables with the official ones; `map_font.json` is the fan's small map face |
+| `cg_art.py` | Re-letters the six close-up pictures whose English is drawn into real artwork (briefing diagrams, cake placards, TV logo and its 60 zoom frames, movie poster, magazine) from Capcom's own English pictures in the Collection; `cg_art_reg.json` holds the measured framing of each TV frame inside Capcom's picture |
 | `build_map.py` / `map_ids.py` | Fuzzy n-gram matching of DS entries to Collection files |
 | `lz11.py` / `nitro.py` | Nintendo LZ11 and NCGR/NCLR/NSCR/NCER/NANR |
 | `episode_titles.py` | The official episode names in the save-screen strings (on since 1.5.0) |

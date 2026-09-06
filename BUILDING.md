@@ -46,7 +46,7 @@ the queue indefinitely instead of failing, which stalls the whole release, so
 To build one by hand:
 
 ```bash
-pip install pyinstaller UnityPy Pillow
+pip install pyinstaller UnityPy Pillow numpy
 
 python -m PyInstaller --onefile --name gk2port \
   --add-data "$PWD/dump/ctrl_args.json;dump" \
@@ -58,7 +58,7 @@ python -m PyInstaller --onefile --name gk2port \
   --add-data "$PWD/tools/txtcut_condensed.json;." \
   --add-data "$PWD/tools/map_font.json;." \
   --paths "$PWD/tools" --collect-all UnityPy \
-  --exclude-module tkinter --exclude-module matplotlib --exclude-module numpy \
+  --exclude-module tkinter --exclude-module matplotlib \
   tools/build.py
 
 dist/gk2port --selftest
@@ -68,6 +68,8 @@ Three things that cost time if you don't know them:
 
 - **`--add-data` paths must be absolute.** They resolve relative to `--specpath`, not
   the working directory, so a relative path silently fails to find the file.
+- **Do not exclude numpy either** (it was excluded until 1.7.0): `cg_art.py` uses it for
+  the close-up artwork compositing, and the selftest imports it.
 - **Do not exclude PIL.** UnityPy imports it internally
   (`UnityPy/classes/legacy_patch/Texture2D.py`); excluding it builds fine and then
   dies at extraction time.
