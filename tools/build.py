@@ -183,16 +183,16 @@ def selftest():
     # __file__: in a frozen build that is the bundle root. v1.6.0 shipped
     # without them and crashed at the description step.
     tools_dir = sys._MEIPASS if FROZEN else os.path.dirname(os.path.abspath(__file__))
-    for f in ('desc_font.json', 'select_strips.json', 'txtcut_font.json', 'txtcut_condensed.json', 'map_font.json'):
+    for f in ('desc_font.json', 'select_strips.json', 'txtcut_font.json', 'txtcut_condensed.json', 'map_font.json', 'cg_art_reg.json'):
         good = os.path.exists(os.path.join(tools_dir, f))
         ok &= good
         print('  tools %-30s %s' % (f, 'ok' if good else 'MISSING'))
     # UnityPy.UnityPyBoost is a C extension and lz4 is how Addressables bundles are
     # actually compressed - both are reached only during extraction, so a build
     # missing them looks perfectly healthy until someone points it at the game.
-    for mod in ('UnityPy', 'UnityPy.UnityPyBoost', 'lz4.block', 'brotli', 'PIL.Image',
+    for mod in ('UnityPy', 'UnityPy.UnityPyBoost', 'lz4.block', 'brotli', 'PIL.Image', 'numpy',
                 'spt', 'dstext', 'inject', 'locate', 'ndsx', 'names', 'plates',
-                'lz11', 'nitro'):
+                'lz11', 'nitro', 'txtcut', 'cg_names', 'cg_art'):
         try:
             __import__(mod)
             print('  import %-29s ok' % mod)
