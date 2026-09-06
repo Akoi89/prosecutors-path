@@ -713,7 +713,7 @@ is the reason this project can exist at all.**
 
 Releases carry `Prosecutors-Path-X.Y.Z-fan-base.xdelta`, a delta from the AAI2 Final v2
 fan ROM to the built one. It deserves a plain description rather than a quiet link: that
-delta *is* Capcom's script. The localization is its payload, which is what makes it 4.7 MB
+delta *is* Capcom's script. The localization is its payload, which is what makes it over 4 MB
 and what lets it produce the ported ROM without the Collection ever being installed.
 Earlier versions of this page argued against shipping one for exactly that reason. It
 ships anyway, so the trade is written down here instead of left implied.
