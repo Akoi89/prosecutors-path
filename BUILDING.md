@@ -59,7 +59,7 @@ python -m PyInstaller --onefile --name gk2port \
   --add-data "$PWD/tools/map_font.json;." \
   --add-data "$PWD/tools/cg_art_reg.json;." \
   --add-data "$PWD/tools/cg_art_final;cg_art_final" \
-  --paths "$PWD/tools" --collect-all UnityPy \
+  --paths "$PWD/tools" --collect-all UnityPy --collect-all fmod_toolkit --collect-all astc_encoder --collect-all archspec --collect-all etcpak --collect-all texture2ddecoder --collect-all tpk_ar \
   --exclude-module tkinter --exclude-module matplotlib \
   tools/build.py
 
@@ -72,6 +72,11 @@ Three things that cost time if you don't know them:
   the working directory, so a relative path silently fails to find the file.
 - **Do not exclude numpy either** (it was excluded until 1.7.0): `cg_art.py` uses it for
   the close-up artwork compositing, and the selftest imports it.
+- **Collect UnityPy's helper packages too** (fmod_toolkit, astc_encoder, archspec, etcpak,
+  texture2ddecoder, tpk_ar). UnityPy's Sprite export imports them, and they carry native
+  libraries and JSON data that PyInstaller does not pick up on its own. Without them the
+  frozen build passes `--selftest` and then dies at the logo extraction step, which is what
+  the 1.7.0 executables did (found 2026-09-05).
 - **Do not exclude PIL.** UnityPy imports it internally
   (`UnityPy/classes/legacy_patch/Texture2D.py`); excluding it builds fine and then
   dies at extraction time.

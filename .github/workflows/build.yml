@@ -63,7 +63,7 @@ jobs:
             --add-data "$root/dump/ctrl_args.json${{ matrix.sep }}dump" \
             --add-data "$root/dump/ds_to_collection_final.json${{ matrix.sep }}dump" \
             --add-data "$root/dump/jp_structure.json${{ matrix.sep }}dump"             --add-data "$root/tools/desc_font.json${{ matrix.sep }}."             --add-data "$root/tools/select_strips.json${{ matrix.sep }}."             --add-data "$root/tools/txtcut_font.json${{ matrix.sep }}."             --add-data "$root/tools/txtcut_condensed.json${{ matrix.sep }}."             --add-data "$root/tools/map_font.json${{ matrix.sep }}."             --add-data "$root/tools/cg_art_reg.json${{ matrix.sep }}."             --add-data "$root/tools/cg_art_final${{ matrix.sep }}cg_art_final" \
-            --paths "$root/tools" --collect-all UnityPy \
+            --paths "$root/tools" --collect-all UnityPy --collect-all fmod_toolkit --collect-all astc_encoder --collect-all archspec --collect-all etcpak --collect-all texture2ddecoder --collect-all tpk_ar \
             --exclude-module tkinter --exclude-module matplotlib \
             tools/build.py
 
