@@ -358,12 +358,20 @@ def text_layer(eng, jp, box, thr=24, soft=48, close=3):
 
 
 def fit(layer, width=None, height=None):
+    """Scale an RGBA layer. Colour is premultiplied by alpha before the
+    resample and divided out after, otherwise the source picture's background
+    colour bleeds into the shrunk letter edges as fringing."""
     w, h = layer.size
-    if width is not None:
-        s = width / float(w)
-    else:
-        s = height / float(h)
-    return layer.resize((max(1, int(round(w * s))), max(1, int(round(h * s)))), Image.LANCZOS)
+    s = width / float(w) if width is not None else height / float(h)
+    size = (max(1, int(round(w * s))), max(1, int(round(h * s))))
+    a = np.array(layer).astype(float)
+    al = a[:, :, 3:4] / 255.0
+    pre = np.dstack([a[:, :, :3] * al, a[:, :, 3:4]])
+    small = np.array(Image.fromarray(np.clip(pre + 0.5, 0, 255).astype(np.uint8), 'RGBA').resize(size, Image.LANCZOS)).astype(float)
+    al2 = small[:, :, 3:4] / 255.0
+    rgb = np.where(al2 > 0.002, small[:, :, :3] / np.maximum(al2, 0.002), 0)
+    out = np.dstack([np.clip(rgb + 0.5, 0, 255), small[:, :, 3:4]]).astype(np.uint8)
+    return Image.fromarray(out, 'RGBA')
 
 
 def feather_paste(base, src, box, r=3):
