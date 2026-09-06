@@ -20,6 +20,8 @@ A look over every other redrawn graphic (28 nameplates, 119 title cards, 297 opt
 
 Building from source now needs numpy as well as UnityPy and Pillow, and the frozen executables no longer exclude it. The Collection is not needed for the shipped pictures.
 
+The executables attached to 1.7.0 could not build from a Collection at all: they passed their self-test and then stopped at the logo extraction step, because the packaging did not carry the native libraries UnityPy's sprite export loads. Nobody reported it, which suggests everyone used the patch. The 1.8.0 executables carry those libraries, and the Windows one was downloaded from the release page and run through a full extraction and build to confirm it reproduces the reference hash.
+
 ## v1.7.0: the close-up text screens use Capcom's official words
 
 The game displays 39 documents as full-screen pictures on the bottom screen when you press Check in the Organizer: autopsy reports, case files, letters, notes, and the tape transcripts. The fan translation team drew every one of those by hand in their own pixel lettering. Capcom's Collection provides the official text for the same screens, so 1.7.0 renders Capcom's exact wording into the pictures, in the fan team's own face (harvested from their screens, so the letters are theirs) and with their margins and spacing. 38 Capcom text rows cover all 39 screens. Three more pictures contain no Capcom text but carried fan character names in their artwork, a room map and two log tables. Those names are re-lettered in place with the official ones using the fan team's map lettering, and the room names follow Capcom's official English map.
