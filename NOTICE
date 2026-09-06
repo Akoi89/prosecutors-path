@@ -2,7 +2,7 @@ Scope of the MIT license in this repository
 ===========================================
 
 The MIT license in LICENSE covers the TOOLS in this repository -- the Python
-source under tools/, and the two metadata files under dump/.
+source under tools/, and the three metadata files under dump/.
 
 It does not, and cannot, grant any rights to:
 

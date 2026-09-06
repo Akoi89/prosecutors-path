@@ -45,10 +45,11 @@ screen all carry Capcom's titles** as of 1.5.0: the official logo and the two fo
 read out of your own Collection at build time and rendered into the DS graphics. See
 [Episode titles and the title screen](#episode-titles-and-the-title-screen).
 
-> **This repository contains no game data.** No ROM, no script, no extracted text: only
-> the tools. You supply your own legally-obtained copy of the DS game, and, if you build
-> rather than patch, your own installation of the Collection. The `.xdelta` attached to a
-> release is a separate matter, set out in [The patch file](#the-patch-file).
+> **This repository contains no game data, with one exception.** No ROM, no script, no
+> extracted text: only the tools, plus the six close-up pictures added in 1.8.0, set out
+> in [Legal](#legal). You supply your own legally-obtained copy of the DS game, and, if
+> you build rather than patch, your own installation of the Collection. The `.xdelta`
+> attached to a release is a separate matter, set out in [The patch file](#the-patch-file).
 
 ---
 
@@ -552,8 +553,9 @@ same thing:
   each slot's retail format and rebuilt into `com/kenji2_sound.sdat`. The seven shout
   samples the Collection does not localise stay as the fan team recorded them.
 
-No artwork, font or audio ships with the tool; like the script, all of it comes out of the
-player's own install. `tools/ncer.py` is the cell-bank reader that made the sprite work
+No font, audio or title artwork ships with the tool; like the script, all of it comes out
+of the player's own install. The one set of pictures that does ship is the six close-up
+artworks described under [Legal](#legal). `tools/ncer.py` is the cell-bank reader that made the sprite work
 possible, and `tools/title_art.py` exports the pieces for inspection.
 
 The game's title screen therefore reads *Prosecutor's Gambit*, Capcom's title, while this
@@ -690,8 +692,16 @@ an episode yet.
 
 ## Legal
 
-This repository distributes **no copyrighted material**: no ROM, no script, no extracted
-text, no graphics. It is a set of tools that operate on files you already own.
+This repository distributes **no copyrighted material, with one exception**: no ROM, no
+script, no extracted text. It is a set of tools that operate on files you already own.
+
+The exception, since 1.8.0, is `tools/cg_art_final/`: six 256x192 pictures, the close-up
+artworks whose lettering is drawn into the picture (two briefing diagrams, the cake
+contest placards, the TV logo, the movie poster and the magazine cover), prepared from
+Capcom's Collection art and the fan patch's pictures with the official names on them.
+They ship as finished files because composing them at build time gave worse results,
+and the build writes them in as they are. If that is a line you would rather this
+project had not crossed, the 1.7.0 tag is the last one before it.
 
 Building requires your own legally-obtained copy of both games. Do not redistribute the
 output: it contains Capcom's copyrighted localization, and since 1.5.0 Capcom's logo
@@ -710,16 +720,10 @@ ships anyway, so the trade is written down here instead of left implied.
 
 Three things that section got right and that still hold:
 
-- **The repository distributes no game data, with one exception.** No ROM, no script,
-  no extracted text. The three `.json` files under `dump/` are integers and filenames;
-  `dump/eng` is Capcom's text, and `dump/title` and `dump/voice` are their logo, fonts
-  and audio. None of those are in this tree, patch or no patch. The exception, since
-  1.8.0, is `tools/cg_art_final/`: six 256x192 pictures, the close-up artworks whose
-  lettering is drawn into the picture, prepared from Capcom's Collection art and the fan
-  patch's pictures with the official names on them. They ship as finished files because
-  composing them at build time gave worse results, and the build writes them in as they
-  are. If that is a line you would rather this project had not crossed, the 1.7.0 tag is
-  the last one before it.
+- **The repository distributes nothing beyond the six pictures above.** No ROM, no
+  script, no extracted text. The three `.json` files under `dump/` are integers and
+  filenames; `dump/eng` is Capcom's text, and `dump/title` and `dump/voice` are their
+  logo, fonts and audio. None of those are in this tree, patch or no patch.
 - **The patch is inert without your own DS copy.** It has to be applied to the AAI2 Final
   v2 ROM, which comes from applying the fan patch to a *Gyakuten Kenji 2* cart you own,
   and the output is the same non-redistributable ROM a local build produces.
