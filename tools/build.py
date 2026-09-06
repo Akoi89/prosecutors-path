@@ -183,7 +183,9 @@ def selftest():
     # __file__: in a frozen build that is the bundle root. v1.6.0 shipped
     # without them and crashed at the description step.
     tools_dir = sys._MEIPASS if FROZEN else os.path.dirname(os.path.abspath(__file__))
-    for f in ('desc_font.json', 'select_strips.json', 'txtcut_font.json', 'txtcut_condensed.json', 'map_font.json', 'cg_art_reg.json'):
+    for f in ('desc_font.json', 'select_strips.json', 'txtcut_font.json', 'txtcut_condensed.json', 'map_font.json', 'cg_art_reg.json',
+              'cg_art_final/008.png', 'cg_art_final/018.png', 'cg_art_final/118.png',
+              'cg_art_final/140.png', 'cg_art_final/260.png', 'cg_art_final/268.png'):
         good = os.path.exists(os.path.join(tools_dir, f))
         ok &= good
         print('  tools %-30s %s' % (f, 'ok' if good else 'MISSING'))

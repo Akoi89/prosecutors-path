@@ -598,7 +598,7 @@ python audits/audit_fixtures.py         # prove the audits can actually fail
 | `choice_strips.py` | Sets Capcom's option text on the 297 choice/topic button plates; `select_strips.json` is the plate→string pairing |
 | `txtcut.py` | Renders Capcom's close-up text screens (reports, letters, notes) into the 39 full-screen images the fan drew, in the fan's own pixel face harvested into `txtcut_font.json`; `txtcut_condensed.json` holds the six reviewed edits |
 | `cg_names.py` | Re-letters the fan character names drawn into the room map and the two log tables with the official ones; `map_font.json` is the fan's small map face |
-| `cg_art.py` | Re-letters the six close-up pictures whose English is drawn into real artwork (briefing diagrams, cake placards, TV logo and its 60 zoom frames, movie poster, magazine) from Capcom's own English pictures in the Collection; `cg_art_reg.json` holds the measured framing of each TV frame inside Capcom's picture |
+| `cg_art.py` | Writes the six shipped close-up pictures in `cg_art_final/` (briefing diagrams, cake placards, TV logo, movie poster, magazine) into the ROM and derives the TV logo's 60 zoom frames from the TV picture; `cg_art_reg.json` holds the measured framing of each zoom frame inside Capcom's picture |
 | `build_map.py` / `map_ids.py` | Fuzzy n-gram matching of DS entries to Collection files |
 | `lz11.py` / `nitro.py` | Nintendo LZ11 and NCGR/NCLR/NSCR/NCER/NANR |
 | `episode_titles.py` | The official episode names in the save-screen strings (on since 1.5.0) |
@@ -710,10 +710,16 @@ ships anyway, so the trade is written down here instead of left implied.
 
 Three things that section got right and that still hold:
 
-- **The repository distributes nothing.** No ROM, no script, no extracted text, no
-  graphics. The three `.json` files under `dump/` are integers and filenames; `dump/eng`
-  is Capcom's text, and `dump/title` and `dump/voice` are their logo, fonts and audio.
-  None of those are in this tree, patch or no patch.
+- **The repository distributes no game data, with one exception.** No ROM, no script,
+  no extracted text. The three `.json` files under `dump/` are integers and filenames;
+  `dump/eng` is Capcom's text, and `dump/title` and `dump/voice` are their logo, fonts
+  and audio. None of those are in this tree, patch or no patch. The exception, since
+  1.8.0, is `tools/cg_art_final/`: six 256x192 pictures, the close-up artworks whose
+  lettering is drawn into the picture, prepared from Capcom's Collection art and the fan
+  patch's pictures with the official names on them. They ship as finished files because
+  composing them at build time gave worse results, and the build writes them in as they
+  are. If that is a line you would rather this project had not crossed, the 1.7.0 tag is
+  the last one before it.
 - **The patch is inert without your own DS copy.** It has to be applied to the AAI2 Final
   v2 ROM, which comes from applying the fan patch to a *Gyakuten Kenji 2* cart you own,
   and the output is the same non-redistributable ROM a local build produces.
@@ -724,5 +730,5 @@ Three things that section got right and that still hold:
 ## License
 
 MIT for the tools. See [LICENSE](LICENSE). That covers the code only; the game data
-it operates on is not ours to license, and none of it is distributed here. See
-[NOTICE](NOTICE) for the exact scope.
+it operates on is not ours to license, and none of it is distributed here apart from
+the six pictures noted above. See [NOTICE](NOTICE) for the exact scope.

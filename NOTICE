@@ -21,7 +21,10 @@ This project is built entirely on top of their patch -- their variable-width
 font engine, their English graphics and their menus -- and their ATTENTION
 notice is left intact in every build.
 
-No game data is distributed in this repository. Building requires your own
+No game data is distributed in this repository, with one exception: the six
+256x192 pictures under tools/cg_art_final are derived from Capcom's Collection
+artwork and the fan patch's pictures, re-lettered with Capcom's official names
+(see the README's legal section). Building requires your own
 legally obtained copy of both games, and the resulting ROM must not be
 redistributed: it contains both Capcom's copyrighted localization and the fan
 translation's assets.
