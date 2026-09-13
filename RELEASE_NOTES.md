@@ -403,7 +403,7 @@ replaced by nothing it loses its **message box** along with its words. A box tha
 opens with nothing inside never closes, so the scene simply stops.
 
 There was already a net for this: a row the Collection empties keeps the fan's row
-instead. It only ran when the fan's row was in English, which is why these seven , 
+instead. It only ran when the fan's row was in English, which is why these seven, 
 Japanese in the fan patch, fell straight through it. The net is now split in two.
 The old English rule still governs *wording*. A second, stricter rule governs
 *structure*: **a row whose replacement has no message box at all keeps the fan's
@@ -528,7 +528,7 @@ No change to the ROM (still verifies to the same hash as v1.3.1). This release m
 the tool easier to trust and to get working:
 
 - **`gk2port --verify`** hashes a built ROM and confirms it against this version's
-  published reference. A MATCH means it is the genuine, unmodified output of the tool , 
+  published reference. A MATCH means it is the genuine, unmodified output of the tool, 
   so a ROM can be trusted without trusting whoever built it. Pass a path to check any
   file: `gk2port --verify "your.nds"`.
 - **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)**, the handful of things that actually go
