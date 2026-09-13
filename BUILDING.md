@@ -1,7 +1,7 @@
 # Building
 
 Everything here is optional. Ordinary use needs only the release binary or
-`python tools/build.py` — see the [README](README.md).
+`python tools/build.py`, see the [README](README.md).
 
 This file covers the two things that aren't reproducible from a plain checkout:
 rebuilding `gk2port.exe`, and regenerating the three metadata files that ship in
@@ -26,7 +26,7 @@ v1.3.1 the reference is
 (v1.2.0's was `c97635faefda1f131ec33a0c3e15d3fc6f9159dfbc0367d958d75f086643e661`)
 (v1.1.0's was `76a5d740268e914f5cdacf1cb7c7362e500bf3db02c4af3db821242ffb9bdb02`;
 it moved intentionally, and only, with the v1.2.0 text recoveries). If yours moves,
-you changed behaviour — find out why before committing.
+you changed behaviour. Find out why before committing.
 
 ---
 
@@ -34,7 +34,7 @@ you changed behaviour — find out why before committing.
 
 Normally you don't: [`.github/workflows/build.yml`](.github/workflows/build.yml) builds
 Windows and Linux on every push and attaches them to the release on a tag.
-**PyInstaller cannot cross-compile** — each binary has to be produced on its own OS —
+**PyInstaller cannot cross-compile.** Each binary has to be produced on its own OS,
 so CI is the only way to ship the non-Windows ones at all.
 
 macOS is commented out of the matrix rather than absent. An arm64 binary builds and
@@ -81,7 +81,7 @@ Three things that cost time if you don't know them:
   (`UnityPy/classes/legacy_patch/Texture2D.py`); excluding it builds fine and then
   dies at extraction time.
 - **`--selftest` is the check that catches both.** It verifies the three bundled JSON
-  files and imports what extraction actually needs — including `UnityPy.UnityPyBoost`,
+  files and imports what extraction actually needs, including `UnityPy.UnityPyBoost`,
   a C extension, and `lz4.block`, which is how Addressables bundles are compressed.
   None of that is exercised by `--help`, and a bundle missing any of it looks perfectly
   healthy until someone points it at the game. CI runs it on every binary before it is
@@ -94,15 +94,15 @@ glibc it was linked against or newer, so building on the newest image would sile
 drop older distros.
 
 The binaries are unsigned. Windows SmartScreen warns; macOS Gatekeeper refuses outright
-until the user runs `xattr -d com.apple.quarantine`. Signing certificates cost money —
+until the user runs `xattr -d com.apple.quarantine`. Signing certificates cost money;
 the release carries a `SHA256SUMS` file and a public build log instead.
 
 ---
 
 ## Regenerating the shipped metadata
 
-Three files under `dump/` are tracked in git because they contain no game text —
-only integers and filenames — and shipping them saves every user a lot of work.
+Three files under `dump/` are tracked in git because they contain no game text,
+only integers and filenames, and shipping them saves every user a lot of work.
 Regenerating any of them needs source data the repo does not contain.
 
 | File | Regenerate with | Needs |
@@ -112,7 +112,7 @@ Regenerating any of them needs source data the repo does not contain.
 | `jp_structure.json` | `tools/jp_profile.py` | `dump/ds_jp` |
 
 `dump/eng*` and `dump/jpn*` come from a normal extraction run (`build.py` without
-`--skip-extract`). `dump/ds_jp` does not — it is the **retail Japanese DS ROM**'s
+`--skip-extract`). `dump/ds_jp` does not: it is the **retail Japanese DS ROM**'s
 filesystem, which the build itself no longer needs:
 
 ```bash
@@ -128,20 +128,20 @@ That ROM is required only to regenerate these files, never to build.
 
 `dump/ctrl_args.json` originally held 325 codes. The corpus contains nine more that
 plainly take arguments, and because they were absent, `dstext.DEFAULT_ARGS` treated
-them as arity 0 and sent 1,498 argument bytes down the text path — where 39 of them
-(in `E0B0`, `E162`, `E16E`, `E183`) fell in `0x21`–`0x7E` and were rewritten to
+them as arity 0 and sent 1,498 argument bytes down the text path, where 39 of them
+(in `E0B0`, `E162`, `E16E`, `E183`) fell in `0x21` to `0x7E` and were rewritten to
 fullwidth, so the engine received altered argument values.
 
 The table now has all 342. What made the fix safe to apply:
 
 - **Zero variance in run length.** All 52 occurrences of `E0B0` are followed by
-  exactly 8 non-control units; all 245 of `E145` by exactly 3. Not a minimum — an
+  exactly 8 non-control units; all 245 of `E145` by exactly 3. Not a minimum, an
   invariant. Arity-0 codes sitting in prose produce wildly varying run lengths.
-- **The arguments are small binary values** (`0x00`–`0x1B` mostly), never letters.
+- **The arguments are small binary values** (`0x00` to `0x1B` mostly), never letters.
 - **All nine occur only at the tail of a string**, after the final message box:
   `{E243}<01><02><03>` is the last four units, `{E0B0}<01><14>…` is a nine-unit
   string. So the over-estimation failure mode that once made `{E04C}` swallow words
-  is structurally impossible here — there is no dialogue after them to swallow.
+  is structurally impossible here: there is no dialogue after them to swallow.
 - **Verified by diffing rendered text** between the two tables: 10,697 strings
   identical, 8 changed, and every change is the removal of stray argument bytes that
   had been leaking into view (`' !!'` → `'!!'`, `'2 2 2 2'` → `'2222'`). No dialogue
@@ -195,7 +195,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 
 CI builds all four binaries from that exact commit, self-tests each one, and publishes
 them with a `SHA256SUMS` file. Nothing is uploaded from a local machine, and the release
-is created with `--target $GITHUB_SHA` so the tag and the assets cannot drift apart — an
+is created with `--target $GITHUB_SHA` so the tag and the assets cannot drift apart; an
 earlier release had a tag three commits behind its own binary, which is impossible to
 audit.
 
