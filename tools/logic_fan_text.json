@@ -1,0 +1,649 @@
+{
+"A": {
+"4": {
+"0": "Ruptured",
+"1": "balloon"
+},
+"5": {
+"0": "Flag with a",
+"1": "bullet hole"
+},
+"8": {
+"0": "Assassination",
+"1": "attempt"
+},
+"9": {
+"0": "Red mole"
+},
+"10": {
+"0": "Six-shot",
+"1": "revolver"
+},
+"11": {
+"0": "Laser pointer"
+},
+"12": {
+"0": "Red button"
+},
+"15": {
+"0": "Bulletproof vest"
+},
+"16": {
+"0": "Bullet that",
+"1": "pierced through"
+},
+"17": {
+"0": "Rooke's gun"
+},
+"18": {
+"0": "External view",
+"1": "of the plane"
+},
+"19": {
+"0": "Doll"
+},
+"20": {
+"0": "Knightley's",
+"1": "position"
+},
+"21": {
+"0": "Knightley shot",
+"1": "the balloon"
+},
+"23": {
+"0": "Change in the"
+},
+"25": {
+"0": "Shooting of",
+"1": "the President"
+},
+"26": {
+"0": "Security during",
+"1": "the speech"
+},
+"27": {
+"0": "Assassination",
+"1": "attempt"
+},
+"28": {
+"0": "Clothes covered",
+"1": "in dirt"
+},
+"30": {
+"0": "Bloody sheet"
+},
+"32": {
+"0": "Dirt"
+},
+"33": {
+"0": "Stacked sheets"
+},
+"34": {
+"0": "Torn up",
+"1": "newspaper"
+},
+"35": {
+"0": "Floor wiped",
+"1": "clean"
+},
+"39": {
+"0": "Tools around",
+"1": "the well"
+},
+"40": {
+"0": "Astique",
+"1": "the elephant"
+},
+"41": {
+"0": "Simon's stunt"
+},
+"42": {
+"0": "Not heavy",
+"1": "enough"
+},
+"43": {
+"0": "Metal detector"
+},
+"45": {
+"0": "Missing apples"
+},
+"46": {
+"0": "Crate of apples"
+},
+"47": {
+"0": "33 lbs (15 Kg)",
+"1": "weights"
+},
+"48": {
+"0": "Strength",
+"1": "to be pulled"
+},
+"49": {
+"0": "Breaking sound"
+},
+"50": {
+"0": "Beaten to death"
+},
+"51": {
+"0": "Broken stand"
+},
+"52": {
+"0": "Why the",
+"1": "stand broke?"
+},
+"53": {
+"0": "Tampered",
+"1": "desserts"
+},
+"54": {
+"0": "Hexagonal",
+"1": "recess"
+},
+"55": {
+"0": "Fragile desserts"
+},
+"56": {
+"0": "Pedestal",
+"1": "of rock"
+},
+"57": {
+"0": "Bloodstained",
+"1": "rock salt lamp"
+},
+"58": {
+"0": "High room",
+"1": "temperature"
+},
+"59": {
+"0": "Desserts study"
+},
+"60": {
+"0": "Knowledge",
+"1": "was lacking"
+},
+"61": {
+"0": "Delicia broke",
+"1": "the rules"
+},
+"62": {
+"0": "Fake desserts"
+},
+"79": {
+"0": "No autopsy",
+"1": "report"
+},
+"80": {
+"0": "Bloodstain",
+"1": "disappeared"
+},
+"81": {
+"0": "Was the body",
+"1": "removed?"
+},
+"82": {
+"0": "Blood in the",
+"1": "water fountain"
+},
+"83": {
+"0": "Pot with a",
+"1": "different aroma"
+},
+"84": {
+"0": "Minty aroma"
+},
+"85": {
+"0": "What Kate did"
+},
+"86": {
+"0": "Contained",
+"1": "in the book"
+},
+"87": {
+"0": "Different",
+"1": "tea aroma"
+},
+"88": {
+"0": "Pots were",
+"1": "switched"
+},
+"89": {
+"0": "Motive for",
+"1": "the murder"
+},
+"90": {
+"0": "Partnership",
+"1": "turned sour"
+},
+"91": {
+"0": "Remaining film"
+},
+"92": {
+"0": "Was Angel's",
+"1": "Recipe his goal?"
+},
+"93": {
+"0": "Afternoon tea"
+},
+"94": {
+"0": "Timing of",
+"1": "Dover's murder"
+},
+"95": {
+"0": "Security"
+},
+"97": {
+"0": "Keycard"
+},
+"98": {
+"0": "Railing"
+},
+"99": {
+"0": "Where was",
+"1": "Kay standing?"
+},
+"100": {
+"0": "Moon"
+},
+"101": {
+"0": "Where Kay fell?"
+},
+"102": {
+"0": "Fell down",
+"1": "the hatch?"
+},
+"103": {
+"0": "Is there"
+},
+"104": {
+"0": "Prices"
+},
+"105": {
+"0": "Big bucks"
+},
+"106": {
+"0": "Auction",
+"1": "participants"
+},
+"107": {
+"0": "Victim",
+"1": "disappeared"
+},
+"108": {
+"0": "Where was the",
+"1": "body hidden?"
+},
+"109": {
+"0": "Bloodstain in",
+"1": "costume trunk"
+},
+"110": {
+"0": "Stepped on",
+"1": "by a monster?"
+},
+"111": {
+"0": "Three footprints"
+},
+"112": {
+"0": "Rear entrance",
+"1": "forced open"
+},
+"113": {
+"0": "Dented fence"
+},
+"114": {
+"0": "Combination lock"
+},
+"115": {
+"0": "Broken horn"
+},
+"116": {
+"0": "Monster's head"
+},
+"117": {
+"0": "Stolen box"
+},
+"118": {
+"0": "Cars that",
+"1": "came through"
+},
+"119": {
+"0": "Two men"
+},
+"120": {
+"0": "Men in black"
+},
+"121": {
+"0": "John wasn't",
+"1": "with them"
+},
+"122": {
+"0": "Sound of",
+"1": "an explosion"
+},
+"123": {
+"0": "Event at",
+"1": "the Coliseum"
+},
+"124": {
+"0": "Near the",
+"1": "Coliseum"
+},
+"125": {
+"0": "Garbage",
+"1": "pickup area"
+},
+"126": {
+"0": "Which garbage",
+"1": "dump?"
+},
+"127": {
+"0": "Murder weapon:",
+"1": "Brick"
+},
+"128": {
+"0": "Body was moved"
+},
+"129": {
+"0": "Flowerbeds"
+},
+"130": {
+"0": "What did Blaise",
+"1": "dig up?"
+},
+"131": {
+"0": "Missing brick"
+},
+"132": {
+"0": "Brick near",
+"1": "the snowman"
+},
+"133": {
+"0": "Was Blaise",
+"1": "a kidnapper?"
+}
+},
+"B": {
+"138": {
+"0": "Ruptured balloon"
+},
+"139": {
+"0": "Flag with a bullet hole"
+},
+"142": {
+"0": "Assassination attempt"
+},
+"143": {
+"0": "Red mole"
+},
+"144": {
+"0": "Six-shot revolver"
+},
+"145": {
+"0": "Laser pointer"
+},
+"146": {
+"0": "Red button"
+},
+"147": {
+"0": "Raincoat sleeve"
+},
+"149": {
+"0": "Bulletproof vest"
+},
+"150": {
+"0": "Bullet that pierced through"
+},
+"151": {
+"0": "Rooke's gun"
+},
+"152": {
+"0": "External view of the plane"
+},
+"153": {
+"0": "Doll"
+},
+"154": {
+"0": "Knightley's position"
+},
+"155": {
+"0": "Knightley shot the balloon"
+},
+"157": {
+"0": "Change in the security plans"
+},
+"159": {
+"0": "Shooting of the President"
+},
+"161": {
+"0": "Assassination attempt"
+},
+"162": {
+"0": "Clothes covered in dirt"
+},
+"164": {
+"0": "Bloody sheet"
+},
+"166": {
+"0": "Dirt"
+},
+"167": {
+"0": "Stacked sheets"
+},
+"168": {
+"0": "Torn up newspaper"
+},
+"169": {
+"0": "Floor wiped clean"
+},
+"173": {
+"0": "Tools around the well"
+},
+"174": {
+"0": "Astique the elephant"
+},
+"176": {
+"0": "Not heavy enough"
+},
+"177": {
+"0": "Metal detector"
+},
+"178": {
+"0": "Weights switched with body"
+},
+"179": {
+"0": "Missing apples"
+},
+"180": {
+"0": "Crate of apples"
+},
+"181": {
+"0": "33 lbs [(1]5 Kg) weights"
+},
+"182": {
+"0": "Strength to be pulled"
+},
+"183": {
+"0": "Breaking sound"
+},
+"184": {
+"0": "Beaten to death"
+},
+"185": {
+"0": "Broken stand"
+},
+"186": {
+"0": "Why the stand broke?"
+},
+"187": {
+"0": "Tampered desserts"
+},
+"188": {
+"0": "Hexagonal recess"
+},
+"189": {
+"0": "Fragile desserts"
+},
+"190": {
+"0": "Pedestal of rock"
+},
+"191": {
+"0": "Bloodstained rock salt lamp"
+},
+"192": {
+"0": "High room temperature"
+},
+"193": {
+"0": "Desserts study"
+},
+"194": {
+"0": "Knowledge was lacking"
+},
+"195": {
+"0": "Delicia broke the rules"
+},
+"196": {
+"0": "Fake desserts"
+},
+"213": {
+"0": "No autopsy report"
+},
+"214": {
+"0": "Bloodstain disappeared"
+},
+"215": {
+"0": "Was the body removed?"
+},
+"216": {
+"0": "Blood in the water fountain"
+},
+"217": {
+"0": "Pot with a different aroma"
+},
+"218": {
+"0": "Minty aroma"
+},
+"219": {
+"0": "What Kate did"
+},
+"220": {
+"0": "Contained in the book"
+},
+"221": {
+"0": "Different tea aroma"
+},
+"223": {
+"0": "Motive for the murder"
+},
+"224": {
+"0": "Partnership turned sour"
+},
+"225": {
+"0": "Remaining film"
+},
+"227": {
+"0": "Afternoon tea"
+},
+"228": {
+"0": "Timing of Dover's murder"
+},
+"229": {
+"0": "Security"
+},
+"232": {
+"0": "Railing"
+},
+"233": {
+"0": "Where was Kay standing?"
+},
+"234": {
+"0": "Moon"
+},
+"235": {
+"0": "Where Kay fell?"
+},
+"236": {
+"0": "Fell down the hatch?"
+},
+"237": {
+"0": "ls there a floor 51?"
+},
+"238": {
+"0": "Prices"
+},
+"239": {
+"0": "Big bucks"
+},
+"240": {
+"0": "Auction participants"
+},
+"241": {
+"0": "Victim disappeared"
+},
+"242": {
+"0": "Where was the body hid("
+},
+"243": {
+"0": "Bloodstain in costume trunk"
+},
+"245": {
+"0": "Three footprints"
+},
+"247": {
+"0": "Dented fence"
+},
+"248": {
+"0": "Combination lock"
+},
+"249": {
+"0": "Broken horn"
+},
+"250": {
+"0": "Monster's head"
+},
+"251": {
+"0": "Stolen box"
+},
+"252": {
+"0": "Cars that came through"
+},
+"253": {
+"0": "Two men"
+},
+"254": {
+"0": "Men in black"
+},
+"256": {
+"0": "Sound of an explosion"
+},
+"257": {
+"0": "Event at the Coliseum"
+},
+"258": {
+"0": "Near the Coliseum"
+},
+"259": {
+"0": "Garbage pickup area"
+},
+"260": {
+"0": "Which garbage dump?"
+},
+"262": {
+"0": "Body was moved"
+},
+"263": {
+"0": "Flowerbeds"
+},
+"264": {
+"0": "What did Blaise dig up?"
+},
+"265": {
+"0": "Missing brick"
+},
+"266": {
+"0": "Brick near the snowman"
+},
+"267": {
+"0": "Was Blaise a kidnapper?"
+}
+}
+}

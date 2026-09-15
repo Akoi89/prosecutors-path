@@ -462,7 +462,9 @@ same thing:
   DS never stores those names as text, only each keyword's Japanese description, so
   `tools/logic_names.py` joins the DS description to the Collection's description table and
   from there to the official name table, and `tools/logic_cards.py` repaints the card interior
-  and renders the official name in UD Kakugo M, two lines on the card and one on the banner.
+  and renders the official name in the fan team's own pixel lettering, cut from the same file at
+  build time by `tools/logic_font.py`, on the fan's own text-free card: up to three lines on the
+  card and one on the banner. Two names too wide for any banner carry a shorter form there.
   97 of the 133 slots have an official name; the rest (30 unused dummies, 6 real keywords
   with no Collection counterpart) keep the fan lettering.
 
