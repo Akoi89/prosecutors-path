@@ -6,6 +6,14 @@ lines went back to the fan text in 1.5.2 and twelve description rows in 1.6.0, s
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
 
+## Unreleased: location cards laid out the DS way
+
+A Reddit tester playing Episode 3 pointed out that the time and place cards read "Detention Center - Visitor's Room" on one line, where the DS games give the building and the room a line each. Checking every card showed it was worse than a style difference. Capcom's script puts the whole place on one line because the Collection's box is wide. On the DS that line often didn't fit, the converter wrapped it with a plain line break, and the wrapped part printed flush left under the centred text, so "Room" sat on its own at the left edge. Every line of a card has to start with the engine's centring code, and the wrapped part didn't have one.
+
+`tools/dstext.py` now moves the part after a place's " - " onto its own centred line when both halves fit and the card still fits the box, which is how the fan translation lays out its own cards. That covers 64 of the 70 date cards that change and 12 of the 13 place labels. The Committee for Prosecutorial Excellence cards (six of them, plus one label) can't split cleanly, because the committee's name alone is wider than the box, so they keep Capcom's two lines and the wrapped line is centred instead. The same centring now applies to the 18 testimony titles that wrap onto a second line, and to one narrated box in Episode 3; those were flush left too.
+
+Read back against 1.8.2, only the script bank changes, and inside it only line breaks, centring codes and the " - " separators moved: 87 entries, no other character touched. The audits match their 1.8.2 output except audit_cmdloss, where the centring code now goes missing 5 times against the fan ROM's 385 uses, down from 88. Checked in the emulator: the Episode 2 chapter 3 Visitor's Room card and the Episode 4 chapter 2 Committee card. The testimony titles haven't been seen in game yet.
+
 ## v1.8.2: "John Doe" is John Doe again, and two more names come out right
 
 The same tester, an hour after 1.8.1: the unidentified man in Episode 1 was being introduced as "Shaun Doe". The rename table has always carried a protection pair for "John Doe" so that the given-name swap for the character whose fan name is John cannot touch it. The protection never worked, and neither did any other pair with a space in it. The renamer projects the fan text to ASCII before matching, and the fan ROM's space glyph sits inside the fullwidth range it tests first, so every space became an underscore and "John Doe" could never equal "John Doe". Single-word pairs did all the work, which is why nobody noticed: given name plus surname usually adds up to the same result as the full-name pair.
