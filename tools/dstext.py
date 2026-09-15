@@ -262,6 +262,25 @@ def _split_at_sep(row):
 
 TITLE_DASHES = [CARD_SEP, CARD_SEP]      # '-- Testimony --' rows are titles, not places
 
+def _bind_title_closer(tokens):
+    """A centred '-- title --' row that wraps must not leave the closing '--' alone on the
+    second line (7 testimony titles did, e.g. '-- President Wang's Testimony' / '--').
+    Glue the closer to the word before it so the break moves back one word
+    ('-- President Wang's' / 'Testimony --'). Same units, same width; only the wrap
+    point can change, and only when the row wraps at all."""
+    words = [k for k, (kind, _) in enumerate(tokens) if kind == 'w']
+    if len(words) < 3 or tokens[words[0]][1][:2] != TITLE_DASHES:
+        return tokens
+    if tokens[words[-1]][1] != TITLE_DASHES or not _is_layout_row(tokens):
+        return tokens
+    if 'br' in (kind for kind, _ in tokens):
+        return tokens
+    a, b = words[-2], words[-1]
+    if [kind for kind, _ in tokens[a + 1:b]] != ['s']:
+        return tokens
+    glued = ('w', tokens[a][1] + [SPACE] + tokens[b][1])
+    return tokens[:a] + [glued] + tokens[b + 1:]
+
 def _split_card_rows(tokens):
     """Place rows split at their ' - ' onto a second {E20D} row, when both halves fit on
     one line and the result still fits one box. Two shapes carry places:
@@ -365,7 +384,7 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
                 elif kind == 'br': out.append(0x0A)
                 elif kind == 's': out.append(SPACE)
             return
-        tokens = _split_card_rows(tokens)
+        tokens = _bind_title_closer(_split_card_rows(tokens))
         _, nlines = _layout(tokens)
         nb = max(1, -(-nlines // BOX_LINES)) if page else 1
         chunks = [tokens]
