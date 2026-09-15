@@ -8,17 +8,21 @@ longest length across ALL of them (verified on all 443 DS entries).
 import struct
 KEY = 0x55AA
 
-def _enc(u):
-    return b''.join(struct.pack('<H', (v ^ KEY) & 0xFFFF) for v in list(u) + [0])
+def _enc(u, tail=None):
+    return b''.join(struct.pack('<H', (v ^ KEY) & 0xFFFF) for v in list(u) + (tail or [0]))
 
-def build_ds(s0, records, trailer=0xFFFFFFFF, scale=1, min_longest=0):
+def build_ds(s0, records, trailer=0xFFFFFFFF, scale=1, min_longest=0, tails=None):
     """s0: units of string 0.  records: list of (A, units).
     trailer: the 4-byte field between the record table and the data; it is NOT
     always 0xFFFFFFFF (102 of 443 DS entries carry another value), so it must be
-    carried over from the source entry rather than synthesised."""
+    carried over from the source entry rather than synthesised.
+    tails: optional per-string units to write after the declared length instead of
+    the single 0 terminator (string 0 first; None = plain terminator). See spt.tails:
+    the terminator slot can hold a live command argument."""
     n = len(records)
     dstart = 16 + n * 8 + 4
-    blobs = [_enc(s0)] + [_enc(u) for a, u in records]
+    tails = tails or [None] * (n + 1)
+    blobs = [_enc(s0, tails[0])] + [_enc(u, t) for (a, u), t in zip(records, tails[1:])]
     offs, pos = [], dstart
     for b in blobs:
         offs.append(pos); pos += len(b)

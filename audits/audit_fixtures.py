@@ -208,6 +208,32 @@ def break_hint(rom):
     return bytes(out), done
 
 
+def break_tails(rom):
+    """Zero every non-zero unit a string stores after its declared length.
+
+    That slot can hold the last argument of a command the declared length cuts off
+    (DS[178] str 23, the Episode 3 Bound/Larry talk). audit_tails compares it with
+    the fan ROM's; zeroing it in place is exactly the 1.8.3 defect, repeated at
+    every site. Same size, nothing else moves.
+    """
+    out = bytearray(rom)
+    done = 0
+    for i, base, e in _tps_entries(rom):
+        try:
+            h, recs = spt.parse(e, True)
+            tl = spt.tails(e, True)
+        except Exception:                                    # noqa: BLE001
+            continue
+        starts = [h['dstart']] + [r[1] for r in recs]
+        lens = [h['lead']] + [r[2] for r in recs]
+        for s, n, t in zip(starts, lens, tl):
+            if any(t):
+                for k in range(len(t)):
+                    out[base + s + 2 * (n + k):base + s + 2 * (n + k) + 2] = enc(0)
+                done += 1
+    return bytes(out), done
+
+
 WIDE_UNIT = 0xFF37          # fullwidth 'W', 9px in the dialogue width model
 
 
@@ -330,6 +356,7 @@ FIXTURES = [
     ('audit_hint.py',    'shrink SPT buffer hints below their longest string',   break_hint,    'rom'),
     ('audit_widgets.py', 'widen bank-453 option rows past the fan maximum',      break_widgets, 'rom'),
     ('audit_titles.py',  'erase the first letter of four fan title strips',      break_titles,  'idlocal'),
+    ('audit_tails.py',   'zero the units strings keep past their declared length (the 1.8.3 Bound/Larry talk)', break_tails, 'rom'),
 ]
 
 

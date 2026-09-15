@@ -69,6 +69,19 @@ def strings(d, ds=False):
     for i, (a, b, c) in enumerate(recs):
         yield i, a, c, units(d[b:bs[i+1]], c)
 
+def tails(d, ds=True, scale=None):
+    """For every string (string 0 first), the units between its declared end and the
+    next string: normally a single 0 terminator. Not always. DS[178] str 23 is
+    {E12E} 3,0x857,1 with a declared length of 4 units, and the command's FOURTH
+    argument, 0x18 (the string to jump to), sits in the terminator slot. The engine
+    reads it; writing 0 there sent Episode 3's talk to Ms. Bound into Larry's scene
+    (string 0) in every release through 1.8.3 (Reddit report, reproduced in the rig)."""
+    h, recs = parse(d, ds, scale)
+    starts = [h['dstart']] + [r[1] for r in recs]
+    lens = [h['lead']] + [r[2] for r in recs]
+    ends = starts[1:] + [len(d)]
+    return [units(d[s + 2 * n:e]) for s, n, e in zip(starts, lens, ends)]
+
 def all_strings(d, ds=False, scale=None):
     """Yield (i, A, length, units) for every string, INCLUDING string 0.
 

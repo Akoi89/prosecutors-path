@@ -6,6 +6,18 @@ lines went back to the fan text in 1.5.2 and twelve description rows in 1.6.0, s
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
 
+## v1.8.4: talking to Ms. Bound opens her conversation, not Larry's
+
+A Reddit tester playing Episode 3 found that at the Zodiac Art Gallery's Fountain Patio, choosing Talk on Ms. Bound opened Larry's scene and his topics instead of hers. He sent his save. It reproduced on 1.8.3 in the emulator, and the same save on the fan ROM talks to her correctly, so it was ours.
+
+The cause was one unit. The talk script for that area holds a four-unit string that is nothing but a command sending the game to the string with her conversation. The command's last argument, that string's number, sits just past the string's declared length, in the slot where a string normally ends with a zero. The fan ROM keeps it there and the engine reads it. The injector rebuilt the entry from the declared lengths and wrote a zero in that slot, which pointed the talk at string 0: Larry's scene. Every release I could still check has it, 1.4.4 and 1.7.0 included.
+
+The rebuild now keeps whatever the fan ROM stores after a string's declared end whenever the string itself is unchanged. Across the whole script the fan ROM stores something there in 11 places. Nine were already kept, one is a stray newline after text we replace, which the game doesn't read, and this was the one we lost. Only two strings in the fan ROM have a command whose arguments run past their declared end, and the other one has a zero there anyway. Read back against 1.8.3, one unit in one file changes.
+
+None of the seven audits could see this: they all read strings up to their declared length and stop. A new one, `audits/audit_tails.py`, compares those slots with the fan ROM and reports 1.8.3's lost unit; its fixture in `audit_fixtures.py` proves it can fail. Checked in the emulator with the tester's own save: talking to Ms. Bound now opens her conversation in Capcom's words.
+
+Reference sha256 for 1.8.4 is `3bcd80c0...`.
+
 ## v1.8.3: location cards laid out the DS way
 
 A Reddit tester playing Episode 3 pointed out that the time and place cards read "Detention Center - Visitor's Room" on one line, where the DS games give the building and the room a line each. Checking every card showed it was worse than a style difference. Capcom's script puts the whole place on one line because the Collection's box is wide. On the DS that line often didn't fit, the converter wrapped it with a plain line break, and the wrapped part printed flush left under the centred text, so "Room" sat on its own at the left edge. Every line of a card has to start with the engine's centring code, and the wrapped part didn't have one.
