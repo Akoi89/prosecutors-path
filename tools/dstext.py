@@ -83,6 +83,14 @@ PAREN_CLOSE = 0xFF09
 # immediately followed by {E20D} are structural: that code opens a new laid-out row,
 # as in {E043}March 25, 2:46 PM <newline> {E20D}Gourd Lake - Spectator Area{E040}.
 LAYOUT_ROW = 0xE20D
+# {E20D} also CENTRES its row, and only its row. The Collection's cards put the whole place
+# on one row ("Detention Center - Visitor's Room"); on the DS that row is too wide, the
+# wrapper broke it with a bare newline, and the tail ("Room") printed flush left under the
+# centred text on 22 of 82 cards in 1.8.2 (seen in the rig, Ep2 ch3; Reddit report). The
+# fan ROM gives the building and the room a row each, so a place row splits at its " - "
+# into two {E20D} rows when both halves fit and the card stays within one box; a row that
+# still has to wrap re-opens {E20D} on the wrapped line so it is centred too.
+CARD_SEP = 0xFF0D           # the fullwidth hyphen of " - "
 # The DS font has no fullwidth apostrophe/quote (U+FF07 / U+FF02) - they render as a
 # stray underline. The fan patch uses the curly forms instead: U+201D as the apostrophe
 # (16,482 uses) and U+201C as the double quote - at BOTH ends (925 of its quotations
@@ -222,6 +230,68 @@ def _opens_with_close(chunk):
     return False
 
 
+def _rows(tokens):
+    """Split a token list at its 'br' tokens."""
+    rows, cur = [], []
+    for t in tokens:
+        if t[0] == 'br':
+            rows.append(cur); cur = []
+        else:
+            cur.append(t)
+    rows.append(cur)
+    return rows
+
+def _is_layout_row(row):
+    """True when an {E20D} comes before the row's first word."""
+    for kind, val in row:
+        if kind == 'w': return False
+        if kind == 'c' and LAYOUT_ROW in val: return True
+    return False
+
+def _split_at_sep(row):
+    """(head, tail) at the row's first ' - ', both halves one line wide, else None."""
+    for k in range(1, len(row) - 1):
+        if (row[k] == ('w', [CARD_SEP]) and row[k - 1][0] == 's'
+                and row[k + 1][0] == 's'):
+            head = row[:k - 1]
+            tail = [('c', [LAYOUT_ROW])] + row[k + 2:]
+            if _layout(head)[1] == 1 and _layout(tail)[1] == 1:
+                return head, tail
+            return None
+    return None
+
+TITLE_DASHES = [CARD_SEP, CARD_SEP]      # '-- Testimony --' rows are titles, not places
+
+def _split_card_rows(tokens):
+    """Place rows split at their ' - ' onto a second {E20D} row, when both halves fit on
+    one line and the result still fits one box. Two shapes carry places:
+      date/time cards: the first row is the date, every later {E20D} row is the place;
+      place labels ({E226}...{E229}): the whole message is one {E20D} row.
+    A '-- title --' row and anything else is returned unchanged."""
+    rows = _rows(tokens)
+    if len(rows) == 1:
+        row = rows[0]
+        first = next((v for k, v in row if k == 'w'), None)
+        if not _is_layout_row(row) or first is None or first[:2] == TITLE_DASHES:
+            return tokens
+        cut = _split_at_sep(row)
+        return tokens if cut is None else cut[0] + [('br', None)] + cut[1]
+    if not all(_is_layout_row(r) for r in rows[1:]):
+        return tokens
+    out_rows = [rows[0]]
+    budget = BOX_LINES - len(rows)
+    for row in rows[1:]:
+        cut = _split_at_sep(row) if budget > 0 else None
+        if cut:
+            out_rows += list(cut); budget -= 1
+        else:
+            out_rows.append(row)
+    out = []
+    for i, r in enumerate(out_rows):
+        if i: out.append(('br', None))
+        out.extend(r)
+    return out
+
 def convert(units, wrap=True, page=True, hard_nl='e20d'):
     """hard_nl: 'e20d' keeps a source newline as a line break only when {E20D} follows
     (location/date cards); True keeps every newline; False folds them all to spaces."""
@@ -295,6 +365,7 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
                 elif kind == 'br': out.append(0x0A)
                 elif kind == 's': out.append(SPACE)
             return
+        tokens = _split_card_rows(tokens)
         _, nlines = _layout(tokens)
         nb = max(1, -(-nlines // BOX_LINES)) if page else 1
         chunks = [tokens]
@@ -329,9 +400,18 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
                 style = reopen
             placed, _ = _layout(chunk)
             cur = 0
+            centred = False     # this row opened with {E20D}
+            after_br = False
             for kind, val, ln, sp in placed:
                 while ln > cur:
                     cur += 1; out.append(0x0A)
+                    if centred and not after_br:
+                        out.append(LAYOUT_ROW)      # a wrap inside a centred row
+                    else:
+                        centred = False
+                after_br = kind == 'br'
+                if kind == 'c' and val[0] == LAYOUT_ROW:
+                    centred = True
                 if kind == 'c':
                     out.extend(val)
                     for c in val:
