@@ -42,7 +42,7 @@ B_INK = 1                      # white on transparent (style B)
 # face; the wording is a review call, recorded in RELEASE_NOTES.
 BANNER_SHORT = {
     'Sound of something breaking': 'Something breaking',            # 115 px
-    'Festival at Sunshine Coliseum': 'Sunshine Coliseum festival',  # 158 px
+    'Festival at Sunshine Coliseum': 'Festival at the Coliseum',    # 144 px
 }
 
 
