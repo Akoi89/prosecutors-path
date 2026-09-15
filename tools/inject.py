@@ -17,7 +17,7 @@ try:
 except AttributeError:                                    # pragma: no cover
     sys.stdout.flush()
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-from spt import all_strings, parse
+from spt import all_strings, parse, tails
 from build_spt import build_ds, build_archive
 import dstext
 from dstext import convert, ARGS
@@ -319,6 +319,7 @@ def main(base=None, out=None):
 
     swapped = overflow = mismatch = skipped = demo = untranslated = tiny = shape = dropped = boxkeep = 0
     restructured = relaidn = unmerged = recut = hollowed = boxless = dsonly = 0
+    kept_tails = 0
     foreign = 0
     # Every control code the DS engine is known to accept: the set used by the fan
     # script. A converted string that still carries any other code would make the
@@ -617,8 +618,15 @@ def main(base=None, out=None):
             if _nbox(fu) > 0 and _nbox(conv[j2]) == 0:
                 conv[j2] = list(fu); boxless += 1
         recs = [(ds[j][1], conv[j]) for j in range(1, len(ds))]
+        # A string the injector left as the fan wrote it keeps whatever the fan put in
+        # its terminator slot: that slot can be the last argument of a command cut off
+        # by the declared length (spt.tails; the Ep3 Bound/Larry talk mix-up).
+        ftails = tails(fan[i], True)
+        keep = [t if any(t) and list(conv[j]) == list(ds[j][3]) else None
+                for j, t in enumerate(ftails)]
+        kept_tails += sum(1 for t in keep if t)
         try:
-            entries[i] = build_ds(conv[0], recs, trailer, scale, longest)
+            entries[i] = build_ds(conv[0], recs, trailer, scale, longest, keep)
             swapped += 1
         except OverflowError:
             overflow += 1
@@ -673,6 +681,7 @@ def main(base=None, out=None):
     print('relaid strings rebuilt in the fan layout:   %d' % recut)
     print('hollow official strings kept as fan:       %d' % hollowed)
     print('rows kept as fan to keep their message box: %d' % boxless)
+    print('terminator slots kept from the fan (a command argument lives there): %d' % kept_tails)
     print('rows kept as fan to keep a DS-only command:  %d  (in %d script banks)'
           % (dsonly, len(dsonly_banks)))
     print('kept fan text - over 64 KB u16 cap:     %d' % overflow)
