@@ -13,7 +13,7 @@ gradient gone, text against the top edge).
 What this module takes from the fan cards, and how each part was proven on them:
   * glyphs: every fan line listed in logic_fan_text.json is cut at its blank columns and
     the runs paired with the line's letters; the most common bitmap per letter wins.
-    159 card lines and 94 banner lines feed the harvest;
+    161 card lines and 94 banner lines feed the harvest;
   * spacing: 1 blank column between letters, a space of 4 (cards) or 6 (banners), and a
     few letters with their own side gaps - all measured, none chosen;
   * the text-free card: per pixel, the most common index over all 103 fan cards away from
@@ -24,9 +24,9 @@ What this module takes from the fan cards, and how each part was proven on them:
 Whole-image proof, this pipeline redrawing the fan's own text (loccards/logic_font/
 verify_shipped.py): 75 of 101 fan cards and 83 of 93 fan banners come back pixel for
 pixel, card background and outline included. Of the 26 cards that differ, 10 match once
-the block moves the row the fan moved it by hand, 14 differ where the fan tightened a
-line, and 2 have only their first line recorded here. Where Capcom's name matches the
-fan's, our images are byte-identical to the fan's: 17 cards and 18 banners.
+the block moves the row the fan moved it by hand and 16 differ where the fan tightened a
+line by hand. Where Capcom's name matches the fan's, our images are byte-identical to the
+fan's: 17 cards and 18 banners.
 Letters the fan never drew are derived from ones it did: '"' is two apostrophes, '0' the
 'o' stretched to digit height, 'z' drawn on the 'x' box, and the banner 'I' is its 'l'.
 
