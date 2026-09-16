@@ -6,6 +6,43 @@ lines went back to the fan text in 1.5.2 and twelve description rows in 1.6.0, s
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
 
+## v1.8.5: the Logic keyword cards in the fan patch's own lettering
+
+The same tester who found the Episode 3 talk bug said the Logic keyword graphics we edit
+looked a bit odd. They did. Those cards and the banner above each keyword's description are
+images, not text, so the official name has to be drawn into them. Until now it was drawn in
+the Collection's own font squashed down to the DS size and forced to one bit per pixel, on a
+card interior wiped to flat bands, and long names were squeezed sideways until the letters
+touched. Next to an untouched fan card it stood out immediately.
+
+They are now drawn in the fan team's own pixel lettering. Nothing ships with the tool: every
+letter, the spacing between letters and words, and a clean copy of the card with no text on
+it are all cut out of your own ROM at build time by `tools/logic_font.py`, from the fan's 133
+cards and banners. What the repository holds is the fan's own card text, so the harvester
+knows which shape is which letter.
+
+Proof, since none of that is worth anything unless it reproduces the fan's work: redrawing
+the fan's own card text with the finished pipeline gives back 75 of its 101 cards and 83 of
+its 93 banners pixel for pixel, whole images, background and the dark outline under the white
+letters included. Of the 26 cards that differ, 10 come out exact once the block of text moves
+the one row the fan moved it by hand (the fan used two heights for a two-line card with
+nothing in the text to tell them apart, and we use the one it used more often), 14 differ
+where the fan tightened a line by hand, and for 2 our record of the fan's text only holds the
+first line, so they were never a fair comparison. Where Capcom's name for a keyword is the
+same as the fan's, our card and banner come out byte-identical to the fan's: 17 cards and 18
+banners.
+
+97 of the 133 keywords have an official name, and all 194 of their images are redrawn. Two
+names are wider than any banner can hold even with the spaces narrowed, so their banner
+carries a shorter form while the card keeps Capcom's full name on three lines: "Sound of
+something breaking" becomes "Something breaking" above its description, and "Festival at
+Sunshine Coliseum" becomes "Festival at the Coliseum". Four characters the fan never drew are
+built out of ones it did: the double quote, the digit zero, a lowercase z, and a capital I on
+banners. Read back against 1.8.4, one file changes, the Logic image bank, plus the version
+number painted on the title screen. The eight audits are identical to 1.8.4's output.
+
+Reference sha256 for 1.8.5 is `d2f7988c...`.
+
 ## v1.8.4: talking to Ms. Bound opens her conversation, not Larry's
 
 A Reddit tester playing Episode 3 found that at the Zodiac Art Gallery's Fountain Patio, choosing Talk on Ms. Bound opened Larry's scene and his topics instead of hers. He sent his save. It reproduced on 1.8.3 in the emulator, and the same save on the fan ROM talks to her correctly, so it was ours.

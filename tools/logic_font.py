@@ -13,14 +13,20 @@ gradient gone, text against the top edge).
 What this module takes from the fan cards, and how each part was proven on them:
   * glyphs: every fan line listed in logic_fan_text.json is cut at its blank columns and
     the runs paired with the line's letters; the most common bitmap per letter wins.
-    Re-drawn from the harvested font and the spacing rules below, 159 of 162 fan card
-    lines and 93 of 100 banner lines match the fan pixel for pixel (the rest are lines
-    the fan hand-tightened);
+    159 card lines and 94 banner lines feed the harvest;
   * spacing: 1 blank column between letters, a space of 4 (cards) or 6 (banners), and a
     few letters with their own side gaps - all measured, none chosen;
-  * the text-free card: per pixel, the most common index over all fan cards away from
-    their text (3,198 of 3,200 pixels unanimous). Base + outline + ink rebuilds 94 of 103
-    fan cards exactly; the other nine differ by 1-6 px of hand touch-up.
+  * the text-free card: per pixel, the most common index over all 103 fan cards away from
+    their text (3,198 of 3,200 pixels unanimous);
+  * layout: baseline 20 for one line, 13/26 for two, and the odd pixel of centring rounds
+    right. The fan set two-line cards at 13/26 on 41 of its 58 and at 14/27 on the other
+    17, with nothing in the text to separate them, so its majority is used for all.
+Whole-image proof, this pipeline redrawing the fan's own text (loccards/logic_font/
+verify_shipped.py): 75 of 101 fan cards and 83 of 93 fan banners come back pixel for
+pixel, card background and outline included. Of the 26 cards that differ, 10 match once
+the block moves the row the fan moved it by hand, 14 differ where the fan tightened a
+line, and 2 have only their first line recorded here. Where Capcom's name matches the
+fan's, our images are byte-identical to the fan's: 17 cards and 18 banners.
 Letters the fan never drew are derived from ones it did: '"' is two apostrophes, '0' the
 'o' stretched to digit height, 'z' drawn on the 'x' box, and the banner 'I' is its 'l'.
 
@@ -34,11 +40,13 @@ A_INK, A_OUTLINE, B_INK = 9, 8, 1
 BLUES = {3, 4, 5, 6, 7, 8}
 OUTLINE_OFFS = ((1, 0), (-1, 0), (0, 1), (0, -1))
 # Fan layout, measured over its cards: baselines by line count, the widest line (x 5..75),
-# and centring that rounds the odd pixel right. Three lines never occur in the fan cards;
-# 10/19/28 is the tightest pitch that keeps a descender on line 3 inside the interior (rows
-# 2..31). Banners: one line, baseline 12, centred in the banner's own width.
+# and centring that rounds the odd pixel right. One line is always baseline 20. Two lines
+# are 13/26 on 41 of the fan's 58 two-line cards and 14/27 on the other 17, with nothing
+# in the text to tell them apart (descenders on either line split both ways), so the fan
+# nudged those by hand and we use its majority for all of them. Three lines never occur in
+# the fan cards; 10/19/28 is the tightest pitch that keeps a descender on line 3 inside the
+# interior (rows 2..31). Banners: one line, baseline 12, centred in the banner's own width.
 A_BASELINES = {1: [20], 2: [13, 26], 3: [10, 19, 28]}
-A_BASELINES_2_NO_DESC = [14, 27]
 A_MAX_W = 70
 B_BASELINE = 12
 B_MARGIN = 1
@@ -315,10 +323,7 @@ class LogicFont(object):
             for x in range(x0, x1 + 1):
                 rows[y][x] = self.base[y][x]
         W = len(rows[0])
-        if len(lines) == 2 and not any(self.A.g[c][1] > 0 for c in lines[0] if c != ' '):
-            bases = A_BASELINES_2_NO_DESC
-        else:
-            bases = A_BASELINES[len(lines)]
+        bases = A_BASELINES[len(lines)]
         lost = 0
         for t, b in zip(lines, bases):
             pl, w = self.A.layout(t, sp)

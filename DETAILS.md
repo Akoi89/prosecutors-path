@@ -466,7 +466,10 @@ same thing:
   build time by `tools/logic_font.py`, on the fan's own text-free card: up to three lines on the
   card and one on the banner. Two names too wide for any banner carry a shorter form there.
   97 of the 133 slots have an official name; the rest (30 unused dummies, 6 real keywords
-  with no Collection counterpart) keep the fan lettering.
+  with no Collection counterpart) keep the fan lettering. Redrawing the fan's own card text
+  with the same code returns 75 of its 101 cards and 83 of its 93 banners pixel for pixel,
+  background and outline included, and the 17 cards and 18 banners whose official name is
+  the fan's own wording come out byte-identical to the fan's.
 
 - **Voices**: thirteen of the shouts ("Objection!" and friends) are Capcom's 2024 English
   recordings, pulled from the Collection's sound bundle by `tools/voices.py`, resampled to
