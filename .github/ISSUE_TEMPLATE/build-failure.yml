@@ -33,8 +33,7 @@ body:
       options:
         - Windows
         - Linux
-        - macOS (Apple Silicon)
-        - macOS (Intel)
+        - macOS (built from source)
     validations:
       required: true
 

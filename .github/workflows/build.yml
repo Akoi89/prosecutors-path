@@ -34,13 +34,10 @@ jobs:
           - os: ubuntu-22.04
             asset: gk2port-linux-x64
             sep: ':'
-          # macOS is deliberately not built yet. An arm64 binary does build and
-          # pass --selftest here (run 32594965350, 37s), but nobody has ever run
-          # one on a real Mac, and Intel is worse: macos-13 is being retired and
-          # its runners queue indefinitely instead of failing, which stalls the
-          # whole release. Re-enable once someone can test the result:
-          #   - os: macos-14        asset: gk2port-macos-arm64   sep: ':'
-          #   - os: macos-15-intel  asset: gk2port-macos-x64     sep: ':'
+          # macOS is not built. An arm64 binary did build and pass --selftest here
+          # (run 32594965350, 37s), but nobody has ever run one on a real Mac, and
+          # shipping a binary no one has executed helps nobody. macOS builds from
+          # source, which is documented and works today.
 
     steps:
       - uses: actions/checkout@v4
