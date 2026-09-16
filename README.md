@@ -22,8 +22,9 @@ and the title screen are all redrawn at build time.
 
 > ### Playtesters wanted
 >
-> **Nobody has finished an episode, and solving a rebuttal has never been tested by
-> anyone.** Of the game's ~41,700 message boxes, about 5,100 have been run by a script
+> **Nobody has finished an episode, and only one rebuttal has ever been solved by a
+> tester** (Episode 3's first, against Badd, on 1.8.2, with no errors). Of the game's
+> ~41,700 message boxes, about 5,100 have been run by a script
 > that can only press A and tap, and several hundred more by hand: Episode 1 chapter 1 end
 > to end, Episode 2 chapters 1 and 2, part of chapter 3 and chapter 4's opening, and
 > Episode 5 chapter 4's opening. Episode 3's fourth chapter went through the rig instead,
@@ -108,7 +109,7 @@ been tested, it's only been run.
 The tooling was written with **LLM assistance**: Claude, driven through Claude Code, over a
 series of sessions. That's stated plainly rather than buried. What ships is Capcom's own
 script, art and recordings plus the fan team's assets; nothing in the ROM is generated
-text. The code is about 3,500 lines across 28 modules, MIT licensed, and it ships as source
+text. The code is about 8,300 lines across 45 modules, plus nine audit scripts, MIT licensed, and it ships as source
 precisely so you don't have to take any of that on faith.
 
 Because every hang this project has ever had was found by **playing the game**, and none by

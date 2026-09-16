@@ -588,7 +588,7 @@ only works if someone reads the wall.
 
 So treat the guards as a record of what has actually gone wrong rather than proof that
 nothing else will, and treat the code as reviewable rather than authoritative. It is about
-3,500 lines across 28 modules, MIT licensed, and it ships as source precisely so you do
+8,300 lines across 45 modules, plus nine audit scripts, MIT licensed, and it ships as source precisely so you do
 not have to take any of the above on faith. Read it before you trust it with a ROM you
 care about, and recompute anything here that matters to you.
 
