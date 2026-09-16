@@ -37,11 +37,11 @@ Windows and Linux on every push and attaches them to the release on a tag.
 **PyInstaller cannot cross-compile.** Each binary has to be produced on its own OS,
 so CI is the only way to ship the non-Windows ones at all.
 
-macOS is commented out of the matrix rather than absent. An arm64 binary builds and
-passes `--selftest` in about 40 seconds; what is missing is anyone running it on a real
-Mac. Intel is a separate problem: `macos-13` is being retired and its runners now sit in
-the queue indefinitely instead of failing, which stalls the whole release, so
-`macos-15-intel` is the label to use when it comes back.
+macOS is not built, and that is settled rather than pending. An arm64 binary built and
+passed `--selftest` in about 40 seconds, but nobody ever ran one on a real Mac, and a
+binary no one has executed is not worth shipping. Intel was worse: `macos-13` is being
+retired and its runners sat in the queue instead of failing, which stalled the release.
+Building from source on macOS works today and is the documented route.
 
 To build one by hand:
 

@@ -17,10 +17,10 @@ else to install.
 | Windows | `gk2port-windows-x64.exe` |
 | Linux (glibc 2.35+) | `gk2port-linux-x64` |
 
-**macOS: build from source for now.** A macOS binary compiles and self-tests fine in
-CI, but nobody has run one on an actual Mac yet, and shipping a binary no one has
-executed is not much of a favour. `pip install UnityPy Pillow numpy` and use `tools/build.py`
-instead, which works the same way.
+**macOS: build from source.** A macOS binary compiled and self-tested fine in CI, but
+nobody ever ran one on an actual Mac, and shipping a binary no one has executed is not
+much of a favour, so it is not built. `pip install UnityPy Pillow numpy` and use
+`tools/build.py` instead, which works the same way.
 
 #### The short version
 
