@@ -6,6 +6,35 @@ lines went back to the fan text in 1.5.2 and twelve description rows in 1.6.0, s
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
 
+## v1.8.6: the answer menus that froze the game
+
+A tester playing 1.8.5 hit a hard freeze in Episode 2, right after the crime scene has been
+examined. Edgeworth asks what's missing from it, the red "Select your answer" bar comes up,
+and then nothing. No buttons, no input, the game is gone. The same thing happened in Episode
+3, at the second rebuttal against Gusto.
+
+It's our bug, and it has been in every release since 1.4.4. When the game builds an answer
+menu it names the button image to use for each option. Those numbers come from Capcom's
+script, and Capcom's numbering is not the DS's. Fifty of the game's sixty two answer menus
+happened to line up anyway. Twelve did not. The Episode 3 one pointed at a colour palette
+instead of a button image, which is the kind of thing that stops a game dead.
+
+Five of the twelve had a second problem: the number saying which line an answer continues
+from was one too low, which would have sent you down the wrong branch. The build already
+fixed exactly that for another command, and simply wasn't doing it here.
+
+Both are fixed the same way now, by taking those numbers from the fan patch, which has the
+DS's own numbering. Twenty five of them were corrected in this build. Nothing else in the
+script moved: the read back against 1.8.5 shows the script file and the title screen's
+version stamp, and nothing else.
+
+There's also a new build check, `audits/audit_choicearg.py`, which refuses a build whose
+answer menus name a button image that isn't there. It's the ninth audit, and like the others
+it's tested against a deliberately broken copy of the build so we know it can actually fail.
+
+Proof: the tester's own save file, on the 1.8.6 ROM, at the exact spot that froze. The three
+answers appear, the scene plays on.
+
 ## v1.8.5: the Logic keyword cards in the fan patch's own lettering
 
 The same tester who found the Episode 3 talk bug said the Logic keyword graphics we edit

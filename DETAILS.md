@@ -508,7 +508,8 @@ python audits/audit_fixtures.py         # prove the audits can actually fail
 | `audits/audit_titles.py` | Every redrawn card keyed off the right source title |
 | `audits/audit_hint.py` | Any SPT buffer hint too small for its own data |
 | `audits/audit_tails.py` | A command argument the fan ROM stores past a string's declared end, zeroed by the rebuild (the 1.8.4 Episode 3 talk fix) |
-| `audits/audit_fixtures.py` | Breaks a copy of your build eight ways, one per audit, and checks each one notices |
+| `audits/audit_choicearg.py` | A choice-menu {E187} argument that cannot resolve on the DS: a strip id past the DS's own block, or a target string index skewed against the fan (the Ep2 DS[58] frozen-prompt defect) |
+| `audits/audit_fixtures.py` | Breaks a copy of your build ten ways across the nine audits (audit_choicearg gets two, one per fault class), and checks each one notices |
 | `spt.py` | SPT container parser, both variants, with offset-scale detection |
 | `build_spt.py` | SPT writer |
 | `dstext.py` | Text conversion: fullwidth mapping, pixel wrapping, page breaks, control-code arity |
@@ -550,13 +551,23 @@ grounded in measurements over the real files rather than in anyone's recollectio
 be trusted without trusting whoever built it, and the published binary has been confirmed
 to reproduce that hash byte-for-byte.
 
-The eight audits in [`audits/`](audits) guard the structural failure classes, and **every
-one of them is tested against a deliberately corrupted input**. `audits/audit_fixtures.py`
+The nine audits in [`audits/`](audits) guard the structural failure classes, and **each one
+is meant to be tested against a deliberately corrupted input**. `audits/audit_fixtures.py`
 breaks a copy of your build (or, for the title audit, of the fan artwork it reads) in exactly
 the way each one claims to detect and checks it notices, reporting the line that changed.
 Run it yourself; it never touches `out/` or `dump/`. One of those fixtures immediately
 exposed a defect class that had no audit at all, which is why `audit_boxes.py` exists.
-An audit that has never failed has not been tested, it has only been run.
+
+A fixture can be checked against the wrong value and PASS anyway for the wrong reason: an
+early `audit_choicearg` fixture poked a strip id (163) that is a real sprite bundle on the
+DS, so it only proved the fan-diff check, never the idlocal sprite-vs-palette check it was
+supposed to exercise, and on a build made before its own fix, poking that same already-wrong
+value changed nothing at all - a false MISSED that would have looked like a fixtures-suite
+bug rather than a bad test value. It now uses an id chosen to land on a real palette entry
+(170, not 163), so the fixture proves the sprite-vs-palette check itself and no longer
+depends on whether the `out/` build already carries the argument fix. An audit that has
+never failed has not been tested, it has only been run - and that applies to picking the
+fixture's own bytes, not only to the audit it exercises.
 
 Each audit also carries a `# SCOPE` block stating what it does **not** look at, because a
 check with an unstated scope is how something goes unexamined without anyone being wrong
@@ -588,7 +599,7 @@ only works if someone reads the wall.
 
 So treat the guards as a record of what has actually gone wrong rather than proof that
 nothing else will, and treat the code as reviewable rather than authoritative. It is about
-8,300 lines across 45 modules, plus nine audit scripts, MIT licensed, and it ships as source precisely so you do
+8,300 lines across 45 modules, plus ten audit scripts, MIT licensed, and it ships as source precisely so you do
 not have to take any of the above on faith. Read it before you trust it with a ROM you
 care about, and recompute anything here that matters to you.
 
