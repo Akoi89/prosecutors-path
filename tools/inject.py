@@ -97,6 +97,51 @@ def _code_positions(u):
     return out
 
 
+def _restore_choice_args(conv, ds, code=0xE187):
+    """{E187} builds one choice button: (strip id in jpn/idlocal.bin, target
+    string in THIS entry). Both value spaces are DS-specific, and neither is
+    remapped anywhere in the toolchain - dstext.py appends the Collection's own
+    argument units unchanged. The Collection's strip ids run past the DS's own
+    block (163-171 appear only in the official script; 170 lands on idlocal
+    533, a palette, not a sprite - rig-proven to freeze DS[58] str 2 with the
+    prompt up and no buttons) and the target index is skewed whenever
+    region_align re-lays the entry, exactly the way {E081}'s argument is
+    (region_align's own rewrite below, inject.py:217-232, only reaches
+    {E081}). Copy BOTH arguments from the fan positionally, for every string we
+    emit - the strip-id fault is not limited to re-laid entries.
+
+    Gate is per STRING, not per entry (an entry is many strings): where one
+    string's {E187} count does not match the fan's, that string alone is left
+    unrewritten and counted as a mismatch; every other string in the same
+    entry is still corrected. A positional copy inside one string is not
+    invalidated by a different string's count disagreeing.
+
+    Bounds-checked the way region_align's {E081} loop is (inject.py:230-231):
+    a string truncated at its declared length with the code's argument past
+    the end would otherwise index past the list and kill the build. Zero such
+    cases exist in dump/ds_fan/jpn/spt.bin today; skip that one occurrence,
+    rather than raise, if it ever does.
+
+    Returns (rewritten, mismatched_strings)."""
+    rewritten = mismatched_strings = 0
+    for j in range(len(conv)):
+        u, a = conv[j], list(ds[j][3])
+        pu = [k for k in _code_positions(u) if u[k] == code]
+        pa = [k for k in _code_positions(a) if a[k] == code]
+        if not pu and not pa:
+            continue
+        if len(pu) != len(pa):
+            mismatched_strings += 1
+            continue
+        for ku, ka in zip(pu, pa):
+            if ku + 2 >= len(u) or ka + 2 >= len(a):
+                continue
+            if u[ku + 1] != a[ka + 1] or u[ku + 2] != a[ka + 2]:
+                rewritten += 1
+            u[ku + 1], u[ku + 2] = a[ka + 1], a[ka + 2]
+    return rewritten, mismatched_strings
+
+
 def rebuild_region(fan_strs, en_strs):
     """Join en_strs (absorbing inner E081 tails where present - strings that end
     an entry carry none), then re-cut into len(fan_strs) pieces at the fan's own
@@ -320,6 +365,7 @@ def main(base=None, out=None):
     swapped = overflow = mismatch = skipped = demo = untranslated = tiny = shape = dropped = boxkeep = 0
     restructured = relaidn = unmerged = recut = hollowed = boxless = dsonly = 0
     kept_tails = 0
+    choicearg = choicearg_mismatched_strings = 0
     foreign = 0
     # Every control code the DS engine is known to accept: the set used by the fan
     # script. A converted string that still carries any other code would make the
@@ -617,6 +663,15 @@ def main(base=None, out=None):
             fu = ds[j2][3]
             if _nbox(fu) > 0 and _nbox(conv[j2]) == 0:
                 conv[j2] = list(fu); boxless += 1
+        # Run last, after every structural reject (dropped/shape continue above)
+        # and every net that can still replace or re-convert a string (the
+        # sparse row-by-row swap, hollow/boxkeep/dsonly/boxless) - otherwise the
+        # count includes entries this loop never ships, and a string re-converted
+        # by the sparse path after an earlier call would keep the Collection's
+        # raw argument values instead of the fan's.
+        n_restored, n_mismatch = _restore_choice_args(conv, ds)
+        choicearg += n_restored
+        choicearg_mismatched_strings += n_mismatch
         recs = [(ds[j][1], conv[j]) for j in range(1, len(ds))]
         # A string the injector left as the fan wrote it keeps whatever the fan put in
         # its terminator slot: that slot can be the last argument of a command cut off
@@ -682,6 +737,11 @@ def main(base=None, out=None):
     print('hollow official strings kept as fan:       %d' % hollowed)
     print('rows kept as fan to keep their message box: %d' % boxless)
     print('terminator slots kept from the fan (a command argument lives there): %d' % kept_tails)
+    print('{E187} choice-menu arguments restored from the fan (strip id, target string): %d'
+          % choicearg)
+    if choicearg_mismatched_strings:
+        print('strings whose {E187} count did not match the fan - left unrewritten: %d'
+              % choicearg_mismatched_strings)
     print('rows kept as fan to keep a DS-only command:  %d  (in %d script banks)'
           % (dsonly, len(dsonly_banks)))
     print('kept fan text - over 64 KB u16 cap:     %d' % overflow)

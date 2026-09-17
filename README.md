@@ -60,7 +60,7 @@ Two ways in, ending at the same ROM, and `--verify` confirms it either way.
 **Apply the patch** if you have the fan ROM and want it done in seconds:
 
 ```bash
-xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds" "Prosecutors-Path-1.8.5-fan-base.xdelta" "GK2 (Official English, DS port).nds"
+xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds" "Prosecutors-Path-1.8.6-fan-base.xdelta" "GK2 (Official English, DS port).nds"
 ```
 
 On Windows, DeltaPatcher asks for the same two files and writes the same output. The source
@@ -102,14 +102,14 @@ running the tools on your own files. `tools/coverage.py` computes the coverage t
 `--verify` hashes a finished build against the release's published reference, so a ROM can
 be trusted without trusting whoever built it.
 
-The eight audits in [`audits/`](audits) guard the structural failure classes, and every one
+The nine audits in [`audits/`](audits) guard the structural failure classes, and every one
 is tested against a deliberately corrupted input. An audit that has never failed hasn't
 been tested, it's only been run.
 
 The tooling was written with **LLM assistance**: Claude, driven through Claude Code, over a
 series of sessions. That's stated plainly rather than buried. What ships is Capcom's own
 script, art and recordings plus the fan team's assets; nothing in the ROM is generated
-text. The code is about 8,300 lines across 45 modules, plus nine audit scripts, MIT licensed, and it ships as source
+text. The code is about 8,300 lines across 45 modules, plus ten audit scripts, MIT licensed, and it ships as source
 precisely so you don't have to take any of that on faith.
 
 Because every hang this project has ever had was found by **playing the game**, and none by

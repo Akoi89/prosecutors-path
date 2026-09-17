@@ -280,6 +280,72 @@ def break_widgets(rom):
     return bytes(out), done
 
 
+def _find_e187_offset(e, base, j, arg_index):
+    """Absolute file offset of the (arg_index)'th argument (0=strip id,
+    1=target string) of the FIRST {E187} in string j of entry bytes `e`,
+    which itself starts at file offset `base`. None if string j has none."""
+    h, recs = spt.parse(e, True)
+    starts = [h['dstart']] + [r[1] for r in recs]
+    lens = [h['lead']] + [r[2] for r in recs]
+    if j >= len(starts):
+        return None
+    s, ln = starts[j], lens[j]
+    u = spt.units(e[s:], ln)
+    k, n = 0, len(u)
+    while k < n:
+        v = u[k]
+        if 0xE000 <= v <= 0xF8FF:
+            if v == 0xE187:
+                return base + s + 2 * (k + 1 + arg_index)
+            k += 1 + ARGS.get(v, 0)
+        else:
+            k += 1
+    return None
+
+
+def break_choicearg_strip(rom):
+    """Point DS[58] str 2's {E187} strip-arg at 170 so 363+170 = idlocal 533,
+    the short-strip PALETTE entry, not a sprite (the real Ep3 DS[200] hazard -
+    ROOTCAUSE.md; rig-proven elsewhere to freeze the game with the prompt up
+    and no buttons). Chosen specifically so audit_choicearg's check 1 (idlocal
+    sprite-vs-palette) is what catches this, not check 3 (the fan diff): 363 +
+    163, the id the real DS[58] bug actually carries, lands on idlocal 526, a
+    real 3872-byte sprite bundle, so a 163 fixture here would only be caught by
+    the fan comparison and would prove nothing about check 1. No-ops (returns
+    0) if the site already holds 170, so the harness never reports a
+    byte-identical write as a patch."""
+    a, b = spt_span(rom)
+    cont = bytes(rom[a:b])
+    o, s = struct.unpack_from('<II', cont, 58 * 8)
+    off = _find_e187_offset(cont[o:o + s], a + o, 2, 0) if s else None
+    if off is None:
+        return bytes(rom), 0
+    cur = struct.unpack_from('<H', rom, off)[0] ^ XOR
+    if cur == 170:
+        return bytes(rom), 0
+    out = bytearray(rom)
+    out[off:off + 2] = enc(170)
+    return bytes(out), 1
+
+
+def break_choicearg_target(rom):
+    """Drop DS[92] str 18's {E187} target-string index by one - the Group-B
+    defect: region_align re-lays this entry onto the fan's one-shorter string
+    layout but only rewrites {E081} indices, so {E187}'s second argument goes
+    stale. Same shape as the real fault, applied fresh so the fixture proves
+    the audit rather than reproducing the fix."""
+    a, b = spt_span(rom)
+    cont = bytes(rom[a:b])
+    o, s = struct.unpack_from('<II', cont, 92 * 8)
+    off = _find_e187_offset(cont[o:o + s], a + o, 18, 1) if s else None
+    if off is None:
+        return bytes(rom), 0
+    cur = struct.unpack_from('<H', rom, off)[0] ^ XOR
+    out = bytearray(rom)
+    out[off:off + 2] = enc(cur - 1)
+    return bytes(out), 1
+
+
 def _repack_idlocal(D, repl):
     """Rebuild the idlocal container with entries in `repl` (index -> decompressed
     bytes) stored as literal-only LZ11 - the same shape plates.Plates.rebuild
@@ -357,6 +423,8 @@ FIXTURES = [
     ('audit_widgets.py', 'widen bank-453 option rows past the fan maximum',      break_widgets, 'rom'),
     ('audit_titles.py',  'erase the first letter of four fan title strips',      break_titles,  'idlocal'),
     ('audit_tails.py',   'zero the units strings keep past their declared length (the 1.8.3 Bound/Larry talk)', break_tails, 'rom'),
+    ('audit_choicearg.py', 'point DS[58] str 2 {E187} strip-arg at 170 - 363+170 = idlocal 533, a palette, not a sprite', break_choicearg_strip, 'rom'),
+    ('audit_choicearg.py', "drop DS[92] str 18's {E187} target-string index by one (the region_align skew)", break_choicearg_target, 'rom'),
 ]
 
 
