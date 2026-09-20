@@ -23,7 +23,13 @@ def wrap_lines(eng, suffix, age_text, px):
     if px is None:                      # description card: measured font, see loc_patch.desc_font
         from loc_patch import desc_font
         dstext.WIDTH_FN, px = desc_font()
+    else:
+        dstext.WIDTH_FN = dstext._estimate   # px is an estimate-units budget
     dstext.LINE_PX = px
+    measure = dstext.WIDTH_FN        # the ruler THIS wrap used; the finally below
+                                     # restores the global one, and reporting widths
+                                     # with that instead measures the result of one
+                                     # model against the units of another
     try:
         conv, _ = dstext.convert(_to_units(eng), page=False, hard_nl=False)
         if suffix:
@@ -37,7 +43,7 @@ def wrap_lines(eng, suffix, age_text, px):
         if v == 0x0A: lines.append(cur); cur = []
         else: cur.append(v)
     lines.append(cur)
-    widths = [sum(dstext._w(chr(v)) for v in l if not CTRL(v)) for l in lines]
+    widths = [sum(measure(chr(v)) for v in l if not CTRL(v)) for l in lines]
     return n_age + len(lines), widths
 
 

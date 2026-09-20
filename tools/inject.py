@@ -20,6 +20,7 @@ except AttributeError:                                    # pragma: no cover
 from spt import all_strings, parse, tails
 from build_spt import build_ds, build_archive
 import dstext
+import fontwidths          # module level so PyInstaller's scan cannot miss it
 from dstext import convert, ARGS
 from episode_titles import retitle
 from loc_patch import load_lookup, patch_entry
@@ -347,6 +348,17 @@ def main(base=None, out=None):
     # around next to the fan ROM.
     if os.path.abspath(BASE) == os.path.abspath(OUT):
         raise SystemExit('the output would overwrite the input ROM: %s' % OUT)
+    # The dialogue font's real advances, out of the arm9 in the player's own ROM.
+    # Done here, once, before anything is converted: the widgets that wrap with
+    # their own face save and restore dstext.LINE_PX around their call, so this
+    # must not land in the middle of one. A ROM we do not recognise returns
+    # nothing and the old estimate stands, which wraps early rather than wrong.
+    _adv, _px = fontwidths.widths(BASE)
+    if dstext.use_real_widths(_adv, _px):
+        print('font metrics: %d real advances from the ROM, line budget %d px' % (len(_adv), _px))
+    else:
+        print('font metrics: ROM advances unavailable, estimating (line budget %d)'
+              % dstext.LINE_PX)
     # ships with the tool (inside the bundle when frozen), unlike everything
     # else under dump/, which the user extracts from their own copies
     m = json.load(open(data('ds_to_collection_final.json')))

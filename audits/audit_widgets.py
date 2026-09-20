@@ -75,7 +75,21 @@ def lines_of(u):
     return out
 
 OURS = rom_spt(OURS_ROM)
-FAN  = rom_spt((sys.argv[2] if len(sys.argv) > 2 else _default_fan()))
+_FAN_ROM = sys.argv[2] if len(sys.argv) > 2 else _default_fan()
+FAN  = rom_spt(_FAN_ROM)
+
+# Measure in the SAME units the build gates rows in. Standalone, dstext starts on
+# the estimate model, so before 2026-09-19 this audit reported estimate units for a
+# ROM wrapped in real pixels, and the two disagreed about which rows were over.
+# In real pixels bank 454's apparent overrun turns out to be well inside what the
+# fan itself drew, and bank 453 improves rather than regressing.
+try:
+    import fontwidths
+    _adv, _px = fontwidths.widths(_FAN_ROM)
+    if not dstext.use_real_widths(_adv, _px):
+        print('note: ROM advances unavailable; measuring with the estimate model')
+except Exception:
+    print('note: ROM advances unavailable; measuring with the estimate model')
 
 BANKS = [453, 454, 455, 456, 457, 395, 391, 432, 438]
 print('%-6s %8s %8s %8s %8s   %s' % ('entry', 'rows', 'fanmax', 'ourmax', 'over', 'multiline rows (ours)'))

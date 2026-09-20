@@ -50,7 +50,25 @@ def entries(path):
 
 def main(argv=None):
     os.chdir(work())
-    rom = (argv or sys.argv[1:] or [os.path.join('out', 'GK2 (Official English, DS port).nds')])[0]
+    args = list(argv or sys.argv[1:])
+    # This figure is MODEL-DEPENDENT and was silently wrong until 2026-09-19.
+    # The rename check below re-wraps fan rows through dstext to see whether a row
+    # is only a name swap. Re-wrap with a different width model than the ROM was
+    # BUILT with and those rows stop matching, so fan writing is counted as
+    # official and the total drifts up. Measured both ways on both ROMs, the
+    # reported figure tracked the MISMATCH, not the ROM: 93.8% model-consistent
+    # either side, 94.5% whenever the models disagreed. Builds from 2026-09-19
+    # use the ROM's real advances, so that is the default here; pass --estimate to
+    # measure a ROM built before the change.
+    estimate = '--estimate' in args
+    args = [a for a in args if a != '--estimate']
+    rom = (args or [os.path.join('out', 'GK2 (Official English, DS port).nds')])[0]
+    if not estimate:
+        import dstext, fontwidths, locate
+        fanrom, _ = locate.find_fan_rom([work(), os.path.dirname(work()), os.getcwd()])
+        adv, px = fontwidths.widths(fanrom) if fanrom else (None, None)
+        if not dstext.use_real_widths(adv, px):
+            print('note: could not read the ROM advances; measuring with the estimate')
     import ndsx
     tmp = os.path.join(os.environ.get('TEMP', '.'), '_coverage_extract')
     import shutil

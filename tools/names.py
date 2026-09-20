@@ -149,6 +149,13 @@ DIALOG_LIMIT = 200
 # lines wider than 216 px (max 238, p99 218), so a renamed line up to 216 is within
 # what the fan already proved the box draws.
 RENAME_LIMIT = 216
+# Every budget above (LIMITS, DIALOG_LIMIT, RENAME_LIMIT) was cut in the units of
+# dstext's ESTIMATE model, not real pixels. Since 2026-09-19 dstext._w returns the
+# font's real advances once inject.py loads them, which run 12-14% wider, so
+# measuring with it against these budgets would tighten every gate in this file
+# by that much and quietly change which rows get their official names. Measure
+# with the model the budgets were cut for; the numbers and the ruler stay together.
+_w = dstext._estimate
 
 # row-specific trims where a longer official name cannot fit a full box
 # (drop a filler word - same discipline as tools/condense.py)
@@ -196,7 +203,7 @@ def row_px(u):
         else:
             ch = (chr(v - 0xFEE0) if 0xFF01 <= v <= 0xFF5E
                   else TYPO.get(v, chr(v) if v >= 0x20 else ''))
-            if ch: segs[-1] += dstext._w(ch)
+            if ch: segs[-1] += _w(ch)
         k += 1
     return max(segs)
 
@@ -209,7 +216,7 @@ def line_widths(u):
         if v == 0x0A or v in BOXEND:
             lines.append(cur); cur = 0.0
         elif not CTRL(v) and v >= 0x20:
-            cur += dstext._w(chr(v))
+            cur += _w(chr(v))
     lines.append(cur)
     return lines
 
@@ -227,7 +234,7 @@ def rebreak(u, limit, orig=None):
         f = floors[k] if k < len(floors) else 0.0
         return max(limit, f)
     def width(seq):
-        return sum(dstext._w(chr(v)) for v in seq if not CTRL(v) and v >= 0x20)
+        return sum(_w(chr(v)) for v in seq if not CTRL(v) and v >= 0x20)
     # index lines: list of (start, end, sep_index_or_None soft)
     changed = True
     guard = 0

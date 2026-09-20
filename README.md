@@ -60,7 +60,7 @@ Two ways in, ending at the same ROM, and `--verify` confirms it either way.
 **Apply the patch** if you have the fan ROM and want it done in seconds:
 
 ```bash
-xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds" "Prosecutors-Path-1.8.6-fan-base.xdelta" "GK2 (Official English, DS port).nds"
+xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds" "Prosecutors-Path-1.9.0-fan-base.xdelta" "GK2 (Official English, DS port).nds"
 ```
 
 On Windows, DeltaPatcher asks for the same two files and writes the same output. The source

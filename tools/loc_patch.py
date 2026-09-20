@@ -176,6 +176,14 @@ def patch_entry(ds_entry, jp_src, lookup, box='detailMsg'):
         old_fn = dstext.WIDTH_FN
         if px is None:                       # measured widget font (description card)
             dstext.WIDTH_FN, px = desc_font()
+        else:
+            # This widget's budget in BOXES was cut in the ESTIMATE's units. Once the
+            # dialogue font switched to real advances, measuring this box with them
+            # against that budget shrank it by 12-14% and pushed strings back to fan
+            # text: 2,163 char units of Menus & UI coverage, lost silently because
+            # the overall total went up at the same time. Keep the model its budget
+            # was cut for.
+            dstext.WIDTH_FN = dstext._estimate
         dstext.LINE_PX = px
         try:
             # These tables are wrapped for the Collection's own card (~35 chars),

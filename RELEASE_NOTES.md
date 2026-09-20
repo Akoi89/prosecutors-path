@@ -6,6 +6,83 @@ lines went back to the fan text in 1.5.2 and twelve description rows in 1.6.0, s
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
 
+## v1.9.0: every line re-measured against the game's own font
+
+Short version: the tool had been guessing how wide each letter is, and guessing narrow. It
+now reads the real width of every character out of your own ROM, so the text fills the box
+the way it should and stops running off the right edge.
+
+Here's what was wrong. To decide where to break a line, the injector has to know how wide
+the line is so far. It never had the real numbers, so it used a rough model: this class of
+character is about this wide. That model ran narrow, and two things followed from it. Lines
+came out shorter than they needed to be, which wasted space in every box. And 59 lines in
+the shipped script were actually wider than the box, so their last word or two ran off the
+edge of the screen where you can't read it.
+
+The real widths were there the whole time. The fan patch keeps a table of 2,012 characters
+inside the DS's own code, each with the exact number of pixels the game moves along after
+drawing it. That code is compressed, which is why nothing had ever read it.
+`tools/fontwidths.py` decompresses it at build time and lifts the table straight out of the
+ROM you supply. As with everything else here, nothing ships with the tool.
+
+The worst offenders were the long shouts. A scream with no spaces in it can't be broken at a
+space, and the old code just let it overflow. A word too long for the box is now split
+across lines instead.
+
+Measured on the actual release build:
+
+    python audits/measure_linewidth.py "GK2_186.nds" "GK2 (Official English, DS port).nds"
+    1.8.6   59 lines wider than the 240px box, widest 335px
+    1.9.0    2 lines wider than the 240px box, widest 253px
+
+Both of the two that are left are inner thoughts that open with a round bracket, where the
+allowance made for that bracket still isn't right. One overhangs by 13 pixels and the other
+by a single pixel. That's an older bug of its own and this change doesn't fix it.
+
+One audit came out worse, and I'd rather say so here than have you find it.
+`audits/audit_widgets.py` checks the option widgets, meaning the lists of questions you pick
+from in Mind Chess and the Logic keyword cards, against the widest line the fan patch ever
+put in that same widget.
+Those lists are wrapped by the same code as the dialogue, so widening the dialogue budget
+widened them too:
+
+    python audits/audit_widgets.py "GK2 (Official English, DS port).nds"
+    1.8.6   68 rows over      1.9.0   94 rows over
+
+Nearly all of that is two of the nine banks, 456 and 457, where the fan patch left the
+widget almost empty. The "widest line the fan ever put there" is therefore drawn from a
+handful of Japanese rows and doesn't bound much: 227 pixels for one and 172 for the other.
+The sibling widgets show the strip is a good deal wider than that, since the fan patch
+itself draws a 340 pixel line in one of them, and nothing we write into these two goes past
+240. Of the other seven banks, one improved and six didn't move.
+
+I did finally get one of these widgets on screen, in the first Mind Chess of Episode 1, and
+it says something useful about that count. The option strip is about 238 pixels of the
+256 pixel screen, and the question drawn in it measures 179 pixels on screen against the
+263 the audit credits it with. So this widget draws in a smaller face than the dialogue
+box does, and the audit is pricing it in the dialogue font's pixels, which overstates the
+real width by roughly a third. Nothing in these banks is close to the edge of the strip,
+and on the one bank where anything comes near it, the widest row is still the fan patch's
+own, not ours.
+
+That doesn't make the count meaningless, since both sides of it are measured the same way,
+but it does mean the right fix is to give these widgets their own font rather than to
+narrow the text, and that's a job for after this release. Bank 457 in particular still has
+not been seen drawing anywhere: the menu I captured turned out to come from a different
+bank. I'd rather say that than leave you with the impression it's all been watched.
+
+Coverage hasn't changed: 93.8% of the script is Capcom's writing, Menus and UI 86.9%, the
+same figures 1.8.6 carried. This release rewraps text, it doesn't add any.
+
+Character names are decided by a separate set of budgets that were cut against the old
+model, so those are pinned to the old model on purpose rather than quietly re-measured
+against numbers nothing has verified. The 73 rows that take Capcom's name and the 1 that
+keeps the fan's are exactly what 1.8.6 shipped.
+
+One warning worth reading. This moves every line in the game, and no episode of this port
+has ever been played through to the end. If you find a line broken in a strange place, or
+text sitting oddly in a box, please open an issue and say where.
+
 ## v1.8.6: the answer menus that froze the game
 
 A tester playing 1.8.5 hit a hard freeze in Episode 2, right after the crime scene has been

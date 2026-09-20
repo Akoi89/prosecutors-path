@@ -125,7 +125,35 @@ OFFICIAL_TO_DS = {0xE2A0: 0xE10D}
 # period.
 ELLIPSIS_UNIT = 0x2025
 
-def _w(ch):
+# The fan patch's own per-glyph advances, read from the player's ROM at build
+# time by fontwidths.py. Empty until use_real_widths() is called, and then the
+# estimate below is bypassed. A glyph the table does not list gets a full cell,
+# so an unmeasured character can only wrap EARLY, never clip.
+_REAL = {}
+
+def use_real_widths(widths, line_px):
+    """Swap the dialogue width model from the estimate to the font's own metrics.
+
+    Call once, before converting anything. The widgets that wrap with their own
+    face (the description card, Logic cards) save and restore LINE_PX and
+    WIDTH_FN around their own call, so they are unaffected either way - but that
+    save/restore is why this must not happen lazily in the middle of one.
+    """
+    global _REAL, LINE_PX
+    if not widths:
+        return False
+    _REAL = widths
+    LINE_PX = line_px
+    return True
+
+def _estimate(ch):
+    """The original character-class model.
+
+    Its units are arbitrary and run about 12% compressed against real pixels, so it
+    only means anything against a budget cut in the SAME units (LINE_PX 200, and the
+    widget budgets in loc_patch.BOXES). Never mix it with a real-pixel budget, or the
+    other way round: doing so once cost 2,163 char units of Menus & UI coverage.
+    """
     o = ord(ch)
     if o == SPACE: return 5                       # the game's space glyph
     if 0xFF01 <= o <= 0xFF5E:                     # fullwidth Latin -> its ASCII form
@@ -135,6 +163,28 @@ def _w(ch):
     if ch in NARROW: return 4
     if ch in WIDE: return 9
     return 7
+
+def _w(ch):
+    if not _REAL:
+        return _estimate(ch)
+    o = ord(ch)
+    a = _REAL.get(o)
+    if a is None:
+        # The table is keyed by what the engine is actually fed, which is the
+        # FULLWIDTH form; it holds no plain ASCII at all. Callers that measure in
+        # ASCII (inject's row-budget test, names.py) would otherwise price every
+        # letter at a fallback and flatten the model to monospace.
+        if 0x21 <= o <= 0x7E:
+            a = _REAL.get(o - 0x21 + 0xFF01)
+        elif o == 0x20:
+            a = _REAL.get(SPACE)
+    if a is not None:
+        return a
+    # Eight printable ASCII have no glyph in this font at all (" ' \ ^ ` { | }).
+    # Pricing them at a full cell inflated inject's row budget, which is a max over
+    # the fan's own rows, and let 39 extra over-wide rows through. The estimate is
+    # much closer than a flat cell, and corpus-wide only one codepoint ever misses.
+    return _estimate(ch)
 
 # The width model above is the DIALOGUE box's. Other widgets draw other fonts: the
 # evidence/profile description card uses a smaller face whose advances were measured
@@ -156,16 +206,53 @@ def _fw(ch):
     if base and base != ch: return ''.join(_fw(c) for c in base)
     return ch
 
-def _layout(tokens):
+def _chunk(val):
+    """Break one token that is wider than a whole line into line-sized pieces.
+
+    Only ever called on a token that cannot fit however it is placed, so there is
+    no good break point to look for; fill each line and cut. A single unit wider
+    than LINE_PX still goes out whole, because a glyph cannot be split.
+    """
+    out, cur, px = [], [], 0
+    for u in val:
+        uw = W(chr(u))
+        if cur and px + uw > LINE_PX:
+            out.append(cur); cur, px = [], 0
+        cur.append(u); px += uw
+    if cur:
+        out.append(cur)
+    return out
+
+def _layout(tokens, cells0=0):
     """Assign each token a line number, wrapping at LINE_PX. Control tokens have no
-    width but must keep their position. Returns (tokens_with_lines, line_count)."""
-    line, cells, pending = 0, 0, False
+    width but must keep their position. Returns (tokens_with_lines, line_count).
+
+    cells0 is width already spent on the first line before any token here: a box
+    break inside a parenthesised thought re-opens the paren, and that glyph is
+    emitted by the caller, so without this the first line is budgeted short by
+    its width and overruns the box.
+    """
+    line, cells, pending = 0, cells0, False
     placed = []
     for kind, val in tokens:
         if kind == 'w':
             ww = sum(W(chr(u)) for u in val)
             gap = W(chr(SPACE)) if pending else 0
-            if cells and cells + gap + ww > LINE_PX:
+            if ww > LINE_PX:
+                # A single token wider than the entire line. The `cells and` guard
+                # below placed it anyway when it landed at the start of a line, so
+                # it ran off the right edge of the box. Capcom's long screams
+                # ("MMMMMAAAAAAAAAAAAAAAA") carry no space to wrap at, and 59 of
+                # them shipped clipped. Break by force instead.
+                if cells:
+                    line += 1; cells = 0
+                pending = False
+                for k, piece in enumerate(_chunk(val)):
+                    if k:
+                        line += 1
+                    placed.append((kind, piece, line, False))
+                    cells = sum(W(chr(u)) for u in piece)
+            elif cells and cells + gap + ww > LINE_PX:
                 line += 1; cells = ww; pending = False
                 placed.append((kind, val, line, False))
             else:
@@ -391,6 +478,13 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
         if nb > 1:
             for extra in range(0, 4):
                 chunks = split_tokens(tokens, nb + extra)
+                # KNOWN, measured, deliberately not fixed: this counts at cells0=0
+                # while the emission below passes prefix_px for a re-opened paren,
+                # so for a chunk after a break inside a thought the count can be one
+                # line short of what is emitted. Passing the prefix here would change
+                # box splitting for every parenthesised message, which needs its own
+                # verification; the discrepancy does not currently bite (4-line boxes
+                # number 217 in both the estimate and real-width builds).
                 if all(_layout(c)[1] <= BOX_LINES for c in chunks): break
             # A trailing chunk of pure control codes would open a box, reopen the
             # parenthesis and close it again with nothing inside - a blank '()'
@@ -403,6 +497,7 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
         depth = 0
         style = None            # the {E04x} opener currently in effect, or None
         for ci, chunk in enumerate(chunks):
+            prefix_px = 0       # width this chunk's first line has already spent
             if ci:
                 # Close the open span before the break and re-open it after, innermost
                 # first. `style` is None whenever the span closed on its own earlier in
@@ -414,10 +509,12 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
                     out.extend((0xE108, AUTO_DELAY, AUTO_BREAK, 0xE107, NEW_BOX_ARG))
                 else:
                     out.extend((WAIT_BREAK, 0xE107, NEW_BOX_ARG))
-                if depth > 0: out.append(PAREN_OPEN)
+                if depth > 0:
+                    out.append(PAREN_OPEN)
+                    prefix_px = W(chr(PAREN_OPEN))
                 if reopen is not None: out.append(reopen)
                 style = reopen
-            placed, _ = _layout(chunk)
+            placed, _ = _layout(chunk, prefix_px)
             cur = 0
             centred = False     # this row opened with {E20D}
             after_br = False
