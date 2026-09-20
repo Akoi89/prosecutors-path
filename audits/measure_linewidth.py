@@ -41,7 +41,9 @@ import fontwidths
 
 BOX = 240
 CTRL = lambda v: 0xE000 <= v <= 0xF8FF
-RESET = {0xE102, 0xE104, 0xE106, 0xE185, 0xE081}
+# Import rather than restate: a second copy of this set drifts silently the day
+# someone adds a box terminator to dstext and not here.
+from dstext import RESET
 SPEAKER = 0xE101
 
 

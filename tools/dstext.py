@@ -233,6 +233,12 @@ def _layout(tokens, cells0=0):
     its width and overruns the box.
     """
     line, cells, pending = 0, cells0, False
+    # Whether a WORD has been placed on the current line. `cells` used to serve as
+    # that test, but cells0 is width the CALLER already emitted (the re-opened
+    # paren), and that must count toward the wrap budget without making a leading
+    # space pending: a separator belongs between two words, and there is no word on
+    # the line yet. Conflating the two put a space after 95 re-opened parens.
+    started = False
     placed = []
     for kind, val in tokens:
         if kind == 'w':
@@ -252,18 +258,21 @@ def _layout(tokens, cells0=0):
                         line += 1
                     placed.append((kind, piece, line, False))
                     cells = sum(W(chr(u)) for u in piece)
+                started = True
             elif cells and cells + gap + ww > LINE_PX:
                 line += 1; cells = ww; pending = False
                 placed.append((kind, val, line, False))
+                started = True
             else:
                 placed.append((kind, val, line, pending))
                 cells += gap + ww; pending = False
+                started = True
         elif kind == 's':
-            if cells: pending = True
+            if started: pending = True
             placed.append((kind, val, line, False))
         elif kind == 'br':
             placed.append((kind, val, line, False))
-            line += 1; cells = 0; pending = False
+            line += 1; cells = 0; pending = False; started = False
         else:
             placed.append((kind, val, line, False))
     return placed, line + 1

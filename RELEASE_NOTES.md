@@ -35,9 +35,14 @@ Measured on the actual release build:
     1.8.6   59 lines wider than the 240px box, widest 335px
     1.9.0    2 lines wider than the 240px box, widest 253px
 
-Both of the two that are left are inner thoughts that open with a round bracket, where the
-allowance made for that bracket still isn't right. One overhangs by 13 pixels and the other
-by a single pixel. That's an older bug of its own and this change doesn't fix it.
+The two that are left aren't the same story, so here's both. The first is a tutorial line
+that opens with a round bracket and overhangs by 13 pixels. It does exactly that in 1.8.6
+too, and this release neither causes it nor fixes it. The second one I did cause. It ends a
+thought, and when a thought runs over a box the closing bracket gets added afterwards
+without being charged against the line's width. That gap has always been there; the old
+wrapping just left enough slack that it never showed. Now that lines fill the box properly
+it tips one line one pixel over. One pixel of a bracket, on one line, and the fix belongs
+with the wider rework rather than bolted on here.
 
 One audit came out worse, and I'd rather say so here than have you find it.
 `audits/audit_widgets.py` checks the option widgets, meaning the lists of questions you pick
@@ -72,7 +77,12 @@ not been seen drawing anywhere: the menu I captured turned out to come from a di
 bank. I'd rather say that than leave you with the impression it's all been watched.
 
 Coverage hasn't changed: 93.8% of the script is Capcom's writing, Menus and UI 86.9%, the
-same figures 1.8.6 carried. This release rewraps text, it doesn't add any.
+same figures 1.8.6 carried. This release rewraps text rather than adding any.
+
+It does move characters around, though, and in one way that's worth calling out because you
+might notice it. When a thought is too long for one box, the game has to close the bracket,
+turn the page and open it again. Because lines now hold more, 136 thoughts that used to be
+split across two boxes fit in one, so that break and its brackets are simply gone.
 
 Character names are decided by a separate set of budgets that were cut against the old
 model, so those are pinned to the old model on purpose rather than quietly re-measured
