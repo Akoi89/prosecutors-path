@@ -97,10 +97,13 @@ Their ATTENTION notice is left intact in every build, and should stay that way.
 
 ## How this was built
 
-**Nothing here asks to be taken on trust.** Every figure on this page is reproducible by
-running the tools on your own files. `tools/coverage.py` computes the coverage table, and
+**Nothing here asks to be taken on trust.** Almost every figure on this page is reproducible
+by running the tools on your own files. `tools/coverage.py` computes the coverage table, and
 `--verify` hashes a finished build against the release's published reference, so a ROM can
-be trusted without trusting whoever built it.
+be trusted without trusting whoever built it. The two exceptions are the message box counts
+above, the ~41,700 total and the ~5,100 run by script. Those came from counts made during
+the work and no shipped tool reproduces them, which is why they carry a tilde. Read the
+coverage figure as measured and the box figures as estimates.
 
 The nine audits in [`audits/`](audits) guard the structural failure classes, and every one
 is tested against a deliberately corrupted input. An audit that has never failed hasn't
