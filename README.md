@@ -33,9 +33,15 @@ and the title screen are all redrawn at build time.
 > were read card by card on the shipped build. Every bug this project has had was found by
 > a person playing, and none by an offline check.
 >
-> **[Report anything that stops in issue #1](../../issues/1)**, which episode and chapter
-> is enough. Your save is never at risk; the text is read-only data, so a hang costs you
+> **[Report anything wrong in issue #1](../../issues/1)**, not just things that stop.
+> Wrong or odd wording, text that runs past its box, a name that changes between screens,
+> a mouth that moves on a silent line, a card that reads differently from the dialogue:
+> all of it is worth sending. Which episode and chapter is enough, and a photo beats a
+> description. Your save is never at risk; the text is read-only data, so a hang costs you
 > the chapter and nothing else.
+>
+> Don't check first to see whether I already know. A duplicate costs me nothing and a
+> report somebody talked themselves out of costs me a bug.
 
 > **This repository contains no game data, with one exception**: the six close-up pictures
 > added in 1.8.0, set out in [Legal](#legal). You supply your own legally-obtained copy of
@@ -43,6 +49,24 @@ and the title screen are all redrawn at build time.
 > Collection.
 
 ---
+
+## Already known
+
+Context, not a filter. If you're looking at something and can't tell which side of this
+list it falls on, send it anyway.
+
+- **Some of the script is still the fan translation.** About one line in sixteen. Capcom
+  never localised this game officially on the DS, so where their Chronicles text has no
+  counterpart here the AAI2 fan translation stays. Those lines are not wrong, they are
+  just not Capcom's, and they can read slightly differently in tone.
+- **Most of this game has never been run.** Nobody has finished an episode and only one
+  rebuttal has ever been solved by a tester. That is the single biggest thing wrong with
+  this release, and it is why the invitation above is so broad. [TESTING.md](TESTING.md)
+  has the detail.
+- **Bugs fixed in an earlier version can come back.** Several problems listed as fixed in
+  the release notes, a hang in Episode 1, a mouth moving on a silent line, quotation marks
+  drawing wrong, were each found by one person playing. If you see one of them now, that
+  matters more than the release note saying it was handled, so please say so.
 
 ## What you need
 
