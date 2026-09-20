@@ -97,6 +97,10 @@ Their ATTENTION notice is left intact in every build, and should stay that way.
 
 ## How this was built
 
+[RELEASE_NOTES.md](RELEASE_NOTES.md) has a short entry for every version, newest first.
+[TESTING.md](TESTING.md) says what has actually been played and what has not, and
+[BUILD_NOTES.md](BUILD_NOTES.md) is the full technical record behind both.
+
 **Nothing here asks to be taken on trust.** Almost every figure on this page is reproducible
 by running the tools on your own files. `tools/coverage.py` computes the coverage table, and
 `--verify` hashes a finished build against the release's published reference, so a ROM can
