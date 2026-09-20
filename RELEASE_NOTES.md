@@ -67,8 +67,8 @@ it says something useful about that count. The option strip is about 238 pixels 
 263 the audit credits it with. So this widget draws in a smaller face than the dialogue
 box does, and the audit is pricing it in the dialogue font's pixels, which overstates the
 real width by roughly a third. Nothing in these banks is close to the edge of the strip,
-and on the one bank where anything comes near it, the widest row is still the fan patch's
-own, not ours.
+and the only widget where anything comes near it is one where the fan patch's own longest
+line is still longer than ours.
 
 That doesn't make the count meaningless, since both sides of it are measured the same way,
 but it does mean the right fix is to give these widgets their own font rather than to

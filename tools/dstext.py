@@ -237,7 +237,10 @@ def _layout(tokens, cells0=0):
     # that test, but cells0 is width the CALLER already emitted (the re-opened
     # paren), and that must count toward the wrap budget without making a leading
     # space pending: a separator belongs between two words, and there is no word on
-    # the line yet. Conflating the two put a space after 95 re-opened parens.
+    # the line yet. Conflating the two put a space after every re-opened paren:
+    # 157 of them across 144 strings, counted with control arguments consumed,
+    # since the emitter writes PAREN_OPEN, then the re-opened style code, then the
+    # space. Counting raw adjacency instead sees only the 95 with no style code.
     started = False
     placed = []
     for kind, val in tokens:
