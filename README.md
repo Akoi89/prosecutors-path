@@ -63,6 +63,13 @@ list it falls on, send it anyway.
   rebuttal has ever been solved by a tester. That is the single biggest thing wrong with
   this release, and it is why the invitation above is so broad. [TESTING.md](TESTING.md)
   has the detail.
+- **A crash partway through Episode 2, cause unknown.** A tester reached the point where
+  the prosecution argues about where the murder weapon came from, and the game stopped
+  dead. It is not the answer-menu fault that was fixed earlier, because it happened on a
+  build that already had that fix, and everything about that scene checks out when we
+  measure it. We have not been able to make it happen ourselves, so we cannot say yet
+  which builds it affects or how to avoid it. If you hit it, a save from just before that
+  scene would help more than anything else you could send.
 - **Bugs fixed in an earlier version can come back.** Several problems listed as fixed in
   the release notes, a hang in Episode 1, a mouth moving on a silent line, quotation marks
   drawing wrong, were each found by one person playing. If you see one of them now, that
@@ -84,7 +91,7 @@ Two ways in, ending at the same ROM, and `--verify` confirms it either way.
 **Apply the patch** if you have the fan ROM and want it done in seconds:
 
 ```bash
-xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds" "Prosecutors-Path-1.9.0-fan-base.xdelta" "GK2 (Official English, DS port).nds"
+xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds" "Prosecutors-Path-1.9.1-fan-base.xdelta" "GK2 (Official English, DS port).nds"
 ```
 
 On Windows, DeltaPatcher asks for the same two files and writes the same output. The source

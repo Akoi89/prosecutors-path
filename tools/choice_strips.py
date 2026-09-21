@@ -10,8 +10,42 @@ The fan patch lettered them by hand; select_strips.json maps every strip to
 its Collection string id (derived from the retail Japanese strips, see the
 project notes), and the English is read from the player's own Collection
 dump at build time, like the script. Text is set in the Collection's UD
-Kakugo M, faux-bold, 14px, condensed up to 12% before stepping down a size,
-and snapped to the plate's own palette by luminance.
+Kakugo M at 14px, condensed up to 12% before stepping down a size, and
+snapped to the plate's own palette by luminance.
+
+Two things about how the text is set were wrong until 2026-09-21, both
+reported by a tester who said the buttons did not look like the fan game's:
+
+WEIGHT. Every glyph used to be drawn twice a pixel apart, a faux bold,
+commented "as the fan's weight". The fan's weight is LIGHTER than that;
+side by side the doubled draw is plainly heavier. The doubling now happens
+only below BOLD_BELOW, because at 10-13px the single-drawn face goes thin
+and washed. Measured over all 297 lettered strips, dropping the bold at
+full size also LIFTS five strips a size step, since the text gets narrower,
+and leaves only 17 below 14px.
+
+BASELINE OVERSHOOT. Type designers let round shapes dip below the baseline
+and rise above the x-height so they do not look shrunken. At these sizes
+that fraction rounds up to a WHOLE PIXEL: at 13px flat-bottomed n m i l h r
+k x z T H N I E F L end their solid ink on row 13 while round o e a c s d b
+O C G S and the curved-footed u t end on row 14, so the line reads as
+letters jumbled up and down. The fan's hand-drawn face has no overshoot and
+sits dead level. The string is therefore set glyph by glyph on whole-pixel
+pens, with each glyph's ink box resampled onto the rows the font's own
+reference glyphs occupy. Measured over all 297: runs whose solid-ink bottom
+is off the baseline 864 -> 41, no strip worse, and the set widths come out
+byte-identical to the old whole-string draw, so kerning is preserved.
+
+Ruled out by measurement and not worth re-investigating: the horizontal
+condense is not the cause (the split is identical before and after it) and
+neither is the rasteriser (a whole-string draw, getmask 'L' and getmask '1'
+all split the same way; the OTF is PostScript-outlined with effectively no
+hinting for FreeType to apply). An earlier attempt TRANSLATED the low glyphs
+up instead of resampling them; that levelled the feet and lifted the heads,
+because a round glyph overshoots at both ends. An attempt after that took
+the target rows from the spread of the string being set, and a full stop in
+"The murder investigation." skewed the split so far that the ascender t was
+squashed by two rows. Hence the references come from the FONT.
 """
 import sys, os, io, json, struct
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -30,6 +64,11 @@ MARGIN = 4                          # px kept clear at each end of the interior
 SIZES = (14, 13, 12, 11, 10)
 CONDENSE = 0.88                     # narrowest allowed before stepping down
 PALETTE_ENTRY = {'long': 363, 'short': 533}
+PEN = 6                             # left pad every glyph is drawn at
+BOLD_BELOW = 14                     # double-draw only under this size
+DESCENDERS = set('gjpqy')
+SNAP_TOL = 1                        # how far from a reference a glyph may snap
+_REFS = {}                          # (fontfile, px, bold) -> (tops, base, desc)
 
 
 # ---- container ----------------------------------------------------------
@@ -110,14 +149,108 @@ def _lum(c):
     return 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]
 
 
-def text_image(text, px, fontfile):
-    f = ImageFont.truetype(fontfile, px)
-    im = Image.new('L', (int(f.getlength(text)) + 8, px + 10), 0)
+def _run(f, s, px, bold):
+    """One draw of `s` at the standard pen, doubled a pixel across when bold."""
+    im = Image.new('L', (int(f.getlength(s)) + px * 2 + 12, px + 16), 0)
     d = ImageDraw.Draw(im)
-    d.text((3, 2), text, font=f, fill=255)
-    d.text((4, 2), text, font=f, fill=255)          # faux bold, as the fan's weight
-    bb = im.getbbox()
-    return im.crop(bb) if bb else im
+    d.text((PEN, 4), s, font=f, fill=255)
+    if bold:
+        d.text((PEN + 1, 4), s, font=f, fill=255)
+    return im
+
+
+def _ink(im, th=128):
+    """(x0, y0, x1, y1) of the SOLID ink, or None. The threshold matters: the
+    anti-aliased fringe is a third of the drawn pixels and including it would
+    put every glyph's box a row out."""
+    p = im.load()
+    rs = [y for y in range(im.height) for x in range(im.width) if p[x, y] >= th]
+    if not rs:
+        return None
+    xs = [x for x in range(im.width) for y in range(im.height) if p[x, y] >= th]
+    return min(xs), min(rs), max(xs), max(rs)
+
+
+def _refs(fontfile, px, bold):
+    """Reference rows off the font itself: (tops, baseline, descender bottom).
+
+    x gives the x-height and the baseline, H the cap height, h the ascender,
+    p the descender. Taking these from the FONT rather than from the string
+    being set is what keeps one strip's letters from being sized by which
+    other letters happen to share the strip."""
+    key = (fontfile, px, bold)
+    if key in _REFS:
+        return _REFS[key]
+    f = ImageFont.truetype(fontfile, px)
+    box = {}
+    for ch in 'xHhp':
+        b = _ink(_run(f, ch, px, bold))
+        if b:
+            box[ch] = b
+    tops = sorted({box[c][1] for c in 'xHh' if c in box})
+    base = box['x'][3] if 'x' in box else (box['H'][3] if 'H' in box else None)
+    desc = box['p'][3] if 'p' in box else None
+    _REFS[key] = (tops, base, desc)
+    return _REFS[key]
+
+
+def _snap(v, cands):
+    if v is None:
+        return None
+    c = [k for k in cands if k is not None]
+    if not c:
+        return None
+    n = min(c, key=lambda k: abs(k - v))
+    return n if abs(n - v) <= SNAP_TOL else None
+
+
+def text_image(text, px, fontfile):
+    """Set `text` glyph by glyph with the baseline overshoot suppressed.
+
+    Top and bottom are decided independently and only when the glyph is
+    already within SNAP_TOL of a reference row, so a mark that never touches
+    the baseline - apostrophe, quote, hyphen, full stop - keeps the box the
+    font gave it. Glyph pens come from the cumulative advance of the whole
+    string, which is what preserves kerning."""
+    bold = px < BOLD_BELOW
+    f = ImageFont.truetype(fontfile, px)
+    tops, base, desc = _refs(fontfile, px, bold)
+    W = int(f.getlength(text)) + 2 * PEN + 6
+    H = px + 16
+    out = Image.new('L', (W, H), 0)
+    po = out.load()
+    for i, ch in enumerate(text):
+        if ch == ' ':
+            continue
+        g = _run(f, ch, px, bold)
+        b = _ink(g)
+        piece, oy = g, 0
+        if b is not None:
+            t1, b1 = b[1], b[3]
+            t0 = _snap(t1, tops)
+            b0 = _snap(b1, [desc] if ch in DESCENDERS else [base])
+            t0 = t1 if t0 is None else t0
+            b0 = b1 if b0 is None else b0
+            if (t0, b0) != (t1, b1) and b0 > t0:
+                strip = g.crop((0, t1, g.width, b1 + 1))
+                want = b0 - t0 + 1
+                if strip.height != want:
+                    strip = strip.resize((strip.width, want), Image.LANCZOS)
+                piece, oy = strip, t0
+        dx = int(round(f.getlength(text[:i])))
+        pg = piece.load()
+        for gy in range(piece.height):
+            ty = gy + oy
+            if not (0 <= ty < H):
+                continue
+            for gx in range(piece.width):
+                v = pg[gx, gy]
+                if v:
+                    tx = gx + dx
+                    if 0 <= tx < W and v > po[tx, ty]:
+                        po[tx, ty] = v
+    bb = out.getbbox()
+    return out.crop(bb) if bb else out
 
 
 def fit(text, limit, fontfile):
