@@ -559,25 +559,37 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
             # already chosen inside the normal window, so already-verified
             # good breaks do not move.
             #
-            # THE CAP IS WEAKER THAN IT LOOKS AND THE COMMENT HERE USED TO
-            # OVERSTATE IT. Reach is capped at half this cut's own segment width,
-            # which stops the rescue CROSSING a neighbouring cut but not
-            # COINCIDING with one: cut b at target+0.5*seg and cut b+1 at
-            # target-0.5*seg can be the same word index, and the sorted(set(cuts))
-            # below then yields one chunk FEWER than nb. Measured by a refuter over
-            # 2,553 real dialogue messages at nb 2 to 5: the rescue changed 1,664
-            # splits, lost a punctuation break in 0 of them, produced out-of-order
-            # cuts in 0, and COLLAPSED THE CHUNK COUNT IN 9. It does not reach the
-            # built ROM as a defect only because the retry loop further down
-            # escalates nb and tries again. So credit the retry loop, not the cap,
-            # and if this is ever relied on more heavily, reject a rescue whose
-            # index equals another cut's.
+            # THE CAP IS WEAKER THAN IT LOOKS. Reach is capped at half this cut's
+            # own segment width, which stops the rescue CROSSING a neighbouring
+            # cut but not COINCIDING with one: cut b at target+0.5*seg and cut
+            # b+1 at target-0.5*seg can be the same word index, and the
+            # sorted(set(cuts)) below then yields one chunk FEWER than nb.
+            # Measured by a refuter over 2,553 real dialogue messages at nb 2 to
+            # 5: the rescue changed 1,664 splits, lost a punctuation break in 0 of
+            # them, produced out-of-order cuts in 0, and COLLAPSED THE CHUNK
+            # COUNT IN 9. It never reached the built ROM as a defect only because
+            # the retry loop further down escalates nb and tries again - that is
+            # luck, not a guarantee, so reject any rescue whose index is already
+            # a cut b' < b chose (b runs in order, so a later cut is the one that
+            # would collide and the one skipped).
+            #
+            # THAT GUARD DOES NOT MAKE sorted(set(cuts)) SAFE IN GENERAL, and do
+            # not read it as if it does. Forcing nb 2 to 5 over the corpus still
+            # collapses 1,219 times: 967 of those come from the `best is None`
+            # min() fallback just below and 256 from the plain windowed pick.
+            # What the guard achieves is that NONE of them originates in the
+            # rescue any more. On the build's own nb values the collapse count is
+            # 0 either way - a refuter confirmed the shipped jpn/spt.bin is
+            # BYTE-IDENTICAL with this guard removed - so it is a no-op today
+            # and kept only so the rescue cannot become the cause later.
             if best is not None and _word_at(best) == (False, False):
                 reach = total / nb * 0.5
+                taken = set(cuts)
                 rescue, rescue_d = None, None
                 for j, k in enumerate(idx):
                     d = abs(cum[j] - target)
                     if d > reach or d <= window: continue
+                    if k + 1 in taken: continue
                     if _word_at(k)[0] and (rescue_d is None or d < rescue_d):
                         rescue, rescue_d = k, d
                 if rescue is not None:
@@ -595,6 +607,15 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
             while c < len(tokens) and tokens[c][0] == 'c' and any(
                     v in STYLE_CLOSERS for v in tokens[c][1]):
                 c += 1
+            # Test the FOLDED cut against the ones already taken, not the
+            # pre-fold candidate: the fold above can walk c forward onto a cut
+            # an earlier b already claimed, and then sorted(set(cuts)) below
+            # yields one chunk fewer than nb. Never happens in this corpus
+            # (0 of 1,223 duplicate cuts were folded) so it is theoretical, but
+            # checking before the fold instead of after is simply the wrong
+            # place to check.
+            if c in cuts and best is not None:
+                c = best + 1
             cuts.append(c)
         chunks, prev = [], 0
         for c in sorted(set(cuts)):
@@ -733,6 +754,52 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
                 # look ahead: is this a waiting or an auto-advancing terminator?
                 emit(buf, v if v in (WAIT_BREAK, AUTO_BREAK) else WAIT_BREAK)
                 out.extend(tok); buf = []; dq_open = False
+            elif (v == LAYOUT_ROW and hard_nl == 'e20d'
+                    and any(k == 'w' for k, _ in buf)
+                    and buf[-1][0] != 'br'):
+                # A {E20D} card row starting a NEW box-run, mid-buffer, after
+                # real dialogue - only possible now that {E106} no longer
+                # flushes, so a location/date card can arrive glued onto the
+                # end of the prose that precedes it. A card has always
+                # shipped in its own box and is photographed rendering
+                # correctly that way (rig/proof); nothing establishes the
+                # engine draws one correctly glued to preceding text, so give
+                # it its own box on purpose rather than let it fall wherever
+                # pagination happens to land.
+                #
+                # TWO GUARDS, not one, because a date/place card can hold
+                # SEVERAL {E20D} rows of its own ("December 24, 6:00 PM" /
+                # "Contest Venue" / "Fountain Room") and only the first may
+                # open a box - `any(w in buf)` alone fires on every later row
+                # too, since the earlier rows' own words are still sitting in
+                # buf, and that splits a card that must stay in one box. A
+                # source row-to-row separator is a REAL newline immediately
+                # followed by {E20D} (hard_nl='e20d' above turns exactly that
+                # into a 'br' token, never anything else does), so `buf[-1]`
+                # being 'br' means this {E20D} is a later row of a card
+                # already under way, not a fresh dialogue-to-card boundary -
+                # leave it with what came before.
+                #
+                # AND THE WHOLE BRANCH IS GATED ON hard_nl == 'e20d', because
+                # that is the ONLY mode that produces a 'br' token at all. The
+                # four callers that pass hard_nl=False (inject.py:625,
+                # loc_patch.py:192, desc_fit.py:34, desc_overflow.py:46) turn a
+                # source newline into an 's' token instead, so the card-row
+                # guard above would be permanently OFF for them and every later
+                # card row would open a box - exactly the card-splitting fault
+                # this guard exists to prevent. It fires 0 times from those
+                # callers today, so the gate costs no byte, but a latent trap
+                # that is already known to have been tripped once does not get
+                # left armed.
+                #
+                # Measured across the corpus: of the 297 {E20D} that reach this
+                # tokenizer, 217 are first-in-run with no word content yet
+                # (unaffected), 79 are later card rows and EVERY ONE has 'br'
+                # as its predecessor, and exactly 1 fires - the Gourd Lake card
+                # this branch exists for. Cards split: 0.
+                emit(buf, WAIT_BREAK)
+                out.extend((WAIT_BREAK, 0xE107, NEW_BOX_ARG))
+                buf = [('c', tok)]; dq_open = False
             else:
                 # {E106} stays in RESET (other tools - audit_typography,
                 # measure_linewidth, loc_patch - still need it as a box-end
