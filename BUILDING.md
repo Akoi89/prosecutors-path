@@ -58,6 +58,8 @@ python -m PyInstaller --onefile --name gk2port \
   --add-data "$PWD/tools/txtcut_condensed.json;." \
   --add-data "$PWD/tools/map_font.json;." \
   --add-data "$PWD/tools/cg_art_reg.json;." \
+  --add-data "$PWD/tools/logic_fan_text.json;." \
+  --add-data "$PWD/tools/button_icons.json;." \
   --add-data "$PWD/tools/cg_art_final;cg_art_final" \
   --paths "$PWD/tools" --collect-all UnityPy --collect-all fmod_toolkit --collect-all astc_encoder --collect-all archspec --collect-all etcpak --collect-all texture2ddecoder --collect-all tpk_ar \
   --exclude-module tkinter --exclude-module matplotlib \

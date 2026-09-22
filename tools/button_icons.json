@@ -1,0 +1,282 @@
+{
+ "4:3": [
+  {
+   "icon": 0,
+   "text": "the {A Button}",
+   "pre_drop": 0,
+   "pre_sha1": "f29e6a60d667"
+  }
+ ],
+ "4:4": [
+  {
+   "icon": 4,
+   "text": "the {L Button}",
+   "pre_drop": 0,
+   "pre_sha1": "d8d22ce2655c"
+  },
+  {
+   "icon": 3,
+   "text": "the {X Button}",
+   "pre_drop": 0,
+   "pre_sha1": "9648b901a4dc"
+  },
+  {
+   "icon": 4,
+   "text": "the {L Button}",
+   "pre_drop": 0,
+   "pre_sha1": "79c5af37692a"
+  },
+  {
+   "icon": 0,
+   "text": "the {A Button}",
+   "pre_drop": 0,
+   "pre_sha1": "b0afbc283542"
+  },
+  {
+   "icon": 3,
+   "text": "the {Y Button}",
+   "pre_drop": 0,
+   "pre_sha1": "050237373ef6"
+  }
+ ],
+ "6:5": [
+  {
+   "icon": 5,
+   "text": "the {R Button}",
+   "pre_drop": 0,
+   "pre_sha1": "340da5157712"
+  },
+  {
+   "icon": 3,
+   "text": "the {X Button}",
+   "pre_drop": 0,
+   "pre_sha1": "185310bb7820"
+  },
+  {
+   "icon": 4,
+   "text": "the {L Button}",
+   "pre_drop": 0,
+   "pre_sha1": "7d072f971a45"
+  }
+ ],
+ "6:15": [
+  {
+   "icon": 5,
+   "text": "the {R Button}",
+   "pre_drop": 0,
+   "pre_sha1": "794ecaaa25e4"
+  }
+ ],
+ "13:9": [
+  {
+   "icon": 0,
+   "text": "the {A Button}",
+   "pre_drop": 0,
+   "pre_sha1": "c9328db6bbd6"
+  }
+ ],
+ "15:21": [
+  {
+   "icon": 3,
+   "text": "the {X Button}",
+   "pre_drop": 0,
+   "pre_sha1": "4a605af7d1bf"
+  }
+ ],
+ "16:15": [
+  {
+   "icon": 3,
+   "text": "the {X Button}",
+   "pre_drop": 0,
+   "pre_sha1": "214c36d5c2e8"
+  }
+ ],
+ "16:35": [
+  {
+   "icon": 0,
+   "text": "the {A Button}",
+   "pre_drop": 0,
+   "pre_sha1": "c9328db6bbd6"
+  }
+ ],
+ "16:36": [
+  {
+   "icon": 0,
+   "text": "the {A Button}",
+   "pre_drop": 0,
+   "pre_sha1": "c9328db6bbd6"
+  }
+ ],
+ "18:1": [
+  {
+   "icon": 6,
+   "text": "the {D-Pad} while holding the {R Button}",
+   "pre_drop": 0,
+   "pre_sha1": "c2930a711865"
+  },
+  {
+   "icon": 4,
+   "text": "the {X Button}",
+   "pre_drop": 0,
+   "pre_sha1": "c2d5f6777707"
+  },
+  {
+   "icon": 5,
+   "text": "the {Y Button}",
+   "pre_drop": 0,
+   "pre_sha1": "4f413364b490"
+  },
+  {
+   "icon": 0,
+   "text": "the {A Button}",
+   "pre_drop": 0,
+   "pre_sha1": "398afbab2a29"
+  }
+ ],
+ "19:6": [
+  {
+   "icon": 4,
+   "text": "the {L Button}",
+   "pre_drop": 0,
+   "pre_sha1": "9e7eebb8d999"
+  },
+  {
+   "icon": 3,
+   "text": "the {X Button}",
+   "pre_drop": 0,
+   "pre_sha1": "4dadd46f3968"
+  }
+ ],
+ "19:7": [
+  {
+   "icon": 0,
+   "text": "the {A Button}",
+   "pre_drop": 0,
+   "pre_sha1": "1009dd18bdda"
+  },
+  {
+   "icon": 5,
+   "text": "the {R Button}",
+   "pre_drop": 0,
+   "pre_sha1": "52074386d5bc"
+  },
+  {
+   "icon": 3,
+   "text": "the {X Button}",
+   "pre_drop": 0,
+   "pre_sha1": "dad2b5071b6f"
+  }
+ ],
+ "19:10": [
+  {
+   "icon": 4,
+   "text": "the {L Button}",
+   "pre_drop": 0,
+   "pre_sha1": "60ee57df6a8b"
+  },
+  {
+   "icon": 5,
+   "text": "the {R Button}",
+   "pre_drop": 0,
+   "pre_sha1": "4ffe808a0fae"
+  }
+ ],
+ "19:13": [
+  {
+   "icon": 3,
+   "text": "the {X Button}",
+   "pre_drop": 0,
+   "pre_sha1": "04a8e5da0fe2"
+  }
+ ],
+ "65:38": [
+  {
+   "icon": 6,
+   "text": "the {Y Button}",
+   "pre_drop": 0,
+   "pre_sha1": "641b06a3f5bb"
+  }
+ ],
+ "96:5": [
+  {
+   "icon": 3,
+   "text": "the {X Button}",
+   "pre_drop": 0,
+   "pre_sha1": "297a2923692a"
+  },
+  {
+   "icon": 5,
+   "text": "the {A Button}",
+   "pre_drop": 0,
+   "pre_sha1": "43dc587fe9b4"
+  },
+  {
+   "icon": 4,
+   "text": "the {Y Button}",
+   "pre_drop": 0,
+   "pre_sha1": "439ac6327d9e"
+  },
+  {
+   "icon": 0,
+   "text": "the {B Button}",
+   "pre_drop": 0,
+   "pre_sha1": "4a1c20bb5de4"
+  },
+  {
+   "icon": 4,
+   "text": "the {Y Button}",
+   "pre_drop": 0,
+   "pre_sha1": "52074386d5bc"
+  },
+  {
+   "icon": 5,
+   "text": "the {A Button}",
+   "pre_drop": 0,
+   "pre_sha1": "52074386d5bc"
+  },
+  {
+   "icon": 2,
+   "text": "the {L Button}",
+   "pre_drop": 0,
+   "pre_sha1": "c69f55f82f2d"
+  }
+ ],
+ "310:23": [
+  {
+   "icon": 3,
+   "text": "the {Y Button}",
+   "pre_drop": 0,
+   "pre_sha1": "f3bc09f6733f"
+  }
+ ],
+ "310:41": [
+  {
+   "icon": 3,
+   "text": "the {Y Button}",
+   "pre_drop": 0,
+   "pre_sha1": "f3bc09f6733f"
+  }
+ ],
+ "322:12": [
+  {
+   "icon": 0,
+   "text": "Touching the screen",
+   "pre_drop": 38,
+   "pre_sha1": "aa4f7caf4050"
+  },
+  {
+   "icon": 3,
+   "text": "into the microphone",
+   "pre_drop": 5,
+   "pre_sha1": "64d2aea281f1"
+  }
+ ],
+ "381:0": [
+  {
+   "icon": 0,
+   "text": "touch it",
+   "pre_drop": 6,
+   "pre_sha1": "1ef81b0042c9"
+  }
+ ]
+}

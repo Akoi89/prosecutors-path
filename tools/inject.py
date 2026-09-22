@@ -21,6 +21,7 @@ from spt import all_strings, parse, tails
 from build_spt import build_ds, build_archive
 import dstext
 import fontwidths          # module level so PyInstaller's scan cannot miss it
+import buttons             # same reason; see the note in buttons.py
 from dstext import convert, ARGS
 from episode_titles import retitle
 from loc_patch import load_lookup, patch_entry
@@ -379,6 +380,7 @@ def main(base=None, out=None):
     kept_tails = 0
     choicearg = choicearg_mismatched_strings = 0
     foreign = 0
+    iconsub = iconrows = 0
     # Every control code the DS engine is known to accept: the set used by the fan
     # script. A converted string that still carries any other code would make the
     # engine skip it and read its arguments as text (see dstext.OFFICIAL_TO_DS).
@@ -481,6 +483,16 @@ def main(base=None, out=None):
                 conv.append(list(ds[n_][3])); demo += 1; continue
             if cj > max(4, la * 0.25):
                 conv.append(list(ds[n_][3])); untranslated += 1; continue
+            # Capcom's inline controller-button glyph {E2B0} is a code the DS
+            # engine does not know, so without this the foreign-code gate below
+            # discards the whole string and the fan's version of the line
+            # survives - which is why the how-to-play text was still fan
+            # writing in every release up to 1.9.1. Put the DS button name in
+            # the glyph's place FIRST, so what the gate then sees is ordinary
+            # text. buttons.py raises rather than guess.
+            u, nb = buttons.substitute(i, n_, u, ARGS)
+            if nb:
+                iconsub += nb; iconrows += 1
             d, un = convert(u)
             for v in un: unmapped[v] = unmapped.get(v, 0) + 1
             if _has_foreign(d):
@@ -768,6 +780,7 @@ def main(base=None, out=None):
     print('records kept as fan - fan relaid it vs JP:    %d' % relaidn)
     print('records kept as fan - would lose a message box: %d' % boxkeep)
     print('records kept as fan - official-only control code: %d' % foreign)
+    print('button glyphs replaced with DS button names: %d in %d records' % (iconsub, iconrows))
     print('kept fan text - no/weak mapping:        %d' % skipped)
     print('spt.bin: fan %.2f MB -> new %.2f MB' % (len(raw)/1e6, len(newspt)/1e6))
     if unmapped:
