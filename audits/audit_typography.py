@@ -50,7 +50,16 @@ def boxes(u):
             for _ in range(ARGS.get(v, 0)):
                 if i < n and not CTRL(u[i]):
                     i += 1
-            if v in RESET:
+            # {E106} is in dstext.RESET but it does NOT end a box: its handler
+            # (overlay 7 0x020ACEB0) only does the engine's read-mark bookkeeping
+            # and returns, so the engine keeps writing into the box already on
+            # screen. Splitting here made this audit report 16 phantom
+            # "line starts with a space" hits on 2026-09-21, where the space is a
+            # perfectly ordinary one between two words that genuinely share a
+            # line. Only {E102} and {E104} clear a box; {E185} and {E081} are
+            # string-final in every occurrence. RESET itself is left alone because
+            # other callers use it to mean "codes that can end a message".
+            if v in RESET and v != 0xE106:
                 box.append(line); out.append(box); box, line = [], []
             continue
         if v == 0x0A:

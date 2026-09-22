@@ -19,7 +19,11 @@ SCOPE, exactly:
     their own budgets and are audited by audits/audit_widgets.py instead.
   * A control code consumes its arguments (dump/ctrl_args.json) so argument units
     are never measured as text.
-  * A line ends at 0x0A or at a box-terminating code (dstext.RESET).
+  * A line ends at 0x0A or at a box-terminating code, which means {E102} and
+    {E104} ONLY. {E106} is in dstext.RESET but does not end a box (its handler
+    at overlay 7 0x020ACEB0 only does read-mark bookkeeping and returns), and
+    splitting there measured boxes the DS never draws: it reported 2 lines over
+    budget where the honest figure is 278.
   * Width is the sum of the font's REAL advances, read from the decompressed arm9.
   * Empty lines are dropped.
 
@@ -94,7 +98,18 @@ def lines_of(blob, W, args):
                     for _ in range(args.get(v, 0)):
                         if i < n and not CTRL(u[i]):
                             i += 1
-                    if v in RESET:
+                    # {E106} is in dstext.RESET but does NOT end a box: its
+                    # handler (overlay 7 0x020ACEB0) only does the engine's
+                    # read-mark bookkeeping and returns, so the engine keeps
+                    # writing into the box already on screen. Splitting a line
+                    # here measures a box the DS never draws, and it hid the very
+                    # defect class this instrument exists to find: under the old
+                    # model the build showed 2 lines over budget, and under this
+                    # one it shows the real figure. Only {E102} and {E104} clear a
+                    # box; {E185} and {E081} are string-final in every occurrence.
+                    # RESET itself is left alone, because other callers use it to
+                    # mean "codes that can end a message".
+                    if v in RESET and v != 0xE106:
                         if cur:
                             out.append((cur, ei, idx))
                         cur = 0
