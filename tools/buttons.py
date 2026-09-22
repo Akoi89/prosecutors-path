@@ -44,13 +44,24 @@ entry, and the guard below caught exactly that ("4:4 has 5 glyphs, the table has
 6 rules") rather than writing a mangled sentence. Test such a row through a real
 build, not by calling substitute() on the raw Collection string.
 
-WHAT IS NOT DONE HERE, ON PURPOSE:
-  * entry 106 string 0 (sce1_c3_02) is HELD. Capcom says to talk to Kay to switch
-    re-creations; the fan row names no button, it says to select Little Thief on
-    the bottom screen. Episode 5's own fan rows say the Y Button for that action,
-    so the Y Button is probably right in Episode 2 as well - but probably is not
-    measured, and it has not been seen on the rig. Add it once someone watches
-    that scene.
+ENTRY 106 STRING 0 WAS HELD AND IS NOW IN. Capcom says to talk to Kay to switch
+re-creations, and the fan row for that scene names no button at all: it says to
+select Little Thief on the bottom screen. It was left out rather than guessed.
+Three independent sources now agree on the Y Button, so it is in: Episode 5's own
+fan rows say "press the Y Button and select Change Re-creation" for that same
+action; the fan's Episode 1 line says "if I want to consult with Gumshoe, I press
+the Y Button", so Y is the partner button; and StrategyWiki's DS walkthrough for
+Episode 2 says to press Y and select Change Re-creation, with a DS Y-button image
+in the sentence. The rig also saw Y open a partner-topic menu in that courtyard,
+and the reason it saw no switch is that the switch only exists after Kay sets up
+the SECOND re-creation, the one of the show in progress.
+
+Note the option's LABEL differs and ours is right: that walkthrough says "Change
+Re-creation", which is the fan patch's wording, while our build letters the strip
+with Capcom's own "Switch re-creations" (inventory/select_strip_map.json row 668)
+and Capcom's own dialogue in DS[310] str23 names "Switch re-creations" too. So the
+fan's line named an option our build no longer shows, and Capcom's line matches
+the strip.
 
 No Capcom prose is stored in this repo. A rule that deletes text says how many
 characters to delete and carries a 12-hex-digit sha1 of the 40 characters of
