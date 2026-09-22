@@ -781,6 +781,7 @@ def main(base=None, out=None):
     print('records kept as fan - would lose a message box: %d' % boxkeep)
     print('records kept as fan - official-only control code: %d' % foreign)
     print('button glyphs replaced with DS button names: %d in %d records' % (iconsub, iconrows))
+    print('box-open arguments corrected 2 -> 3 (see dstext.BOX_OPEN_FIX): %d' % dstext._STATS['boxopen'])
     print('kept fan text - no/weak mapping:        %d' % skipped)
     print('spt.bin: fan %.2f MB -> new %.2f MB' % (len(raw)/1e6, len(newspt)/1e6))
     if unmapped:

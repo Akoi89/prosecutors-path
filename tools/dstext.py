@@ -35,6 +35,43 @@ NARROW = set("iljtfIJ.,!?:;'()[]|")
 WIDE = set('mwMW@')
 CTRL = lambda v: 0xE000 <= v <= 0xF8FF
 # {E104} ends a box too - it auto-advances instead of waiting for input.
+#
+# {E106} IS NOT A BOX END, and treating it as one is a live defect. Its handler,
+# overlay 7 0x020ACEB0, clears interpreter flag bit 14, calls the read-mark
+# bookkeeping at 0x020ACBCC and returns 1 so the interpreter carries straight on.
+# It never touches the render buffer index, the render context or the canvas. Only
+# {E102} (0x020ACE34) and {E104} (0x020ACE70) reach the path that zeroes the buffer
+# index, re-inits the render context and wipes the canvas; {E185} and {E081} are
+# string-final in every occurrence (61/61 and 2642/2642 in the JP script) so their
+# behaviour does not arise. {E100} is what OPENS a box, argument 0, and {E101}
+# re-opens one only when the box flag says it is closed, otherwise it just swaps
+# the nameplate and continues in place.
+#
+# Consequence of getting this wrong: the wrapper fitted the text on each side of an
+# {E106} into three lines INDEPENDENTLY, while the engine kept writing into the box
+# already on screen, so the two ran together, the line went over the box width and
+# the renderer chopped it mid-word with nothing on screen to say so. Seen in the
+# SHIPPED release at entry 59 string 0, Eddie Fender in Episode 2: the script holds
+# "...I do remember?" {E108 32} {E106} {E101} {E107 3} "You betraying everything you
+# were / supposed to stand for." and the screen showed one box reading
+# "remember?You betraying everythin / supposed to stand for.", losing "g you were".
+# Proof rig/proof/e107/CUTOFF_fender_everythin_box.png. The fan's own line at that
+# site is a single box too, which is the tell: the fan AUTHORED for this behaviour.
+# {E106} IS LEFT IN THIS SET FOR NOW, KNOWING IT IS WRONG, because the obvious fix
+# is worse than the bug. Taking it out was tried on 2026-09-21 and measured: the
+# converter then buffers it as an ordinary code instead of flushing on it, and 322
+# of its 2,456 occurrences WENT MISSING from the built script while 162 {E102}s
+# appeared in their place. audit_boxes caught it, exit 1, 285 strings with fewer
+# boxes than the fan. Dropping a code whose handler does the engine's read-mark
+# bookkeeping is exactly the class of fault that audit exists to stop.
+#
+# THE CHANGE THAT IS ACTUALLY WANTED, for whoever does it: {E106} must still be
+# EMITTED IN PLACE, unchanged, while no longer acting as a wrapping boundary, so
+# the text on both sides of it is laid out as ONE box-run and paginated with real
+# {E102} breaks when it exceeds three lines. That is a change to the buffering in
+# convert(), not to this set. It needs its own build, a read-back that shows the
+# {E106} count unchanged, audit_boxes at exit 0, and a rig look at entry 59 string
+# 0 to confirm Fender's line renders whole.
 RESET = {0xE102, 0xE104, 0xE106, 0xE185, 0xE081}
 LETTER = lambda v: 0x41 <= v <= 0x5A or 0x61 <= v <= 0x7A
 BOX_LINES = 3
@@ -46,12 +83,24 @@ BOX_LINES = 3
 WAIT_BREAK = 0xE102
 AUTO_BREAK = 0xE104
 AUTO_DELAY = 0x3C          # frames; JP uses 0x5A/0x3C/0x46 most in this position
-# {E107}'s argument selects how the text starts: <03> opens a FRESH box, <02>
-# continues inline. A break must use <03> - it is what the JP script uses after
-# {E102} (512x vs 70x for <02>) and what opens the blue thought box in
-# eng_trial/logic00_11. Reusing the last-seen arg emits <02> and the box loses its
-# thought-text colour.
+# {E107}'s argument is TYPEWRITER PACING, not a box opener. Corrected 2026-09-21
+# from the binary: the handler stores the argument into ctx+0x1E and the dispatcher
+# copies it into the yield timer after every character (0x0200E114 -> 0x0200E13C),
+# so it sets how fast the text prints. The older comment here claimed <03> opens a
+# fresh box and <02> continues inline, and that reading is what sent a whole
+# afternoon after the wrong cause: the Fender line that is chopped mid-word already
+# carries <03> in the shipped build. 3 is still the right value to emit after a
+# break because it is what the JP script uses there (512x against 70x for <02>) and
+# it is what the blue thought box in eng_trial/logic00_11 opens with, so the name
+# below is kept - but it is a PACE, and do not reason about box structure from it.
+# (The countdown itself was not traced, so "strongly indicated" rather than proven.)
 NEW_BOX_ARG = 0x0003
+
+# Rewrite Capcom's {E107} argument from 2 to 3 where it OPENS a box. See the long
+# note at the call site in convert(). Set False to build the old behaviour for a
+# side-by-side comparison; the counter is how many sites were rewritten.
+BOX_OPEN_FIX = False
+_STATS = {'boxopen': 0}
 # Internal monologue renders blue, and the trigger is the PARENTHESIS, not a control
 # code - 93% of thought boxes in both the JP and fan ROMs close their parens inside the
 # same box. Splitting "(...)" across a page break leaves the new box without an opening
@@ -564,6 +613,34 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
             for _ in range(ARGS.get(v, DEFAULT_ARGS)):
                 if i < n and not CTRL(units[i]):
                     tok.append(units[i]); i += 1
+            # BOX-OPEN PASSTHROUGH. Capcom's own {E107} argument is emitted
+            # unchanged, and where that argument is 2 it means "continue inline in
+            # the box already on screen" while Capcom means it to OPEN A FRESH
+            # box. The DS then writes a whole new message into a box that was
+            # never cleared, the line overflows, and the renderer chops it at the
+            # box's right edge IN THE MIDDLE OF A WORD, losing everything after
+            # the cut with nothing on screen to say so.
+            #
+            # Seen on the rig 2026-09-21 in the shipped release, entry 59 str0,
+            # Eddie Fender in Episode 2: the ROM holds "But you know what I do
+            # remember?  You betraying everything you were supposed to stand for."
+            # and the screen shows "remember?You betraying everythin / supposed to
+            # stand for." - "g you were" simply gone. A tester independently
+            # reported the same fault class in entry 80. Proof in
+            # rig/proof/e107/CUTOFF_fender_everythin_box.png.
+            #
+            # The rule is narrow on purpose. It fires only where this {E107} is
+            # OPENING a box, meaning no text has been laid into the current box
+            # yet - the first one in a string, or one straight after a
+            # box-terminating code. Only the value 2 is rewritten, and only to 3.
+            # The values 1, 4, 7 and 9 that the fan script also uses are left
+            # alone because nobody has established what they mean. Boxes this
+            # converter creates itself already emit NEW_BOX_ARG, so they are
+            # unaffected.
+            if (BOX_OPEN_FIX and v == 0xE107 and len(tok) > 1 and tok[1] == 2
+                    and not any(k == 'w' for k, _ in buf)):
+                tok[1] = NEW_BOX_ARG
+                _STATS['boxopen'] += 1
             if v in RESET:
                 # look ahead: is this a waiting or an auto-advancing terminator?
                 emit(buf, v if v in (WAIT_BREAK, AUTO_BREAK) else WAIT_BREAK)
