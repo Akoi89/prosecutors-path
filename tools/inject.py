@@ -27,6 +27,7 @@ from episode_titles import retitle
 from loc_patch import load_lookup, patch_entry
 from map_ids import ds_entries
 from paths import work, data
+import stmt_trim
 
 # Codes that end a message box (the box-count fingerprint used for alignment checks).
 BOXEND = {0xE102, 0xE104, 0xE106, 0xE185, 0xE081}
@@ -361,6 +362,13 @@ def _restore_seam_cues(conv, ds):
         added = [(c, a) for _, c, a in _seam_cmds(un[tfc:]) if c is not None]
         if collections.Counter(removed) != collections.Counter(added):
             continue
+        # ...and the only plain (non-command) units the move may remove or copy
+        # in are {00}s, like the fan's after {E121}: real text on either side
+        # means this is not a pure cue relocation, so leave the seam alone. (Not
+        # "require a box-end on both sides": entry 259's strings have none.)
+        segs = (u[tc:], v[:cut], un[tfc:])
+        if any(seg[k] != 0 for seg in segs for k, c, _ in _seam_cmds(seg) if c is None):
+            continue
         conv[j] = u[:tc] + un[tfc:]
         conv[j + 1] = v[cut:]
         fixed.append(j)
@@ -608,6 +616,7 @@ def main(base=None, out=None):
     dsvalue_mismatch = collections.OrderedDict((c, 0) for c in DS_VALUE_ARGS)
     seamcues = 0
     seamcue_seams = []
+    stmttrim = stmttrim_fallback = 0
     foreign = 0
     iconsub = iconrows = 0
     # Every control code the DS engine is known to accept: the set used by the fan
@@ -722,6 +731,18 @@ def main(base=None, out=None):
             u, nb = buttons.substitute(i, n_, u, ARGS)
             if nb:
                 iconsub += nb; iconrows += 1
+            # DELTA 3: 28 testimony/rebuttal statements Capcom wrote a line too
+            # long for the DS engine's single statement box, wrapping to 4 lines
+            # and getting split 2+2 over two boxes - of which the engine only
+            # ever shows the first (rig, entry 92 statement 2, 2026-09-22). Must
+            # run on the RAW Collection units, before convert() wraps them, and
+            # before the foreign-code/box checks below so a trimmed string is
+            # judged on what it will actually ship as. See tools/stmt_trim.py.
+            u, trimstat = stmt_trim.apply(i, n_, u)
+            if trimstat is True:
+                stmttrim += 1
+            elif trimstat is False:
+                stmttrim_fallback += 1
             d, un = convert(u)
             for v in un: unmapped[v] = unmapped.get(v, 0) + 1
             if _has_foreign(d):
@@ -1031,6 +1052,8 @@ def main(base=None, out=None):
     print('records kept as fan - would lose a message box: %d' % boxkeep)
     print('records kept as fan - official-only control code: %d' % foreign)
     print('button glyphs replaced with DS button names: %d in %d records' % (iconsub, iconrows))
+    print('testimony statements trimmed to one box: %d  (fallback: %d)'
+          % (stmttrim, stmttrim_fallback))
     print('box-open arguments corrected 2 -> 3 (see dstext.BOX_OPEN_FIX): %d' % dstext._STATS['boxopen'])
     print('kept fan text - no/weak mapping:        %d' % skipped)
     print('spt.bin: fan %.2f MB -> new %.2f MB' % (len(raw)/1e6, len(newspt)/1e6))
