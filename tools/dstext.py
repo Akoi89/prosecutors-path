@@ -128,8 +128,8 @@ _STATS = {'boxopen': 0}
 # parens are, and it must re-emit the CACHED opener, never a hard-coded {E041}: most of the
 # affected spans in the script are {E043}.
 # {E041} (orange keyword) and {E043} (green) OPEN a styled span; {E040} and {E042} both
-# CLOSE one - e.g. "(The {E041}rolls of blue cloth{E042} and the {E041}rock crystals{E042}
-# inside the castle...)". Do NOT read {E042} as an opener because it is frequent and often
+# CLOSE one - e.g. a parenthetical listing two highlighted items in a row, each its own
+# open/close pair. Do NOT read {E042} as an opener because it is frequent and often
 # follows {E041}: that inference is wrong, and caching it as a style makes the emitter
 # re-open a CLOSER after a break. Emit {E040} as the closer (the dominant one, 1276 uses,
 # and it pairs with both openers).
@@ -561,7 +561,8 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
     def split_tokens(tokens, nb):
         """Partition tokens into nb chunks at WORD boundaries, balanced by width and
         preferring a break just after punctuation. Splitting the LINE list instead
-        strands phrases ('...connections if I)' / '(intend to draw...')."""
+        strands a parenthetical's closing half on one line and its opening half
+        on the next."""
         idx, cum, total = [], [], 0
         for k, (kind, val) in enumerate(tokens):
             if kind == 'w':

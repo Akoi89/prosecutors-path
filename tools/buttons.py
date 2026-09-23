@@ -48,11 +48,12 @@ ENTRY 106 STRING 0 WAS HELD AND IS NOW IN. Capcom says to talk to Kay to switch
 re-creations, and the fan row for that scene names no button at all: it says to
 select Little Thief on the bottom screen. It was left out rather than guessed.
 Three independent sources now agree on the Y Button, so it is in: Episode 5's own
-fan rows say "press the Y Button and select Change Re-creation" for that same
-action; the fan's Episode 1 line says "if I want to consult with Gumshoe, I press
-the Y Button", so Y is the partner button; and StrategyWiki's DS walkthrough for
-Episode 2 says to press Y and select Change Re-creation, with a DS Y-button image
-in the sentence. The rig also saw Y open a partner-topic menu in that courtyard,
+fan rows give the same instruction, for the same action, in the form "press this
+button and pick this menu option"; the fan's Episode 1 line has the protagonist
+state, in dialogue, that pressing that button is how they'd consult their partner,
+confirming it as the partner button; and StrategyWiki's DS walkthrough for
+Episode 2 names the same button for the same menu option, illustrated with a DS
+Y-button image. The rig also saw Y open a partner-topic menu in that courtyard,
 and the reason it saw no switch is that the switch only exists after Kay sets up
 the SECOND re-creation, the one of the show in progress.
 
@@ -78,9 +79,10 @@ ICON = 0xE2B0
 # there before" - and which one that is depends on whether we are inside a
 # parenthetical. Overlay 7 emits E042 itself on a fullwidth '(' and E040 on ')',
 # so inside brackets the restore is E042 and outside it is E040. Verified against
-# the fan's own spans, e.g. DS[18] str1: "(Hold the{E041} R Button{E042} and use
-# the{E041} D-Pad{E042} to rotate...". Note where the span STARTS: after the
-# article, with the leading space inside it. This matches the fan exactly.
+# the fan's own spans, e.g. DS[18] str1: a parenthetical instruction that
+# highlights one button to hold, then a second to use with it in turn. Note
+# where the span STARTS: after the article, with the leading space inside it.
+# This matches the fan exactly.
 #
 # WHY HIGHLIGHT AT ALL, since the rest of Capcom's prose is left as Capcom wrote
 # it: the thing being replaced here was an ICON, which stood out on its own

@@ -239,9 +239,9 @@ Verified in the game rather than on paper: the Interim Autopsy Report was opened
 When a coloured term was too long for one text box, the half that landed in the second box
 lost its colour and drew plain white. So a keyword the game had marked as important stopped
 looking important halfway through. It showed most on the green testimony and deduction lines,
-and on orange keywords like *Animal Taming Department*, where the box ends on
-*"She's head of the **Animal**"* and the next one opens with a colourless *"Taming
-Department."*
+and on orange keywords like *Animal Taming Department*, where the term itself splits
+across the box break, the first half keeping its colour and the second opening the
+next box in plain white.
 
 A box-terminating code resets the engine's inline style, the same way a thought box loses its
 blue when its opening "(" is stranded on the previous page. The converter already put the
@@ -314,9 +314,9 @@ reads 1.6.1, which is the only reason the ROM hash differs from 1.6.0.
 ## New in v1.6.0: the choice buttons are in Capcom's words, and descriptions no longer clip
 
 The option plates of every choice menu and talk-topic list were still the fan's
-lettering, and one of them put a fan character name on screen: in Episode 1 the
-choice "the owner of the red raincoat" offered *Nicole Swift* while the script
-around it said *Tabby Lloyd*. The 297 plates (`jpn/idlocal.bin` 364-670, all of
+lettering, and one of them put a fan character name on screen: in Episode 1 one
+choice, naming a character by a distinguishing feature, offered *Nicole Swift*
+while the script around it said *Tabby Lloyd*. The 297 plates (`jpn/idlocal.bin` 364-670, all of
 them graphics) are now redrawn with the official option text, read from your
 Collection at build time and set in its UD Kakugo M face.
 
@@ -331,10 +331,10 @@ condensed by up to 12% and 20 step down a size to fit, the way the episode title
 **Evidence and profile descriptions no longer lose their last letter.** The
 description card draws a smaller font than the dialogue box, but the fitter had been
 using the dialogue box's budget for it, so lines near the top of the range ran off the
-140-pixel field and the game cut the final glyph ("outside the Autumn Wing afte[r]" on
-Carmelo Gusto's profile, "Jammin' Ninja's face. Made o[f]" on the mask). Every release
+140-pixel field and the game cut the final glyph (a place name on Carmelo Gusto's
+profile, a descriptive line on the mask, each losing their last letter). Every release
 through 1.5.2 had this. The card font was measured in game (per-glyph advances fitted
-from 58 rendered lines on 18 cards, `tools/desc_font.json`) and 84 description rows are
+from lines rendered on 18 cards, kept in `tools/desc_font.json`) and 84 description rows are
 re-wrapped against it; twelve more rows stay on the fan's text because the official
 wording needs a fifth line the card does not have (rows kept as fan: 78 -> 90). Verified
 on the chapter saves: Fender, Gusto, Deauxnim and the mask card all read complete.
@@ -430,11 +430,11 @@ Hyphenated forms ("Courtney-pie") rename too; they were being skipped. Result: 9
 renamed (was 84), and **five lines in the whole game still carry a fan name** (resolved in 1.5.1), each because
 the fan drew that line already at the edge of the box:
 
-- `DS[29]` str 14: "Swift will be cleared of suspicion!"
-- `DS[76]` str 7: "You didn't know either, Uncle Ray?"
-- `DS[94]` str 2: "escaped prisoner, Jay Elbird"
-- `DS[99]` str 4: "Mr. Elbird would have seen it"
-- `DS[117]` str 28: "(The true killer is Warden Roland.)"
+- `DS[29]` str 14: a one-line declaration ending in the character's surname
+- `DS[76]` str 7: a two-clause question addressed to a character by title and name
+- `DS[94]` str 2: a short noun phrase naming an escaped character by name
+- `DS[99]` str 4: a short clause naming a character before its verb
+- `DS[117]` str 28: a parenthetical naming the true culprit by title and surname
 
 ### 108 descriptions and Logic cards, condensed to fit
 
@@ -448,10 +448,11 @@ UI coverage rises from 81.1% to 90.2%; total from 93.7% to 94.3%.
 
 ### One evidence description, one hedge
 
-The Episode 2 autopsy description used to say "Death was instant." Capcom wrote "would
-have been instant" and the Japanese hedges too; in a game where autopsies get overturned
-that is not a decoration. It now reads "Death was likely instant," paid for by dropping
-"to the head" after "scalp", which says the same thing. Still exactly four lines.
+The Episode 2 autopsy description used to state the time of death as flat fact. Capcom's
+line hedges it, and the Japanese hedges too; in a game where autopsies get overturned
+that is not a decoration. The hedge is restored, paid for by dropping a redundant
+location phrase that repeats what the wound description already says. Still exactly
+four lines.
 
 ### Coverage: 93.7%, not 96.5%
 
@@ -720,10 +721,10 @@ the tool easier to trust and to get working:
 ## New in v1.3.1: three autopsy descriptions stop contradicting the testimony
 
 The Episode 2 rebuttal cites the autopsy report's *stab wound*, official dialogue
-in this ROM, while the Court Record description of the body still said the fan's
-*"single blow to base of neck"*, because Capcom's wording didn't fit the DS's
-4-line description box. In a series about spotting contradictions, the game
-contradicting itself is the one thing text must never do.
+in this ROM, while the Court Record description of the body still described a
+single blunt-force impact in the fan's own words, because Capcom's wording didn't
+fit the DS's 4-line description box. In a series about spotting contradictions, the
+game contradicting itself is the one thing text must never do.
 
 Those three descriptions (and only those, the ~100 other over-long descriptions
 keep the fan's fitting text, which agrees with the dialogue) are now Capcom's
@@ -735,8 +736,8 @@ the fan line if your Collection's wording ever differs.
 ## New in v1.3.0: the last big recoveries, and a jump-index repair
 
 - **The confrontation line banks are official now.** The "argument" lines you pick
-  during rebuttals and Logic Chess (236 rows, e.g. *"Yet, I will be heard!"*) were at
-  0% because their file only exists in the Collection's trial bundle. They now swap
+  during rebuttals and Logic Chess (236 rows, one-line declarations and exclamations)
+  were at 0% because their file only exists in the Collection's trial bundle. They now swap
   row-by-row, each line verified single-line and no wider than the widest line the
   fan translation ever displayed in that widget.
 - **The two biggest fan-kept scenes are recovered**, a courtroom stretch of Episode 4

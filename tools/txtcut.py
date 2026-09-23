@@ -19,14 +19,17 @@ are re-flowed: consecutive lines that share an indent and are not fields
     python tools/txtcut.py OUTDIR [--verbatim] [--only 98,266] [--rom in.nds out.nds]
 
 OUTDIR gets upcut_local.bin, one 3x preview per screen, and a contact sheet.
-txtcut_condensed.json carries three reviewed formatting fixes in Capcom's own
-words (see its note); --verbatim renders every row exactly as stored instead.
+txtcut_condensed.json carries six reviewed formatting fixes, stored as
+hash-guarded word-index ops over Capcom's own row rather than as text (see
+its note and tools/txtcut_trim.py); --verbatim renders every row exactly as
+stored instead.
 """
 import sys, os, re, struct, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from lz11 import decompress
 from nitro import ncgr, nclr, _sections
 from title_text import repack
+import txtcut_trim
 from PIL import Image
 
 SRC = 'dump/ds_fan/jpn/upcut_local.bin'
@@ -440,13 +443,23 @@ CONDENSED = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'txtcut_con
 def build(outdir, only=None, verbatim=False):
     font, space = load_font()
     rows = [list(r) for r in json.load(open(LOC, encoding='utf-8'))['gk2_txtcut_en']]
+    condensed_applied = condensed_fallback = 0
     if not verbatim and os.path.exists(CONDENSED):
-        # three reviewed formatting fixes in Capcom's own words (a label Capcom
-        # uses elsewhere, a line break in a date, two dropped articles); keyed
-        # by row, see the file's note
-        for k, text in json.load(open(CONDENSED, encoding='utf-8')).items():
-            if not k.startswith('_'):
-                rows[int(k)][1] = text
+        # reviewed formatting fixes (a label kept literal, line breaks, a few
+        # generic word drops); keyed by row, see the file's note. A dict row
+        # is a hash-guarded ops edit (tools/txtcut_trim.py) over the verbatim
+        # text already in `rows`; a plain string is an unconverted literal,
+        # rendered as stored.
+        for k, val in json.load(open(CONDENSED, encoding='utf-8')).items():
+            if k.startswith('_'):
+                continue
+            idx = int(k)
+            new_text, status = txtcut_trim.apply(idx, rows[idx][1], val)
+            rows[idx][1] = new_text
+            if status is True:
+                condensed_applied += 1
+            elif status is False:
+                condensed_fallback += 1
     data = open(SRC, 'rb').read()
     E = table(data)
     repl, log, previews = {}, [], []
@@ -473,7 +486,7 @@ def build(outdir, only=None, verbatim=False):
     for i, (e, im) in enumerate(previews):
         sheet.paste(im, ((i % cols) * W, (i // cols) * H))
     sheet.save(os.path.join(outdir, 'txtcut_sheet.png'))
-    return out, repl, log
+    return out, repl, log, condensed_applied, condensed_fallback
 
 
 if __name__ == '__main__':
@@ -481,9 +494,10 @@ if __name__ == '__main__':
     only = None
     if '--only' in sys.argv:
         only = {int(v) for v in sys.argv[sys.argv.index('--only') + 1].split(',')}
-    out, repl, log = build(outdir, only, verbatim='--verbatim' in sys.argv)
+    out, repl, log, applied, fallback = build(outdir, only, verbatim='--verbatim' in sys.argv)
     print('\n'.join(log))
     print('screens rewritten: %d' % len(repl))
+    print('condensed rows applied: %d  (fallback: %d)' % (applied, fallback))
     if '--rom' in sys.argv:
         from title_logo import splice
         i = sys.argv.index('--rom')

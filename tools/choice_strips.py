@@ -43,9 +43,10 @@ all split the same way; the OTF is PostScript-outlined with effectively no
 hinting for FreeType to apply). An earlier attempt TRANSLATED the low glyphs
 up instead of resampling them; that levelled the feet and lifted the heads,
 because a round glyph overshoots at both ends. An attempt after that took
-the target rows from the spread of the string being set, and a full stop in
-"The murder investigation." skewed the split so far that the ascender t was
-squashed by two rows. Hence the references come from the FONT.
+the target rows from the spread of the string being set, and one strip whose
+text was mostly short letters but ended in a period skewed the split so far
+that the ascender t was squashed by two rows. Hence the references come from
+the FONT.
 """
 import sys, os, io, json, struct
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

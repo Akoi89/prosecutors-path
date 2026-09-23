@@ -87,14 +87,14 @@ def _to_units(s):
 # The evidence/profile description card draws a SMALLER font than the dialogue box, and
 # dstext._w (the dialogue model) does not describe it: a budget of 180 dialogue-units let
 # lines run past the card's edge and the game clipped their last glyph in v1.4.x-1.5.2
-# ('outside the Autumn Wing after' lost its "r", "Jammin' Ninja's face. Made of" its "f").
+# (two description lines each lost their final letter this way).
 # The card was therefore measured in game (2026-09-02): the text field is 140 DS px wide
 # (window x 259..617 in a 687x1064 capture, 2.5625 px per DS px) and every line whose
 # ink reached that column was cut, so the field is the hard limit. Per-glyph advances of
 # the card's font were fitted from rendered lines and live in tools/desc_font.json; the
 # fitter wraps with those advances and a margin below the field width. Glyphs never seen
-# in the samples get a deliberately generous advance so an unmeasured letter can only
-# wrap early, never clip. logicKW keeps the old dialogue-unit budget: it was measured the
+# in the measured lines (kept outside this repo) get a deliberately generous advance, so
+# an unmeasured letter can only wrap early, never clip. logicKW keeps the old dialogue-unit budget: it was measured the
 # same flawed way but no clipped Logic card has been observed.
 BOXES = {
     'detailMsg': (None, 4),  # width comes from DESC_FONT below (real DS px)

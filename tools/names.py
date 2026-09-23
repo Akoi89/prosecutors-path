@@ -167,21 +167,21 @@ ROWFIX = {(432, 292): (_fwseq('Was Samson'), _fwseq('Samson')),
           # the budget the fan proved; the honorific is the cheapest word to lose.
           # The period here is U+2025, which is how this script writes 'Mr.'
           (453, 299): ([0xFF2D, 0xFF52, 0x2025, 0xFF3F] + _fwseq('Tangaroa'),
-                       _fwseq('Tangaroa')),
-          # 1.5.1: the five lines that 1.5.0 left fan-named because the official
-          # name pushed them past 216px. Each keeps the fan sentence and loses
-          # only what the width forces (measured with rig/measure_lines.py; the
-          # engine codes inside the lines are kept where they were).
-          (29, 14): (_fwseq('Lloyd will be cleared of suspicion!'),            # 224px
-                     _fwseq("Lloyd's name will be cleared!")),                   # 190px
-          (76, 7): (_fwseq("You didn't know either,") + [0xE108, 0x8] + _fwseq(' Uncle Eddie?'),   # 227px
-                    _fwseq("Uncle Eddie didn't know either") + [0xE108, 0x8] + _fwseq('?')),         # 195px
-          (94, 2): (_fwseq('prisoner') + [0xE040] + _fwseq(',') + [0xE108, 0x8] + _fwseq(' Rocco Carcerato'),  # 233px
-                    _fwseq('prisoner') + [0xE040] + _fwseq(',') + [0xE108, 0x8] + _fwseq(' Carcerato')),       # 191px
-          (99, 4): (_fwseq('would have seen it'),                              # 221px with Mr. Carcerato
-                    _fwseq("would've seen it")),                                # 204px
-          (117, 28): (_fwseq('true killer is ') + [0xE1D5] + _fwseq('Warden Laguarde'),   # 244px
-                      _fwseq('true killer is ') + [0xE1D5] + _fwseq('Laguarde'))}          # 193px
+                       _fwseq('Tangaroa'))}
+          # 1.5.1 once carried five more rows here (DS[29] str14, DS[76] str7,
+          # DS[94] str2, DS[99] str4, DS[117] str28): a literal find/replace pair
+          # per row, each trimming a fan sentence that the official name had
+          # pushed past its box. Removed 2026-09-23 (repo-text audit) rather than
+          # converted: instrumenting the injector's real build path showed none of
+          # the five rows' source strings are still byte-identical to the fan ROM
+          # there (the surrounding rename/relayout work has moved past them since
+          # 1.5.1), so harmonize_entry's own `tuple(u) == F[si]` guard already
+          # skipped all five on every build - they never applied in the build path
+          # that ships the ROM. (coverage.py calls harmonize_entry(fent, fent, i),
+          # comparing the fan entry to itself for measurement only; that guard
+          # trivially passes there, which is a different thing from the build
+          # path and is not what "unreachable" refers to.) Confirmed by rebuilding
+          # after the deletion: the output ROM is byte-identical without them.
 
 # Option-widget banks: one line each, and the widget's proven width is whatever
 # the fan actually displayed in it - the same budget inject.py uses when it
