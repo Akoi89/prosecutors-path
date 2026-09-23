@@ -1052,7 +1052,7 @@ def main(base=None, out=None):
     print('records kept as fan - would lose a message box: %d' % boxkeep)
     print('records kept as fan - official-only control code: %d' % foreign)
     print('button glyphs replaced with DS button names: %d in %d records' % (iconsub, iconrows))
-    print('testimony statements trimmed to one box: %d  (fallback: %d)'
+    print('statements and prompt questions trimmed to one box: %d  (fallback: %d)'
           % (stmttrim, stmttrim_fallback))
     print('box-open arguments corrected 2 -> 3 (see dstext.BOX_OPEN_FIX): %d' % dstext._STATS['boxopen'])
     print('kept fan text - no/weak mapping:        %d' % skipped)
