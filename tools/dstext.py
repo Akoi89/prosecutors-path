@@ -51,27 +51,41 @@ CTRL = lambda v: 0xE000 <= v <= 0xF8FF
 # {E106} into three lines INDEPENDENTLY, while the engine kept writing into the box
 # already on screen, so the two ran together, the line went over the box width and
 # the renderer chopped it mid-word with nothing on screen to say so. Seen in the
-# SHIPPED release at entry 59 string 0, Eddie Fender in Episode 2: the script holds
-# "...I do remember?" {E108 32} {E106} {E101} {E107 3} "You betraying everything you
-# were / supposed to stand for." and the screen showed one box reading
-# "remember?You betraying everythin / supposed to stand for.", losing "g you were".
+# SHIPPED release at entry 59 string 0 (Episode 2): the script holds a one-line
+# question, then {E108 32} {E106} {E101} {E107 3}, then a two-line sentence, and the
+# screen showed one box where the second sentence ran straight on from the question
+# mark on the same line and was cut off mid-word at the box edge, losing two words.
 # Proof rig/proof/e107/CUTOFF_fender_everythin_box.png. The fan's own line at that
 # site is a single box too, which is the tell: the fan AUTHORED for this behaviour.
-# {E106} IS LEFT IN THIS SET FOR NOW, KNOWING IT IS WRONG, because the obvious fix
-# is worse than the bug. Taking it out was tried on 2026-09-21 and measured: the
-# converter then buffers it as an ordinary code instead of flushing on it, and 322
-# of its 2,456 occurrences WENT MISSING from the built script while 162 {E102}s
-# appeared in their place. audit_boxes caught it, exit 1, 285 strings with fewer
-# boxes than the fan. Dropping a code whose handler does the engine's read-mark
-# bookkeeping is exactly the class of fault that audit exists to stop.
+# {E106} STAYS IN THIS SET, and the reason is specific: tools/loc_patch.py:205
+# preserves a string's trailing box-end with
+#     tail = [v for v in u if CTRL(v) and v in dstext.RESET][-1:]
+# so with {E106} out of RESET a string whose last box-end IS an {E106} loses it.
+# That is what went wrong on the first attempt, measured: 322 occurrences
+# disappeared, ALL of them string-final (322/322 within the last three units) and
+# confined to the two loc_patch-handled banks, entry 432 (226) and entry 395 (96),
+# and audit_boxes reported 322 strings with fewer boxes than the fan at exit 1.
+# TWO THINGS THE FIRST VERSION OF THIS COMMENT GOT WRONG, corrected by a refuter
+# pass: no string was reverted to the fan's text by inject's safety net (strings
+# byte-identical to the fan number 6,001 in every build, before and after, and
+# coverage is 94.6% either way), and the count was 322, not 285. Do not repeat
+# either claim.
 #
-# THE CHANGE THAT IS ACTUALLY WANTED, for whoever does it: {E106} must still be
-# EMITTED IN PLACE, unchanged, while no longer acting as a wrapping boundary, so
-# the text on both sides of it is laid out as ONE box-run and paginated with real
-# {E102} breaks when it exceeds three lines. That is a change to the buffering in
-# convert(), not to this set. It needs its own build, a read-back that shows the
-# {E106} count unchanged, audit_boxes at exit 0, and a rig look at entry 59 string
-# 0 to confirm Fender's line renders whole.
+# So RESET keeps {E106} for every OTHER caller, and only convert()'s own
+# box-splitting loop treats it differently: DELTA 7b (e106_clears(), defined
+# below) narrowed the "never flushes" rule to the {E106}s the Japanese retail
+# actually keeps a box open across. Where e106_clears() is False, {E106} is
+# buffered like any ordinary control token so it stays at its exact stream
+# position while the text on both sides is laid out as ONE box-run and
+# paginated with real {E102} breaks - the Fender case this was written for.
+# Where it is True (a prompt/popup code follows), {E106} flushes a box exactly
+# as every other RESET code does. audits/audit_typography.py and
+# audits/measure_linewidth.py import the same e106_clears() so all three agree
+# on which {E106} ends a box.
+#
+# WHAT IT IS WORTH: figures are not repeated here because the instrument that
+# measures them (audits/measure_linewidth.py) changed alongside this rule, so
+# an old number quoted next to a new one would compare two different rulers.
 RESET = {0xE102, 0xE104, 0xE106, 0xE185, 0xE081}
 LETTER = lambda v: 0x41 <= v <= 0x5A or 0x61 <= v <= 0x7A
 BOX_LINES = 3
@@ -126,11 +140,11 @@ PAREN_OPEN = 0xFF08
 PAREN_CLOSE = 0xFF09
 # The source's newlines are almost all SOFT wrap for the Collection's own box, which is
 # far wider than the DS box - honouring them produces ragged three-line messages
-# ("The moment" / "the phone rang, I knew it was" / "serious."). Measured over the
+# (a two-word line, a long line, a one-word line). Measured over the
 # whole English corpus: 20,516 of 26,172 newlines end a line of 40-59 visible chars,
 # capped hard at 59 - the signature of a fixed-width wrapper. Only the 79 newlines
 # immediately followed by {E20D} are structural: that code opens a new laid-out row,
-# as in {E043}March 25, 2:46 PM <newline> {E20D}Gourd Lake - Spectator Area{E040}.
+# as in {E043}<date row> <newline> {E20D}<place row>{E040} on a location card.
 LAYOUT_ROW = 0xE20D
 # {E20D} also CENTRES its row, and only its row. The Collection's cards put the whole place
 # on one row ("Detention Center - Visitor's Room"); on the DS that row is too wide, the
@@ -153,6 +167,49 @@ DQ_CLOSE = 0x201C
 from paths import data as _data
 ARGS = {int(k, 16): v for k, v in json.load(open(_data('ctrl_args.json'))).items()}
 DEFAULT_ARGS = 0
+
+# Which {E106}s the box really stays open across. Measured on the Japanese
+# retail script, counting the text lines on both sides of each {E106} together
+# inside one box-run: where one of these codes comes after the {E106} and
+# before the next visible text, 210 of the 283 cases with text after carry more
+# than 3 lines across it, which a 3-line box cannot hold, so the screen clears
+# there. Every other {E106} with text after: 0 of 27 go over 3 lines, and the
+# rig photographed the box staying open at one of them (entry 59 str 0).
+# E113 and E19C are in the set because they sit beside E163/E198/E1CF in the
+# over-3 cases; on their own the retail has only 5 cases of them, none over 3.
+E106_CLEARS = {0xE163, 0xE1CF, 0xE198, 0xE160, 0xE113, 0xE234, 0xE19C}
+
+
+def e106_clears(units, k):
+    """True if the {E106} whose code+args end at index k is followed, before the
+    next visible text unit or a box-ending RESET code other than E106, by a code
+    in E106_CLEARS.
+
+    Walks forward from k using each control code's ARGS arity, skipping
+    whitespace/newlines/the null separator on the way. Stops - and returns
+    False - at the first visible text unit or at a RESET code other than E106
+    (a real box end); returns True as soon as a code in E106_CLEARS is met.
+    Shared by convert() below and, via import, by audits/audit_typography.py
+    and audits/measure_linewidth.py, so all three agree on which {E106} ends a
+    box.
+    """
+    n = len(units)
+    while k < n:
+        v = units[k]
+        if CTRL(v):
+            if v in E106_CLEARS:
+                return True
+            if v in RESET and v != 0xE106:
+                return False
+            k += 1 + ARGS.get(v, DEFAULT_ARGS)
+            continue
+        if v in (0x0A, 0x20, 0x09, 0, 0x3000, SPACE):
+            k += 1
+            continue
+        return False
+    return False
+
+
 # Control codes that exist only in the Collection's script and have a direct DS
 # equivalent. The DS engine skips a code it does not know and then reads the
 # code's argument units as text; an argument of 0 ends the string early, and the
@@ -379,14 +436,32 @@ def _opens_with_close(chunk):
 
 
 def _rows(tokens):
-    """Split a token list at its 'br' tokens."""
-    rows, cur = [], []
+    """Split a token list at its 'br' tokens, and also wherever a {E20D} row
+    starts mid-buffer after real dialogue.
+
+    A place/date card used to always be its OWN buf - {E106} flushed a box
+    right before the leading run of scene-setup codes that leads into
+    {E20D}, so that run was always the first thing _split_card_rows ever
+    saw. Now that {E106} no longer flushes, a card can arrive stuck onto the
+    end of the dialogue that precedes it, with no 'br' between them - and
+    _is_layout_row(row) looks at a row's FIRST token, so a row starting with
+    dialogue WORDS never even reaches the {E20D} later in it; the card
+    never gets split. Hold a run of trailing control/index tokens in
+    `pending` rather than committing it to the current row - if it turns out
+    to lead into a {E20D}, close the row before it and start the new one
+    from `pending`, exactly as if a 'br' had been there."""
+    rows, cur, pending = [], [], []
     for t in tokens:
-        if t[0] == 'br':
-            rows.append(cur); cur = []
-        else:
-            cur.append(t)
-    rows.append(cur)
+        kind, val = t
+        if kind == 'br':
+            rows.append(cur + pending); cur, pending = [], []
+        elif kind == 'c' and LAYOUT_ROW in val and cur:
+            rows.append(cur); cur, pending = pending + [t], []
+        elif kind in ('c', 'n'):
+            pending.append(t)
+        else:                                   # 'w' or 's': not a boundary
+            cur += pending + [t]; pending = []
+    rows.append(cur + pending)
     return rows
 
 def _is_layout_row(row):
@@ -497,25 +572,96 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
         for b in range(1, nb):
             target = total * b / nb
             window = total / nb * 0.35
+
+            def _word_at(k):
+                last = tokens[k][1][-1]
+                ch = chr(last - 0xFF01 + 0x21) if 0xFF01 <= last <= 0xFF5E else chr(last)
+                nxt = next((tokens[q][1] for q in range(k + 1, len(tokens))
+                            if tokens[q][0] == 'w'), None)
+                clause = False
+                if nxt:
+                    w = ''.join(chr(u - 0xFF01 + 0x21) if 0xFF01 <= u <= 0xFF5E else chr(u)
+                                for u in nxt).strip('.,!?;:“”()').lower()
+                    clause = w in CLAUSE
+                return ch in PUNCT, clause
+
             best, best_score = None, None
             for j, k in enumerate(idx):
                 d = abs(cum[j] - target)
                 if d > window: continue
-                last = tokens[k][1][-1]
-                ch = chr(last - 0xFF01 + 0x21) if 0xFF01 <= last <= 0xFF5E else chr(last)
-                bonus = window * 0.8 if ch in PUNCT else 0
-                nxt = next((tokens[q][1] for q in range(k + 1, len(tokens))
-                            if tokens[q][0] == 'w'), None)
-                if nxt:
-                    w = ''.join(chr(u - 0xFF01 + 0x21) if 0xFF01 <= u <= 0xFF5E else chr(u)
-                                for u in nxt).strip('.,!?;:“”()').lower()
-                    if w in CLAUSE: bonus = max(bonus, window * 0.7)
+                is_punct, is_clause = _word_at(k)
+                bonus = window * 0.8 if is_punct else (window * 0.7 if is_clause else 0)
                 score = d - bonus
                 if best_score is None or score < best_score:
                     best, best_score = k, score
+            # RESCUE PASS. The window above is a fixed fraction of the segment
+            # width, so a punctuation break sitting just past it can lose to a
+            # bare word sitting inside it, even though the file's own stated
+            # rule is to prefer punctuation - "widest fits" beats "best reads".
+            # Only fires when the windowed search above found NOTHING with a
+            # bonus (best has none), so it can only IMPROVE a currently
+            # bonus-free pick; it never overrides a punctuation/clause break
+            # already chosen inside the normal window, so already-verified
+            # good breaks do not move.
+            #
+            # THE CAP IS WEAKER THAN IT LOOKS. Reach is capped at half this cut's
+            # own segment width, which stops the rescue CROSSING a neighbouring
+            # cut but not COINCIDING with one: cut b at target+0.5*seg and cut
+            # b+1 at target-0.5*seg can be the same word index, and the
+            # sorted(set(cuts)) below then yields one chunk FEWER than nb.
+            # Measured by a refuter over 2,553 real dialogue messages at nb 2 to
+            # 5: the rescue changed 1,664 splits, lost a punctuation break in 0 of
+            # them, produced out-of-order cuts in 0, and COLLAPSED THE CHUNK
+            # COUNT IN 9. It never reached the built ROM as a defect only because
+            # the retry loop further down escalates nb and tries again - that is
+            # luck, not a guarantee, so reject any rescue whose index is already
+            # a cut b' < b chose (b runs in order, so a later cut is the one that
+            # would collide and the one skipped).
+            #
+            # THAT GUARD DOES NOT MAKE sorted(set(cuts)) SAFE IN GENERAL, and do
+            # not read it as if it does. Forcing nb 2 to 5 over the corpus still
+            # collapses 1,219 times: 967 of those come from the `best is None`
+            # min() fallback just below and 256 from the plain windowed pick.
+            # What the guard achieves is that NONE of them originates in the
+            # rescue any more. On the build's own nb values the collapse count is
+            # 0 either way - a refuter confirmed the shipped jpn/spt.bin is
+            # BYTE-IDENTICAL with this guard removed - so it is a no-op today
+            # and kept only so the rescue cannot become the cause later.
+            if best is not None and _word_at(best) == (False, False):
+                reach = total / nb * 0.5
+                taken = set(cuts)
+                rescue, rescue_d = None, None
+                for j, k in enumerate(idx):
+                    d = abs(cum[j] - target)
+                    if d > reach or d <= window: continue
+                    if k + 1 in taken: continue
+                    if _word_at(k)[0] and (rescue_d is None or d < rescue_d):
+                        rescue, rescue_d = k, d
+                if rescue is not None:
+                    best = rescue
             if best is None:
                 best = min(idx, key=lambda k: abs(cum[idx.index(k)] - target))
-            cuts.append(best + 1)
+            c = best + 1
+            # A source {E040}/{E042} sitting right at this cut belongs to the
+            # text BEFORE the break, not after: box-end already resets the
+            # style register (see the note above STYLE_OFF), so leaving a
+            # closer as the first thing in the new box only ever matches
+            # nothing there - possible now that a merged {E106} run can put
+            # a real page break anywhere, including right before a closer
+            # the source already carries. Fold it back.
+            while c < len(tokens) and tokens[c][0] == 'c' and any(
+                    v in STYLE_CLOSERS for v in tokens[c][1]):
+                c += 1
+            # Test the FOLDED cut against the ones already taken, not the
+            # pre-fold candidate: the fold above can walk c forward onto a cut
+            # an earlier b already claimed, and then sorted(set(cuts)) below
+            # yields one chunk fewer than nb. Never happens in this corpus
+            # (0 of 1,223 duplicate cuts were folded) so it is theoretical, but
+            # checking before the fold instead of after is simply the wrong
+            # place to check.
+            if c in cuts and best is not None:
+                c = best + 1
+            cuts.append(c)
         chunks, prev = [], 0
         for c in sorted(set(cuts)):
             chunks.append(tokens[prev:c]); prev = c
@@ -563,8 +709,16 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
                 # Close the open span before the break and re-open it after, innermost
                 # first. `style` is None whenever the span closed on its own earlier in
                 # this chunk, so a term that ends just before the break re-opens nothing.
-                reopen = style if style is not None and not _opens_with_close(chunk) else None
-                if style is not None: out.append(STYLE_OFF)
+                # `already_closes` is also true when the chunk's OWN leading tokens are
+                # going to print a real {E040}/{E042} first: merging {E106} runs can now
+                # put a real page break just before a closer the source already carries,
+                # and emitting our own synthetic closer there doubles it up (a {E040}
+                # with nothing between it and the source's own, in a box that never had
+                # anything coloured in it - box N+1 cannot inherit style either way, so
+                # skipping our closer here changes nothing rendered).
+                already_closes = _opens_with_close(chunk)
+                reopen = style if style is not None and not already_closes else None
+                if style is not None and not already_closes: out.append(STYLE_OFF)
                 if depth > 0: out.append(PAREN_CLOSE)
                 if term == AUTO_BREAK:
                     out.extend((0xE108, AUTO_DELAY, AUTO_BREAK, 0xE107, NEW_BOX_ARG))
@@ -622,10 +776,9 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
             # the cut with nothing on screen to say so.
             #
             # Seen on the rig 2026-09-21 in the shipped release, entry 59 str0,
-            # Eddie Fender in Episode 2: the ROM holds "But you know what I do
-            # remember?  You betraying everything you were supposed to stand for."
-            # and the screen shows "remember?You betraying everythin / supposed to
-            # stand for." - "g you were" simply gone. A tester independently
+            # Episode 2: the second sentence ran on from the first one's question
+            # mark on the same line and was cut off mid-word at the box edge, two
+            # words simply gone. A tester independently
             # reported the same fault class in entry 80. Proof in
             # rig/proof/e107/CUTOFF_fender_everythin_box.png.
             #
@@ -641,11 +794,72 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
                     and not any(k == 'w' for k, _ in buf)):
                 tok[1] = NEW_BOX_ARG
                 _STATS['boxopen'] += 1
-            if v in RESET:
+            if v in RESET and (v != 0xE106 or e106_clears(units, i)):
                 # look ahead: is this a waiting or an auto-advancing terminator?
+                # {E106} only takes this branch (a real box end) when
+                # e106_clears() finds a prompt/popup code before the next
+                # visible text unit - i is already just past {E106}'s args, so
+                # this is exactly the position the helper expects. Every other
+                # {E106} falls through to the buffering `else` below.
                 emit(buf, v if v in (WAIT_BREAK, AUTO_BREAK) else WAIT_BREAK)
                 out.extend(tok); buf = []; dq_open = False
+            elif (v == LAYOUT_ROW and hard_nl == 'e20d'
+                    and any(k == 'w' for k, _ in buf)
+                    and buf[-1][0] != 'br'):
+                # A {E20D} card row starting a NEW box-run, mid-buffer, after
+                # real dialogue - only possible now that {E106} no longer
+                # flushes, so a location/date card can arrive glued onto the
+                # end of the prose that precedes it. A card has always
+                # shipped in its own box and is photographed rendering
+                # correctly that way (rig/proof); nothing establishes the
+                # engine draws one correctly glued to preceding text, so give
+                # it its own box on purpose rather than let it fall wherever
+                # pagination happens to land.
+                #
+                # TWO GUARDS, not one, because a date/place card can hold
+                # SEVERAL {E20D} rows of its own (a date row and two place
+                # rows) and only the first may
+                # open a box - `any(w in buf)` alone fires on every later row
+                # too, since the earlier rows' own words are still sitting in
+                # buf, and that splits a card that must stay in one box. A
+                # source row-to-row separator is a REAL newline immediately
+                # followed by {E20D} (hard_nl='e20d' above turns exactly that
+                # into a 'br' token, never anything else does), so `buf[-1]`
+                # being 'br' means this {E20D} is a later row of a card
+                # already under way, not a fresh dialogue-to-card boundary -
+                # leave it with what came before.
+                #
+                # AND THE WHOLE BRANCH IS GATED ON hard_nl == 'e20d', because
+                # that is the ONLY mode that produces a 'br' token at all. The
+                # four callers that pass hard_nl=False (inject.py:625,
+                # loc_patch.py:192, desc_fit.py:34, desc_overflow.py:46) turn a
+                # source newline into an 's' token instead, so the card-row
+                # guard above would be permanently OFF for them and every later
+                # card row would open a box - exactly the card-splitting fault
+                # this guard exists to prevent. It fires 0 times from those
+                # callers today, so the gate costs no byte, but a latent trap
+                # that is already known to have been tripped once does not get
+                # left armed.
+                #
+                # Measured across the corpus: of the 297 {E20D} that reach this
+                # tokenizer, 217 are first-in-run with no word content yet
+                # (unaffected), 79 are later card rows and EVERY ONE has 'br'
+                # as its predecessor, and exactly 1 fires - the Gourd Lake card
+                # this branch exists for. Cards split: 0.
+                emit(buf, WAIT_BREAK)
+                out.extend((WAIT_BREAK, 0xE107, NEW_BOX_ARG))
+                buf = [('c', tok)]; dq_open = False
             else:
+                # {E106} stays in RESET (other tools - audit_typography,
+                # measure_linewidth, loc_patch - still need it as a box-end
+                # code for their own purposes) but only e106_clears() decides
+                # whether THIS occurrence flushes. An {E106} that does not
+                # clear (no prompt/popup code before the next visible text
+                # unit - the Fender case) lands here and must NOT flush a box:
+                # it does not end one (see the comment on RESET above). Buffer
+                # it like an ordinary control token, in its exact stream
+                # position, so the text on both sides is laid out and
+                # paginated as ONE box-run.
                 buf.append(('c', tok))
             continue
         j = i

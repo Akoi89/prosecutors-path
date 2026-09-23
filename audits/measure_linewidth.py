@@ -19,11 +19,12 @@ SCOPE, exactly:
     their own budgets and are audited by audits/audit_widgets.py instead.
   * A control code consumes its arguments (dump/ctrl_args.json) so argument units
     are never measured as text.
-  * A line ends at 0x0A or at a box-terminating code, which means {E102} and
-    {E104} ONLY. {E106} is in dstext.RESET but does not end a box (its handler
-    at overlay 7 0x020ACEB0 only does read-mark bookkeeping and returns), and
-    splitting there measured boxes the DS never draws: it reported 2 lines over
-    budget where the honest figure is 278.
+  * A line ends at 0x0A or at a box-terminating code: {E102}, {E104}, and an
+    {E106} only when dstext.e106_clears says so (a prompt/popup code follows
+    it before the next visible text unit, DELTA 7b) - most {E106}s are not a
+    box end (their handler at overlay 7 0x020ACEB0 only does read-mark
+    bookkeeping and returns), and treating every one as a line end measured
+    boxes the DS never draws.
   * Width is the sum of the font's REAL advances, read from the decompressed arm9.
   * Empty lines are dropped.
 
@@ -47,7 +48,7 @@ BOX = 240
 CTRL = lambda v: 0xE000 <= v <= 0xF8FF
 # Import rather than restate: a second copy of this set drifts silently the day
 # someone adds a box terminator to dstext and not here.
-from dstext import RESET
+from dstext import RESET, e106_clears
 SPEAKER = 0xE101
 
 
@@ -98,18 +99,20 @@ def lines_of(blob, W, args):
                     for _ in range(args.get(v, 0)):
                         if i < n and not CTRL(u[i]):
                             i += 1
-                    # {E106} is in dstext.RESET but does NOT end a box: its
-                    # handler (overlay 7 0x020ACEB0) only does the engine's
-                    # read-mark bookkeeping and returns, so the engine keeps
-                    # writing into the box already on screen. Splitting a line
-                    # here measures a box the DS never draws, and it hid the very
+                    # {E106} is in dstext.RESET but only ends a box when a
+                    # prompt/popup code follows it before the next visible text
+                    # unit (dstext.e106_clears, DELTA 7b) - its handler (overlay 7
+                    # 0x020ACEB0) otherwise only does the engine's read-mark
+                    # bookkeeping and returns, so the engine keeps writing into
+                    # the box already on screen. Treating every {E106} as a line
+                    # end measures a box the DS never draws, and it hid the very
                     # defect class this instrument exists to find: under the old
-                    # model the build showed 2 lines over budget, and under this
-                    # one it shows the real figure. Only {E102} and {E104} clear a
-                    # box; {E185} and {E081} are string-final in every occurrence.
-                    # RESET itself is left alone, because other callers use it to
-                    # mean "codes that can end a message".
-                    if v in RESET and v != 0xE106:
+                    # model the build showed 2 lines over budget, under the
+                    # 7b model it shows the real figure. {E185} and {E081} are
+                    # string-final in every occurrence. RESET itself is left
+                    # alone, because other callers use it to mean "codes that can
+                    # end a message".
+                    if v in RESET and (v != 0xE106 or e106_clears(u, i)):
                         if cur:
                             out.append((cur, ei, idx))
                         cur = 0
