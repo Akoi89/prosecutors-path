@@ -396,6 +396,47 @@ def break_indexarg_e11f(rom):
     return bytes(out), 1
 
 
+def _find_unit_offset(e, base, j, k):
+    """Absolute file offset of unit index `k` (0-based, counted from the
+    string's own start, not code-aware) of string j of entry bytes `e`, which
+    itself starts at file offset `base`. None if string j has no unit there
+    (j out of range, or k at/past its declared length). Same shape as
+    _find_code_offset above, but for a plain unit position rather than a
+    control code's argument."""
+    h, recs = spt.parse(e, True)
+    starts = [h['dstart']] + [r[1] for r in recs]
+    lens = [h['lead']] + [r[2] for r in recs]
+    if j >= len(starts) or k >= lens[j]:
+        return None
+    return base + starts[j] + 2 * k
+
+
+def break_zero_text(rom):
+    """Zero one ordinary visible-text unit: DS[0] str 4, unit index 166 - well
+    inside the string's declared length of 584 and nowhere near DS[95] str 16
+    (the one spot the fan itself ships a text-position zero, which
+    audit_zeros.py must go on accepting). audit_zeros.py walks every string
+    arity-aware and flags a literal 0x0000 in text position before the
+    string's declared end - the DS engine's own end-of-string marker
+    (DELTA 5, fan_tone/E04X_FINDINGS.md) - so planting one here, with no fan
+    zero anywhere nearby to excuse it, is exactly the defect it exists to
+    catch. Same width, nothing else moves. No-ops (returns 0) if the site
+    already holds 0, so the harness never reports a byte-identical write as a
+    patch."""
+    a, b = spt_span(rom)
+    cont = bytes(rom[a:b])
+    o, s = struct.unpack_from('<II', cont, 0 * 8)
+    off = _find_unit_offset(cont[o:o + s], a + o, 4, 166) if s else None
+    if off is None:
+        return bytes(rom), 0
+    cur = struct.unpack_from('<H', rom, off)[0] ^ XOR
+    if cur == 0:
+        return bytes(rom), 0
+    out = bytearray(rom)
+    out[off:off + 2] = enc(0)
+    return bytes(out), 1
+
+
 def _repack_idlocal(D, repl):
     """Rebuild the idlocal container with entries in `repl` (index -> decompressed
     bytes) stored as literal-only LZ11 - the same shape plates.Plates.rebuild
@@ -476,6 +517,7 @@ FIXTURES = [
     ('audit_choicearg.py', 'point DS[58] str 2 {E187} strip-arg at 170 - 363+170 = idlocal 533, a palette, not a sprite', break_choicearg_strip, 'rom'),
     ('audit_choicearg.py', "drop DS[92] str 18's {E187} target-string index by one (the region_align skew)", break_choicearg_target, 'rom'),
     ('audit_indexargs.py', "decrement DS[92] str 1's first {E11F} argument position 1 by one (the rebuttal statement-index fault)", break_indexarg_e11f, 'rom'),
+    ('audit_zeros.py', "zero one ordinary text unit in DS[0] str 4 (a stray literal 0x0000 in text position - the DELTA 5 zero-in-text hang)", break_zero_text, 'rom'),
 ]
 
 
@@ -522,11 +564,12 @@ def main():
         path = os.path.join(WORK, script.replace('.py', '.nds' if kind == 'rom' else '.bin'))
         open(path, 'wb').write(broken)
         clean_arg = clean_path if kind == 'rom' else None
-        if script == 'audit_indexargs.py':
+        if script in ('audit_indexargs.py', 'audit_zeros.py'):
             # should-fix 2: an audit that already fails on the clean ROM would
             # make the ordinary text-diff test trivially pass. Require the
             # clean ROM to exit 0 (nothing wrong) and the broken copy to
-            # exit 1 (audit_indexargs.py's own sys.exit(1) on any hit).
+            # exit 1 (audit_indexargs.py's / audit_zeros.py's own sys.exit(1)
+            # on any hit).
             clean_out, clean_rc = run_full(script, clean_arg)
             dirty_out, dirty_rc = run_full(script, path)
             ok = clean_rc == 0 and dirty_rc == 1
