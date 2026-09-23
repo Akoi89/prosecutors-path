@@ -117,8 +117,22 @@ INDEX_ARGS = {          # code: argument positions (0-based) that are string ind
 for _code, _positions in INDEX_ARGS.items():
     assert all(p < ARGS[_code] for p in _positions), _code
 
+# DS-specific values that are not string indices but must still come from the fan,
+# same reason as {E187}/{E11F}/etc: the Collection's own value is wrong for our
+# layout. {E131} (entry 411, map0c) is a list of map/area ids 0..19; ours holds
+# [0,1,3,4..19], the fan AND the Japanese retail both hold [0,1,2,4..19] - one
+# value differs (3 where the DS has 2); 0, 1 and 4..19 are identical. DS map ids are
+# DS data the Collection must not override (same class as the 1.8.6 strip-id fix),
+# not an index into this entry's own strings, so it gets its own table rather than
+# INDEX_ARGS, but the same per-string positional copy and gate.
+DS_VALUE_ARGS = {
+    0xE131: (0,),       # arity 1
+}
+for _code, _positions in DS_VALUE_ARGS.items():
+    assert all(p < ARGS[_code] for p in _positions), _code
 
-def _restore_index_args(conv, ds, code):
+
+def _restore_index_args(conv, ds, code, table=INDEX_ARGS):
     """Several engine commands carry arguments that are STRING INDICES within
     the same spt entry (a rebuttal's statement pointers, a choice button's
     target, ...). Both value spaces are DS-specific, and neither is remapped
@@ -149,9 +163,13 @@ def _restore_index_args(conv, ds, code):
         speaker order, not an index.
       * {E12F} (entries 79, 234, 291) - the character-animation command;
         its small values are Capcom's animation choices, not indices.
-      * {E131} (entry 411, map0c) - a list of ids 0..19 in an entry with 15
-        strings; not string indices, and Capcom's list has 3 where the fan's
-        has 2 - a separate question, not this one.
+      * {E131} (entry 411, map0c) - a list of DS map/area ids, not a string
+        index into this entry; restored by the separate DS_VALUE_ARGS table
+        (defined above) through this same function, not through INDEX_ARGS.
+
+    `table` selects which of the two positional tables (INDEX_ARGS or
+    DS_VALUE_ARGS) supplies the argument positions for `code`; everything
+    else about the walk, the gate and the bounds check is shared.
 
     Gate is per STRING, not per entry (an entry is many strings) AND per
     CODE: where one string's count of this code does not match the fan's,
@@ -167,7 +185,7 @@ def _restore_index_args(conv, ds, code):
     occurrence, rather than raise, if it ever happens.
 
     Returns (rewritten, mismatched_strings)."""
-    positions = INDEX_ARGS[code]
+    positions = table[code]
     hi = max(positions)
     rewritten = mismatched_strings = 0
     for j in range(len(conv)):
@@ -190,6 +208,163 @@ def _restore_index_args(conv, ds, code):
             if changed:
                 rewritten += 1
     return rewritten, mismatched_strings
+
+
+# Box-end codes for the seam-cue rule below - deliberately NOT inject.py's own
+# BOXEND (which also holds {E185}/{E081}, used for the box-count fingerprint):
+# this is rig/seam_cues.py's narrower set, the definition the DELTA 2 spec names
+# ("after the last E102/E104/E106 or text unit").
+_SEAM_BOXEND = {0xE102, 0xE104, 0xE106}
+
+
+def _seam_cmds(u):
+    """(start_index, code_or_None, args_tuple) per unit, arity-aware exactly like
+    _code_positions/rig/seam_cues.py's cmds() - a plain text or data unit (outside
+    0xE000-0xF8FF, which includes a stray non-argument {00}) comes back as
+    (k, None, None), never mistaken for a code."""
+    out, k = [], 0
+    while k < len(u):
+        v = u[k]
+        if 0xE000 <= v <= 0xF8FF:
+            n = ARGS.get(v, 0)
+            out.append((k, v, tuple(u[k + 1:k + 1 + n])))
+            k += 1 + n
+        else:
+            out.append((k, None, None))
+            k += 1
+    return out
+
+
+def _trailing_start(u):
+    """Raw index where u's trailing control block begins: right after the last
+    box-end/text/{E107} reset. Matches rig/seam_cues.py's trailing(); slicing
+    u[_trailing_start(u):] gives that block's raw units."""
+    start = 0
+    for k, v, a in _seam_cmds(u):
+        if v is None or v in _SEAM_BOXEND or v == 0xE107:
+            start = k + 1 + (ARGS.get(v, 0) if v is not None else 0)
+    return start
+
+
+def _leading_end(u):
+    """Raw index where u's leading control block ends: at the first text unit
+    or {E107}. Matches rig/seam_cues.py's leading(); u[:_leading_end(u)] is that
+    block's raw units."""
+    for k, v, a in _seam_cmds(u):
+        if v is None or v == 0xE107:
+            return k
+    return len(u)
+
+
+def _after_last_boxend(u):
+    """Raw index right after u's LAST {E102}/{E104}/{E106}, or 0 if it has none.
+    Deliberately narrower than _trailing_start: it does NOT reset on a plain
+    text/data unit. _trailing_start exists to DETECT the seam-cue trigger
+    (matching rig/seam_cues.py, where a stray unit correctly breaks the block
+    so the trigger is not confused by noise elsewhere in the string); this is
+    for the verbatim COPY the fix actually makes, which must not lose units
+    that a stray unit happens to sit next to. Bug this replaced: entry 95's
+    fan string 16 is {E102}{E100}<01>{E121}{00}{E11B}<55,18>{E081}<08> - the
+    {00} between {E121} and {E11B} is a plain unit, not a command, and
+    _trailing_start correctly treats it as a reset for detection, but copying
+    only from THAT reset point (as the first cut of this fix did) dropped
+    {E100}<01>{E121}{00} on the floor instead of carrying them into ours."""
+    last = 0
+    for k, v, a in _seam_cmds(u):
+        if v in _SEAM_BOXEND:
+            last = k + 1 + ARGS.get(v, 0)
+    return last
+
+
+def _restore_seam_cues(conv, ds):
+    """At a recut seam the fan keeps certain cue commands between a string's LAST
+    box-end and its {E081} tail; the converter instead moves the Collection's
+    equivalents to the head of the NEXT string. Flagged by the 2026-08-23 review
+    ("PLAYTEST THESE FIVE: DS[27], [70], [80], [95], [221]") and never playtested;
+    measured whole-game on check_idxargs_d1.nds (rig/seam_cues.py, then filtered to
+    true relocations by rig/seam_reloc.py): exactly three seams -
+      entry  95 seam 16|17  moved {E11B}<55,18> (with {E100}<01>{E121} in front of
+              it: the fan's dispatcher, a conditional jump on flag 55, ends up
+              stranded mid-string in ours, after {E121} - the last unit of its
+              string in 113 of 114 other uses in the corpus)
+      entry 221 seam  1|2   moved {E100}<01>
+      entry 259 seam 51|52  moved {E158}<186>
+    Entry 95 is the one with a gameplay effect: after our string 16 the flag check
+    never runs (Case 2, Dogen - possible endless testimony loop).
+
+    For each adjacent pair of emitted strings (j, j+1): compare ours' and the fan's
+    TRAILING block of j (control codes after the last box-end/text/{E107} -
+    _trailing_start) and LEADING block of j+1 (control codes before the first
+    text unit/{E107} - _leading_end). The trigger is a criss-cross: some command
+    the fan has in trailing(j) that ours lacks there, which ours ALSO has in
+    leading(j+1) where the fan lacks it - compared as sets of (code, args), since
+    a command "travelling" is what matters, not how many times it recurs
+    elsewhere in the same block. That trigger only has to name ONE command; once
+    it fires, the actual move can carry other units with it (entry 95's
+    {E100}<01>{E121} ride along in front of the triggering {E11B}), so the fix
+    itself is structural, not limited to the triggering command:
+      * ours' string j has every unit after ITS OWN last box-end replaced,
+        verbatim, with every unit after the FAN's last box-end (_after_last_boxend,
+        not _trailing_start - the copy must keep a stray non-argument unit like
+        the {00} after {E121} in entry 95's fan string 16, which _trailing_start
+        would otherwise reset on and drop along with the units before it).
+      * the leading commands that travel are removed from the head of ours'
+        string j+1: the exact prefix length p = len(leading(j+1) ours) -
+        len(leading(j+1) fan) commands are cut from the front. Gate: only
+        applied when the trigger is non-empty AND cutting p commands leaves a
+        remainder that is EXACTLY the fan's leading(j+1) command list, position
+        for position - otherwise this seam is left untouched (region_align's own
+        E081 rewrite runs separately and is not affected either way).
+      * a second gate, conservation: the commands removed (ours' run after j's
+        last box-end plus the prefix cut from j+1) must equal the commands
+        copied in (the fan's run), as a multiset of (code, args); otherwise the
+        seam is left untouched, so the rule can never drop a command.
+    Only these commands move; the tail's terminator slot (already restored from
+    the fan elsewhere) is not specially handled here - the fan's trailing block
+    already ends in whatever terminator it has, copied verbatim along with it.
+
+    Returns (count, [j, ...]) - j is the FIRST string of each fixed seam (so the
+    seam is j|j+1); the caller has the entry index."""
+    fixed = []
+    for j in range(len(conv) - 1):
+        u, un = conv[j], list(ds[j][3])
+        v, vn = conv[j + 1], list(ds[j + 1][3])
+        to = _trailing_start(u)
+        tf = _trailing_start(un)
+        to_cmds = [(c, a) for _, c, a in _seam_cmds(u[to:])]
+        tf_cmds = [(c, a) for _, c, a in _seam_cmds(un[tf:])]
+        lo_e = _leading_end(v)
+        lf_e = _leading_end(vn)
+        lo_cmds = [(c, a) for _, c, a in _seam_cmds(v[:lo_e])]
+        lf_cmds = [(c, a) for _, c, a in _seam_cmds(vn[:lf_e])]
+        missing_trailing = set(tf_cmds) - set(to_cmds)
+        extra_leading = set(lo_cmds) - set(lf_cmds)
+        if not (missing_trailing & extra_leading):
+            continue
+        p = len(lo_cmds) - len(lf_cmds)
+        if p <= 0 or lo_cmds[p:] != lf_cmds:
+            continue
+        # p can equal len(lo_cmds) (the fan's leading block is empty - entry 259):
+        # the whole leading run is the cut point, past the last parsed command.
+        v_cmds = _seam_cmds(v[:lo_e])
+        cut = v_cmds[p][0] if p < len(v_cmds) else lo_e
+        tc, tfc = _after_last_boxend(u), _after_last_boxend(un)
+        # Conservation gate: every command this removes (ours after j's last
+        # box-end, plus the prefix cut from j+1's head) must reappear in what it
+        # copies in (the fan's run after its last box-end), and nothing else may
+        # arrive - as a multiset of (code, args). Plain units such as the fan's
+        # {00} after {E121} are not commands and may differ. Without this the
+        # rule could drop commands without a trace (the first cut of this fix lost
+        # entry 95's {E100}<01>{E121}); all three real seams conserve.
+        removed = [(c, a) for _, c, a in _seam_cmds(u[tc:]) + _seam_cmds(v[:cut])
+                   if c is not None]
+        added = [(c, a) for _, c, a in _seam_cmds(un[tfc:]) if c is not None]
+        if collections.Counter(removed) != collections.Counter(added):
+            continue
+        conv[j] = u[:tc] + un[tfc:]
+        conv[j + 1] = v[cut:]
+        fixed.append(j)
+    return len(fixed), fixed
 
 
 def rebuild_region(fan_strs, en_strs):
@@ -429,6 +604,10 @@ def main(base=None, out=None):
     choicearg = choicearg_mismatched_strings = 0
     indexarg_counts = collections.OrderedDict((c, 0) for c in INDEX_ARGS if c != 0xE187)
     indexarg_mismatch = collections.OrderedDict((c, 0) for c in INDEX_ARGS if c != 0xE187)
+    dsvalue_counts = collections.OrderedDict((c, 0) for c in DS_VALUE_ARGS)
+    dsvalue_mismatch = collections.OrderedDict((c, 0) for c in DS_VALUE_ARGS)
+    seamcues = 0
+    seamcue_seams = []
     foreign = 0
     iconsub = iconrows = 0
     # Every control code the DS engine is known to accept: the set used by the fan
@@ -750,6 +929,13 @@ def main(base=None, out=None):
             n_r, n_m = _restore_index_args(conv, ds, _code)
             indexarg_counts[_code] += n_r
             indexarg_mismatch[_code] += n_m
+        n_seam, seam_js = _restore_seam_cues(conv, ds)
+        seamcues += n_seam
+        seamcue_seams += [(i, j, j + 1) for j in seam_js]
+        for _code in dsvalue_counts:
+            n_r, n_m = _restore_index_args(conv, ds, _code, DS_VALUE_ARGS)
+            dsvalue_counts[_code] += n_r
+            dsvalue_mismatch[_code] += n_m
         recs = [(ds[j][1], conv[j]) for j in range(1, len(ds))]
         # A string the injector left as the fan wrote it keeps whatever the fan put in
         # its terminator slot: that slot can be the last argument of a command cut off
@@ -821,8 +1007,15 @@ def main(base=None, out=None):
         print('strings whose {E187} count did not match the fan - left unrewritten: %d'
               % choicearg_mismatched_strings)
     for _code, _n in indexarg_counts.items():
-        print('string-index arguments restored from the fan, {%s}: %d  (mismatched strings: %d)'
+        print('string-index arguments restored from the fan, {%s}: %d  (mismatched strings, '
+              'counted before the seam-cue step: %d)'
               % (format(_code, 'X'), _n, indexarg_mismatch[_code]))
+    print("seam cues restored to the fan's string: %d" % seamcues)
+    if seamcue_seams:
+        print('  ' + ', '.join('entry %d seam %d|%d' % t for t in seamcue_seams))
+    for _code, _n in dsvalue_counts.items():
+        print('DS map/list value restored from the fan, {%s}: %d  (mismatched strings: %d)'
+              % (format(_code, 'X'), _n, dsvalue_mismatch[_code]))
     print('rows kept as fan to keep a DS-only command:  %d  (in %d script banks)'
           % (dsonly, len(dsonly_banks)))
     print('kept fan text - over 64 KB u16 cap:     %d' % overflow)

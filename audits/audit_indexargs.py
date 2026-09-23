@@ -20,9 +20,16 @@ audit and the fix can never drift apart) copies the listed argument positions
 of each of these codes from the fan, per string; this audit checks the built
 ROM actually carries the fan's values.
 
-Method, for every code in INDEX_ARGS, per string present in BOTH ours and the
-fan: where the string's COUNT of that code is equal in both, compare the
-listed argument positions of each occurrence, ours vs fan, in order.
+Also checked here, same method: `DS_VALUE_ARGS` ({E131}, entry 411/map0c) - not
+a string index into this entry, but still a DS-specific value (a map/area id
+list) the Collection must not override; before the fix one occurrence differed
+from the fan across the whole game (compared/differ 431/1, measured on the pre-fix
+build); a fixed build reads 431/0.
+
+Method, for every code in INDEX_ARGS or DS_VALUE_ARGS, per string present in
+BOTH ours and the fan: where the string's COUNT of that code is equal in
+both, compare the listed argument positions of each occurrence, ours vs fan,
+in order.
 
     python audits\\audit_indexargs.py
 
@@ -36,9 +43,10 @@ SCOPE - what this does NOT look at:
   * {E254} is not in INDEX_ARGS - entry 333's ten values are a ROTATION of the
     same ids against the fan, not a shift; measured and excluded on purpose
     (CRASH_ENTRY92_20260922.md, "SCAN FOLLOW-UPS").
-  * {E100}, {E12F}, {E131} are not in INDEX_ARGS either (DELTA 1) - a speaker
-    swap, Capcom's animation choices, and a non-index id list respectively;
-    see tools/inject.py's own exclusions list for the detail on each.
+  * {E100}, {E12F} are not in INDEX_ARGS (DELTA 1) - a speaker swap and
+    Capcom's animation choices, neither an index; see tools/inject.py's own
+    exclusions list for the detail on each. {E131} is not an index either,
+    but it IS checked here, through DS_VALUE_ARGS (DELTA 2), not INDEX_ARGS.
   * A string whose COUNT of a code differs from the fan's is not compared at
     all for that code (same policy as audit_choicearg's check 3) - reported
     as an informational count, does not fail the audit. An entry or string
@@ -92,14 +100,16 @@ import struct
 
 import spt
 from dstext import ARGS
-from inject import file_id, INDEX_ARGS
+from inject import file_id, INDEX_ARGS, DS_VALUE_ARGS
 
 # Optional overrides, so a deliberately broken fixture can be audited without
 # touching out/ or dump/. See audits/audit_fixtures.py.
 OURS_ROM = _sys.argv[1] if len(_sys.argv) > 1 else _default_built()
 FAN_SPT_PATH = _sys.argv[2] if len(_sys.argv) > 2 else _default_fan_spt()
 
-CODES = [c for c in INDEX_ARGS if c != 0xE187]     # {E187} is audit_choicearg's
+CODES = [c for c in INDEX_ARGS if c != 0xE187] + list(DS_VALUE_ARGS)  # {E187} is audit_choicearg's
+POSITIONS = dict(INDEX_ARGS)
+POSITIONS.update(DS_VALUE_ARGS)
 
 
 def rs(rom, path):
@@ -163,7 +173,7 @@ for i in range(n):
             continue
         fu = fan_strs[j]
         for code in CODES:
-            positions = INDEX_ARGS[code]
+            positions = POSITIONS[code]
             occ = occurrences(u, code)
             fan_occ = occurrences(fu, code)
             if not occ and not fan_occ:
