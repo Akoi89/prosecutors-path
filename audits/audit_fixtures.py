@@ -20,7 +20,10 @@ moves and the file stays structurally valid - a fixture that were merely corrupt
 would be detected for the wrong reason. Text is stored XOR 0x55AA, so unit u sits
 on disk as (u ^ 0x55AA) little-endian.
 
-    python audits\audit_fixtures.py
+    python audits\audit_fixtures.py [clean_rom.nds]
+
+The optional argument is the clean ROM every fixture is built on top of and
+compared against (default: the ROM out/ points at, see _default_built above).
 """
 import os as _os
 import sys as _sys
@@ -346,6 +349,53 @@ def break_choicearg_target(rom):
     return bytes(out), 1
 
 
+def _find_code_offset(e, base, j, code, arg_index):
+    """Absolute file offset of the (arg_index)'th argument of the FIRST
+    occurrence of `code` in string j of entry bytes `e`, which itself starts
+    at file offset `base`. None if string j has none. Same shape as
+    _find_e187_offset above, generalised to any code/position."""
+    h, recs = spt.parse(e, True)
+    starts = [h['dstart']] + [r[1] for r in recs]
+    lens = [h['lead']] + [r[2] for r in recs]
+    if j >= len(starts):
+        return None
+    s, ln = starts[j], lens[j]
+    u = spt.units(e[s:], ln)
+    k, n = 0, len(u)
+    while k < n:
+        v = u[k]
+        if 0xE000 <= v <= 0xF8FF:
+            if v == code:
+                return base + s + 2 * (k + 1 + arg_index)
+            k += 1 + ARGS.get(v, 0)
+        else:
+            k += 1
+    return None
+
+
+def break_indexarg_e11f(rom):
+    """Decrement DS[92] str 1's first {E11F}'s argument position 1 by one -
+    the real Case 2 rebuttal fault (CRASH_ENTRY92_20260922.md): every
+    {E11F}/{E120} statement pointer in this string was one less than the
+    fan's, statement 0 pointed at an empty stub with no statement box drawn,
+    and the ARM9 data-aborted. Applied, one unit, to whichever ROM the harness
+    is given (its optional argument; bare, it uses out\\GK2 (Official English,
+    DS port).nds), so the fixture proves audit_indexargs.py rather than
+    reproducing the fix itself. The ROM must be a FIXED build: a pre-fix ROM
+    already fails the audit clean, so this fixture reports NOT PROVEN on it
+    until a fixed build is the release output."""
+    a, b = spt_span(rom)
+    cont = bytes(rom[a:b])
+    o, s = struct.unpack_from('<II', cont, 92 * 8)
+    off = _find_code_offset(cont[o:o + s], a + o, 1, 0xE11F, 1) if s else None
+    if off is None:
+        return bytes(rom), 0
+    cur = struct.unpack_from('<H', rom, off)[0] ^ XOR
+    out = bytearray(rom)
+    out[off:off + 2] = enc(cur - 1)
+    return bytes(out), 1
+
+
 def _repack_idlocal(D, repl):
     """Rebuild the idlocal container with entries in `repl` (index -> decompressed
     bytes) stored as literal-only LZ11 - the same shape plates.Plates.rebuild
@@ -425,12 +475,19 @@ FIXTURES = [
     ('audit_tails.py',   'zero the units strings keep past their declared length (the 1.8.3 Bound/Larry talk)', break_tails, 'rom'),
     ('audit_choicearg.py', 'point DS[58] str 2 {E187} strip-arg at 170 - 363+170 = idlocal 533, a palette, not a sprite', break_choicearg_strip, 'rom'),
     ('audit_choicearg.py', "drop DS[92] str 18's {E187} target-string index by one (the region_align skew)", break_choicearg_target, 'rom'),
+    ('audit_indexargs.py', "decrement DS[92] str 1's first {E11F} argument position 1 by one (the rebuttal statement-index fault)", break_indexarg_e11f, 'rom'),
 ]
 
 
-def run(script, arg):
+def run_full(script, arg):
+    """(stdout, returncode) for one audit invocation."""
     cmd = [sys.executable, os.path.join(RIG, script)] + ([arg] if arg else [])
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=1800).stdout.strip()
+    p = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
+    return p.stdout.strip(), p.returncode
+
+
+def run(script, arg):
+    return run_full(script, arg)[0]
 
 
 def _first_diff(clean, dirty):
@@ -445,7 +502,13 @@ def _first_diff(clean, dirty):
 
 def main():
     os.makedirs(WORK, exist_ok=True)
-    rom = open(REAL, 'rb').read()
+    # DELTA 1: optional ROM path argument, default unchanged (REAL, the
+    # currently-built ROM out/ points at). REAL is the PRE-fix build for the
+    # index-args audit until a build carrying the fix is passed here - see
+    # the audit_indexargs.py entry below, which checks exit codes rather than
+    # a text diff for exactly this reason.
+    clean_path = sys.argv[1] if len(sys.argv) > 1 else REAL
+    rom = open(clean_path, 'rb').read()
     results = []
     for script, what, make, kind in FIXTURES:
         print('\n=== %s ===' % script)
@@ -458,13 +521,29 @@ def main():
         print('  patched %d site(s)' % n)
         path = os.path.join(WORK, script.replace('.py', '.nds' if kind == 'rom' else '.bin'))
         open(path, 'wb').write(broken)
-        clean, dirty = run(script, REAL if kind == 'rom' else None), run(script, path)
-        ok = clean != dirty
-        print('  audit notices: %s' % ok)
-        if ok:
-            print('  first changed line: %s' % _first_diff(clean, dirty))
+        clean_arg = clean_path if kind == 'rom' else None
+        if script == 'audit_indexargs.py':
+            # should-fix 2: an audit that already fails on the clean ROM would
+            # make the ordinary text-diff test trivially pass. Require the
+            # clean ROM to exit 0 (nothing wrong) and the broken copy to
+            # exit 1 (audit_indexargs.py's own sys.exit(1) on any hit).
+            clean_out, clean_rc = run_full(script, clean_arg)
+            dirty_out, dirty_rc = run_full(script, path)
+            ok = clean_rc == 0 and dirty_rc == 1
+            print('  clean exit: %d  dirty exit: %d' % (clean_rc, dirty_rc))
+            if ok:
+                print('  first changed line: %s' % _first_diff(clean_out, dirty_out))
+            else:
+                print('  >>> exit codes do not prove detection (clean=%d dirty=%d, want 0/1)'
+                      % (clean_rc, dirty_rc))
         else:
-            print('  >>> identical output on an input it should object to')
+            clean, dirty = run(script, clean_arg), run(script, path)
+            ok = clean != dirty
+            print('  audit notices: %s' % ok)
+            if ok:
+                print('  first changed line: %s' % _first_diff(clean, dirty))
+            else:
+                print('  >>> identical output on an input it should object to')
         results.append((script, 'DETECTED' if ok else 'MISSED'))
         os.remove(path)
 

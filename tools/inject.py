@@ -99,32 +99,76 @@ def _code_positions(u):
     return out
 
 
-def _restore_choice_args(conv, ds, code=0xE187):
-    """{E187} builds one choice button: (strip id in jpn/idlocal.bin, target
-    string in THIS entry). Both value spaces are DS-specific, and neither is
-    remapped anywhere in the toolchain - dstext.py appends the Collection's own
-    argument units unchanged. The Collection's strip ids run past the DS's own
-    block (163-171 appear only in the official script; 170 lands on idlocal
-    533, a palette, not a sprite - rig-proven to freeze DS[58] str 2 with the
-    prompt up and no buttons) and the target index is skewed whenever
-    region_align re-lays the entry, exactly the way {E081}'s argument is
-    (region_align's own rewrite below, inject.py:217-232, only reaches
-    {E081}). Copy BOTH arguments from the fan positionally, for every string we
-    emit - the strip-id fault is not limited to re-laid entries.
+INDEX_ARGS = {          # code: argument positions (0-based) that are string indices
+    0xE187: (0, 1),     # existing behaviour: strip id AND target string, unchanged
+    0xE11F: (1, 2, 3),  # rebuttal statement setup, arity 5
+    0xE120: (1,),       # rebuttal setup close, arity 2
+    0xE080: (0,),       # arity 1
+    0xE0B0: (1, 3, 5, 7),  # arity 8, pairs (value, index) x4
+    0xE1C1: (0,),       # arity 1
+    0xE164: (1,),       # arity 2
+    0xE161: (1,),       # arity 2
+    0xE162: (0,),       # arity 1
+    0xE1A6: (1, 2, 3),  # arity 5 (DELTA 1: entry 248 str 18)
+    0xE1E9: (0,),       # arity 1 (DELTA 1: entry 248 str 18)
+    0xE11B: (1,),       # arity 2 (DELTA 1: entry 248 str 22, points at itself)
+    0xE160: (0,),       # arity 1 (DELTA 1: entry 247 str 4)
+}
+for _code, _positions in INDEX_ARGS.items():
+    assert all(p < ARGS[_code] for p in _positions), _code
 
-    Gate is per STRING, not per entry (an entry is many strings): where one
-    string's {E187} count does not match the fan's, that string alone is left
-    unrewritten and counted as a mismatch; every other string in the same
-    entry is still corrected. A positional copy inside one string is not
-    invalidated by a different string's count disagreeing.
 
-    Bounds-checked the way region_align's {E081} loop is (inject.py:230-231):
-    a string truncated at its declared length with the code's argument past
-    the end would otherwise index past the list and kill the build. Zero such
-    cases exist in dump/ds_fan/jpn/spt.bin today; skip that one occurrence,
-    rather than raise, if it ever does.
+def _restore_index_args(conv, ds, code):
+    """Several engine commands carry arguments that are STRING INDICES within
+    the same spt entry (a rebuttal's statement pointers, a choice button's
+    target, ...). Both value spaces are DS-specific, and neither is remapped
+    anywhere in the toolchain - dstext.py appends the Collection's own
+    argument units unchanged, so any index a re-cut (region_align /
+    RECUT_SHIFTED) skews comes through wrong. DS entry 92 (Case 2, Gavelle's
+    rebuttal) proved this: its {E11F}x5/{E120} statement pointers were every
+    one -1 against the fan, statement 0 pointed at an empty stub, no
+    statement box was drawn, and the ARM9 data-aborted (rig, 2026-09-22;
+    CRASH_ENTRY92_20260922.md). A ROM with only those indices set to the
+    fan's values played the rebuttal correctly, five distinct statements in
+    story order - the indices are not merely non-crashing, they are the
+    RIGHT strings. DS entry 248 (Case 4) carries the identical fault.
+
+    INDEX_ARGS lists, per code, which 0-based argument positions (of that
+    code's ARGS arity) are string indices; every other argument position is
+    left untouched. This absorbed the old {E187}-only `_restore_choice_args`
+    (the 1.8.6 fix) - {E187}: (0, 1) reproduces that function's behaviour
+    byte-for-byte, same two positions, same gate, same bounds check.
+
+    Codes deliberately NOT in this table:
+      * {E081} - the string-jump index is already rewritten by region_align
+        (inject.py, the E081 rewrite below), which owns it.
+      * {E254} - entry 333's ten values (332..341) differ from the fan by a
+        ROTATION of the same ids (fan order 333..341, 332), not a shift; it
+        is not an index fault and is not touched here.
+      * {E100} (entry 70) - two box-position values swapped back and forth,
+        speaker order, not an index.
+      * {E12F} (entries 79, 234, 291) - the character-animation command;
+        its small values are Capcom's animation choices, not indices.
+      * {E131} (entry 411, map0c) - a list of ids 0..19 in an entry with 15
+        strings; not string indices, and Capcom's list has 3 where the fan's
+        has 2 - a separate question, not this one.
+
+    Gate is per STRING, not per entry (an entry is many strings) AND per
+    CODE: where one string's count of this code does not match the fan's,
+    that string's occurrences of this code alone are left unrewritten and
+    counted as a mismatch; other codes in that string, and every other
+    string, are still corrected.
+
+    Bounds-checked the same way region_align's own {E081} rewrite loop is,
+    a few dozen lines below in this file (the `for ku, ka in zip(pu, pa):`
+    loop guarded by `ku + 1 < len(u) and ka + 1 < len(a)`): a string
+    truncated at its declared length with the code's argument past the end
+    would otherwise index past the list and kill the build. Skip that one
+    occurrence, rather than raise, if it ever happens.
 
     Returns (rewritten, mismatched_strings)."""
+    positions = INDEX_ARGS[code]
+    hi = max(positions)
     rewritten = mismatched_strings = 0
     for j in range(len(conv)):
         u, a = conv[j], list(ds[j][3])
@@ -136,11 +180,15 @@ def _restore_choice_args(conv, ds, code=0xE187):
             mismatched_strings += 1
             continue
         for ku, ka in zip(pu, pa):
-            if ku + 2 >= len(u) or ka + 2 >= len(a):
+            if ku + 1 + hi >= len(u) or ka + 1 + hi >= len(a):
                 continue
-            if u[ku + 1] != a[ka + 1] or u[ku + 2] != a[ka + 2]:
+            changed = False
+            for p in positions:
+                if u[ku + 1 + p] != a[ka + 1 + p]:
+                    changed = True
+                u[ku + 1 + p] = a[ka + 1 + p]
+            if changed:
                 rewritten += 1
-            u[ku + 1], u[ku + 2] = a[ka + 1], a[ka + 2]
     return rewritten, mismatched_strings
 
 
@@ -379,6 +427,8 @@ def main(base=None, out=None):
     restructured = relaidn = unmerged = recut = hollowed = boxless = dsonly = 0
     kept_tails = 0
     choicearg = choicearg_mismatched_strings = 0
+    indexarg_counts = collections.OrderedDict((c, 0) for c in INDEX_ARGS if c != 0xE187)
+    indexarg_mismatch = collections.OrderedDict((c, 0) for c in INDEX_ARGS if c != 0xE187)
     foreign = 0
     iconsub = iconrows = 0
     # Every control code the DS engine is known to accept: the set used by the fan
@@ -693,9 +743,13 @@ def main(base=None, out=None):
         # count includes entries this loop never ships, and a string re-converted
         # by the sparse path after an earlier call would keep the Collection's
         # raw argument values instead of the fan's.
-        n_restored, n_mismatch = _restore_choice_args(conv, ds)
+        n_restored, n_mismatch = _restore_index_args(conv, ds, 0xE187)
         choicearg += n_restored
         choicearg_mismatched_strings += n_mismatch
+        for _code in indexarg_counts:
+            n_r, n_m = _restore_index_args(conv, ds, _code)
+            indexarg_counts[_code] += n_r
+            indexarg_mismatch[_code] += n_m
         recs = [(ds[j][1], conv[j]) for j in range(1, len(ds))]
         # A string the injector left as the fan wrote it keeps whatever the fan put in
         # its terminator slot: that slot can be the last argument of a command cut off
@@ -766,6 +820,9 @@ def main(base=None, out=None):
     if choicearg_mismatched_strings:
         print('strings whose {E187} count did not match the fan - left unrewritten: %d'
               % choicearg_mismatched_strings)
+    for _code, _n in indexarg_counts.items():
+        print('string-index arguments restored from the fan, {%s}: %d  (mismatched strings: %d)'
+              % (format(_code, 'X'), _n, indexarg_mismatch[_code]))
     print('rows kept as fan to keep a DS-only command:  %d  (in %d script banks)'
           % (dsonly, len(dsonly_banks)))
     print('kept fan text - over 64 KB u16 cap:     %d' % overflow)
