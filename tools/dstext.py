@@ -18,7 +18,7 @@ the budget is set to avoid clipping, which is the uglier failure.
 
 When a message needs more than one box, the lines are spread EVENLY across the boxes
 rather than filled greedily. Greedy filling turns a 4-line thought into 3 lines plus a
-one-word orphan ("...intend to draw logical)" / "(conclusions...)"); balancing gives
+one-word orphan on a box of its own; balancing gives
 2 + 2, which is how the original script reads.
 """
 import json, os, sys, unicodedata

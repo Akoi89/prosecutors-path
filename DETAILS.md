@@ -276,13 +276,8 @@ their script is full of line breaks that belong to *their* box, not to the sente
 
 Measured across the whole English corpus: **20,516 of 26,172 newlines end a line of
 40-59 visible characters, and none ever exceeds 59**: the signature of a fixed-width
-wrapper, not an author's choice. Honouring them produced messages like:
-
-```
-The moment
-the phone rang, I knew it was
-serious.
-```
+wrapper, not an author's choice. Honouring them produced ragged messages: a line of
+two words, then a nearly full line, then a single word left on its own.
 
 Only the **79** newlines immediately followed by `{E20D}` are structural, because that code
 opens a new laid-out row on a date/location card. Everything else is folded to a space
