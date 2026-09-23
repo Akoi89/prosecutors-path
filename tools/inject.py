@@ -68,6 +68,26 @@ SPLIT_MERGED = True
 # run stays fan. No count tolerance applies here, unlike the ordinary swap path.
 RECUT_SHIFTED = True
 
+# Block (c) below (the DSONLY set, inside `if KEEP_DSONLY_GATE:` in main()) keeps the fan's string whenever
+# the converted string carries fewer {E041}/{E042} than the fan's. Investigation
+# 2026-09-21 (fan_tone/E04X_FINDINGS.md, independently refuted in
+# fan_tone/E04X_REFUTATION.md: verdict ACCEPT) read the arm9 script interpreter
+# (0x0200DCE0) and renderer (0x02078784, runs at 0x01FFCxxx from the ITCM autoload)
+# and found E040-E043 are absolute colour setters with no state, no wait and no
+# callback - not open/close pairs, so "fewer than the fan" is not "unbalanced". The
+# v1.4.2 Episode 1 hang the gate's comment blames on a missing E041/E042 pair was
+# really {E2B0}, Capcom's inline button-icon glyph, passing through unmapped (arity
+# 0 in the engine's own arity table, so the following unit is misread as text);
+# _has_foreign and tools/buttons.py now catch that. A throwaway ROM built with this
+# gate off (port/out/EXPERIMENT_nodsonly.nds, not reproducible from any tree on
+# disk) measured 98.8% coverage against the shipped 93.8%, ran Episode 1 past the
+# Gourd Lake handoff twice from independent cold boots with no hang
+# (fan_tone/RIG_NODSONLY.md), and survived a six-attack Fable adversarial pass
+# (fan_tone/E04X_ATTACK.md) plus the refuter's ACCEPT. Set True to restore the old
+# behaviour; the block itself is kept, not deleted, so the gate can be turned back
+# on without reconstructing it.
+KEEP_DSONLY_GATE = False
+
 
 def _boxend_counts(u):
     """Box-end code multiset, walking with arities so argument units are never
@@ -618,6 +638,8 @@ def main(base=None, out=None):
     seamcue_seams = []
     stmttrim = stmttrim_fallback = 0
     foreign = 0
+    zerounit = 0
+    zerounit_rows = []
     iconsub = iconrows = 0
     # Every control code the DS engine is known to accept: the set used by the fan
     # script. A converted string that still carries any other code would make the
@@ -640,6 +662,24 @@ def main(base=None, out=None):
                 if v not in ds_codes: return True
                 k += 1 + ARGS.get(v, 0)
             else:
+                k += 1
+        return False
+    def _has_zero_in_text(u):
+        """The zero-unit guard (fan_tone/E04X_FINDINGS.md section 4, condition 1,
+        added alongside lifting the DSONLY gate above): a 0x0000 unit in TEXT
+        position - never inside a code's own arguments, which this walk skips over
+        ARGS-aware, exactly like _has_foreign - is the DS script interpreter's own
+        end-of-string marker (arm9 0x0200DD10-DDFA), so the engine would stop
+        reading right there and drop everything after it. Catches a stray literal
+        zero from a mapping bug even in a string _has_foreign finds nothing foreign
+        to reject in."""
+        k = 0
+        while k < len(u):
+            v = u[k]
+            if 0xE000 <= v <= 0xF8FF:
+                k += 1 + ARGS.get(v, 0)
+            else:
+                if v == 0: return True
                 k += 1
         return False
     dsonly_banks = set()
@@ -747,6 +787,9 @@ def main(base=None, out=None):
             for v in un: unmapped[v] = unmapped.get(v, 0) + 1
             if _has_foreign(d):
                 conv.append(list(ds[n_][3])); foreign += 1; continue
+            if _has_zero_in_text(d):
+                conv.append(list(ds[n_][3])); zerounit += 1
+                zerounit_rows.append((i, n_)); continue
             conv.append(d)
         hfan = parse(fan[i], True)[0]
         # STRUCTURAL ALIGNMENT CHECK. Matching string COUNTS is not enough: the
@@ -800,23 +843,28 @@ def main(base=None, out=None):
         # cold boot on v1.4.2 and fixed by restoring the fan's strings; the fan
         # ROM reaches free roam at the same point. So compare the commands, not
         # the boxes, and keep the fan's string whenever one goes missing.
-        DSONLY = {0xE041, 0xE042}
-        def _cmds(u):
-            c = collections.Counter()
-            k = 0
-            while k < len(u):
-                v = u[k]
-                if 0xE000 <= v <= 0xF8FF:
-                    if v in DSONLY: c[v] += 1
-                    k += 1 + ARGS.get(v, 0); continue
-                k += 1
-            return c
-        for j2 in range(len(ds)):
-            fa, fb = _cmds(ds[j2][3]), _cmds(conv[j2])
-            if any(fa[k] > fb.get(k, 0) for k in fa):
-                if list(conv[j2]) != list(ds[j2][3]):
-                    conv[j2] = list(ds[j2][3]); dsonly += 1
-                    dsonly_banks.add(i)
+        # DELTA 5 (2026-09-23): gated behind KEEP_DSONLY_GATE (see the flag's
+        # comment above _boxend_counts) - E040-E043 are absolute colour setters
+        # with no engine state, not the hang this block was written for. Kept, not
+        # deleted, so the gate can be restored without reconstructing it.
+        if KEEP_DSONLY_GATE:
+            DSONLY = {0xE041, 0xE042}
+            def _cmds(u):
+                c = collections.Counter()
+                k = 0
+                while k < len(u):
+                    v = u[k]
+                    if 0xE000 <= v <= 0xF8FF:
+                        if v in DSONLY: c[v] += 1
+                        k += 1 + ARGS.get(v, 0); continue
+                    k += 1
+                return c
+            for j2 in range(len(ds)):
+                fa, fb = _cmds(ds[j2][3]), _cmds(conv[j2])
+                if any(fa[k] > fb.get(k, 0) for k in fa):
+                    if list(conv[j2]) != list(ds[j2][3]):
+                        conv[j2] = list(ds[j2][3]); dsonly += 1
+                        dsonly_banks.add(i)
         trailer, scale, longest = hfan['term'], hfan['scale'], hfan['last']
         # Structural sanity check: the Collection file should drive roughly the same
         # engine commands as the DS original. A wrong match shows up as near-zero
@@ -1037,8 +1085,11 @@ def main(base=None, out=None):
     for _code, _n in dsvalue_counts.items():
         print('DS map/list value restored from the fan, {%s}: %d  (mismatched strings: %d)'
               % (format(_code, 'X'), _n, dsvalue_mismatch[_code]))
-    print('rows kept as fan to keep a DS-only command:  %d  (in %d script banks)'
-          % (dsonly, len(dsonly_banks)))
+    if KEEP_DSONLY_GATE:
+        print('rows kept as fan to keep a DS-only command:  %d  (in %d script banks)'
+              % (dsonly, len(dsonly_banks)))
+    else:
+        print('rows kept as fan to keep a DS-only command:  0  (gate off)')
     print('kept fan text - over 64 KB u16 cap:     %d' % overflow)
     print('records kept as fan - DEMO TEXT stub:      %d' % demo)
     print('records kept as fan - still Japanese:       %d' % untranslated)
@@ -1051,6 +1102,12 @@ def main(base=None, out=None):
     print('records kept as fan - fan relaid it vs JP:    %d' % relaidn)
     print('records kept as fan - would lose a message box: %d' % boxkeep)
     print('records kept as fan - official-only control code: %d' % foreign)
+    # Counted where the guard runs, BEFORE the entry-level rejects: a row counted
+    # here can still end up fan anyway if its whole entry is rejected later.
+    print('converted strings refused for a zero in text position (before entry-level '
+          'checks): %d' % zerounit)
+    if zerounit_rows:
+        print('  ' + ', '.join('entry %d str %d' % t for t in zerounit_rows))
     print('button glyphs replaced with DS button names: %d in %d records' % (iconsub, iconrows))
     print('statements and prompt questions trimmed to one box: %d  (fallback: %d)'
           % (stmttrim, stmttrim_fallback))
