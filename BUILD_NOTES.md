@@ -7,11 +7,212 @@ used to live there is kept here in full.
 
 Port Capcom's official English localization of *Gyakuten Kenji 2* into the Nintendo DS ROM.
 
-**93.8% of the script's text is Capcom's writing** (measured by `tools/coverage.py`;
+**98.9% of the script's text is Capcom's writing** (measured by `tools/coverage.py`;
 the exact unit count is in the README). 1.5.2 said 93.9%, 1.5.1 said 94.3%: four tutorial
 lines went back to the fan text in 1.5.2 and twelve description rows in 1.6.0, see below. Earlier notes said 96.5% and, before that,
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
+
+## v1.10.0: the Case 2 rebuttal freeze and its Case 4 twin, four box-boundary defects, and the DS-only gate lifted
+
+This release closes out the `fix-string-index-args` branch (commits 180ddaff through 225b325
+on `port`, ahead of the v1.9.1 tag) plus the earlier button-glyph work. Coverage is
+character units of official text over total; the counting method itself has not changed
+since it was corrected in 1.5.0 (see that entry above), only the amount of text that
+qualifies. Measured today with `python tools/coverage.py "out/GK2 (Official English, DS port).nds"`:
+
+    Episode 1        97.7%  175,424 / 179,474
+    Episode 2        99.9%  368,362 / 368,696
+    Episode 3       100.0%  377,751 / 377,751
+    Episode 4        98.4%  292,970 / 297,663
+    Episode 5       100.0%  497,811 / 497,811
+    Menus & UI       89.3%  99,617 / 111,588
+    TOTAL            98.9%  1,811,935 / 1,832,983
+
+sha256 of that build is `52ca3e4e10ca83ca37a552dcd48aa6b8b441033558d6d6515abaafa2920977f9`
+(`out/check_idxargs_d7b.nds`; not the release build, VERSION and REFERENCE_ROM_SHA256 are
+still 1.9.1's). This is the same output as the local commit 225b325.
+
+### The Case 2 and Case 4 rebuttal freezes (entries 92 and 248)
+
+A tester's report of a freeze in Case 2, right at Gavelle's prison rebuttal, reproduced on
+the rig from his own save: the rebuttal setup ({E11F} x5, {E120}) points each of the five
+statements at a string in the same entry by index, and every one of those indices was one
+string early, because `dstext.py` copies the Collection's argument units through unchanged
+while the region aligner's re-cutting (`RECUT_SHIFTED`) skews them. Statement 0 landed on an
+empty stub, no statement box was drawn, the next menu handler dereferenced a widget that was
+never made, and the ARM9 data-aborted and parked in the BIOS. `sweep/GK2_e92_B7.nds`, a
+proof build with only entry 92's index arguments corrected, played the rebuttal clean: five
+correct statements in order, on-topic Press reply, no crash, verified by eye.
+
+The toolchain already copied {E187}'s arguments from the fan ROM (the 1.8.6 fix) and
+`region_align` rewrote {E081}'s. Commit 0548c257 extends that same copy, gated on equal
+argument counts per string, to every other code whose arguments are string indices:
+
+    E187 (both, unchanged)  E11F 1-3  E120 1  E080 0  E0B0 1,3,5,7
+    E1C1 0  E164 1  E161 1  E162 0  E1A6 1-3  E1E9 0  E11B 1  E160 0
+
+90 argument units change across 12 entries in Cases 2, 4 and 5; nothing else in the ROM
+moves. Entry 248, a Case 4 rebuttal (Gramma's report), carried the identical fault, with one
+of its strings pointing at itself. `audits/audit_indexargs.py` (new) fails any build whose
+index arguments disagree with the fan ROM's; its fixture checks exit codes clean 0 / broken
+1, and the pre-fix release output fails the new audit as expected.
+
+Entry 248 has not been reached on the rig: no known save sits close enough, and it needs
+three earlier rebuttals solved first. It is verified only at the data level, the same way
+every other entry the rig has not reached is verified: its argument units now match the fan
+ROM's exactly, gated the same way as entry 92's.
+
+### Seam cues and the map value (entries 95, 221, 259, 411)
+
+At a re-cut seam the fan ROM keeps some cue commands between a string's last box and its
+jump tail; the converter had been moving the Collection's equivalents to the head of the
+next string instead. Of five seams flagged by a 2026-08-23 review, three remain in the
+current script: entries 95, 221 and 259. Entry 95 is Dogen's testimony in Case 2, a few
+scenes after the Gavelle rebuttal: {E11B}<55,18> is a conditional jump (flag 55 -> string
+18), and in the fan ROM it is checked at the end of string 16, just before the jump back to
+string 8. Ours ended string 16 with that jump and put the check at the head of string 17
+instead, so after string 16 the flag was never tested and the testimony could loop forever.
+Commit aa605a8 restores each seam's run to match the fan unit for unit, gated so the commands
+removed from the next string's head must equal the commands copied into the previous one
+(a first cut of this change lost entry 95's {E100}<01>{E121}, which is what that gate now
+catches). Entry 411's map list ({E131}) held 3 where the fan and the Japanese retail hold 2;
+`DS_VALUE_ARGS` restores it and `audit_indexargs` checks it, the same way the 1.8.6 strip ids
+are protected.
+
+### 16 prompt questions and 28 testimony statements trimmed to fit
+
+The DS engine shows each testimony or rebuttal statement in exactly one message box, three
+lines; all 262 statements in the fan patch and the Japanese retail fit one box. Capcom's
+English for 28 of them needs four lines, so the converter had been spreading them across two
+boxes, and the engine only ever shows the first. This was watched on the rig in Case 2:
+Gavelle's third statement never showed its second half. Each of the 28 now gives up a word or
+two, chosen with the rule that no time, place or detail a contradiction could hinge on is
+dropped, reviewed with Gemini before use (`GEMINI_statement_trims.md`) and signed off by the
+user.
+
+Separately, when the game asks you to present evidence, point at a spot or press a statement,
+the question stays on screen in the box that ends the previous utterance while you choose.
+Capcom's English for 16 of these prompts runs to four lines, so the same two-box split
+happened, and only the second box stayed up during the choice. A tester's screenshot of
+Winner's confrontation ("...couldn't possibly have taken the weapon out of the prison with
+them!") showed exactly that, the question missing its first half. Each of the 16 now gives up
+a word or two the same way; the Winner line drops the standalone word "possibly"
+(`GEMINI_prompt_trims.md`, option B).
+
+Both sets of edits are stored the way `tools/condense.py` already stores condensed
+descriptions: keyed by entry and string, a hash of the source text, word positions to delete
+or replace, and a hash of the result. No Capcom or fan text is stored in the repository; a
+Collection whose wording does not match the hash is left untrimmed (the old two-box behaviour,
+not a hang). `tools/stmt_trim.py` was also rewritten so every unit outside an edited word
+passes through exactly as it was; the previous version treated the zero-space seam between two
+messages in one string as a single word and moved its control codes, which shifted every
+message's first word into the box before it on a first build. The generator now refuses any
+edit that touches a seam or a box end.
+
+Measured on the merged output: 44 trims (16 prompt, 28 statement) are byte-identical across
+every later build in the branch; prompt questions split across boxes go from 9 (the
+pre-existing, structurally necessary ones) to the same 9, with three further {E106}
+continuations that genuinely need two boxes (Fender's line, and two others).
+
+### The {E106} box-boundary fix
+
+{E106} does not end a message box. Its handler, overlay 7 address 0x020ACEB0, does the
+engine's read-mark bookkeeping and returns; only {E102} and {E104} clear the render buffer and
+canvas. The converter had been treating {E106} as a box boundary and laying out the text on
+each side independently, so where the two sides met on one line the renderer cut the line off
+mid-word at the box edge. Eddie Fender's line in Episode 2 ("...I do remember?" / "You
+betraying everything you were supposed to stand for") rendered as one run, "remember?You
+betraying everythin" with "g you were" lost, photographed at
+`rig/proof/e107/CUTOFF_fender_everythin_box.png`.
+
+Correcting the instruments to measure this properly first (commit 3c1fdee) found the honest
+count of dialogue lines wider than the 240px box was 278 (worst 473px), not the 2 the old,
+buggy instrument reported; the fan ROM itself measures 278 the same way, so this is an
+inherited defect the tooling could not previously see, not a regression. The fix
+(`dstext.e106_clears()`, merged as fa3edcb) keeps buffering both sides of an {E106} as one run
+except where a prompt or popup code (one of {E163} {E1CF} {E198} {E160} {E113} {E234} {E19C})
+follows before the next text; there, the Japanese retail script shows the box does clear, and
+210 of 283 such cases already ran more than 3 lines without clearing, against 0 of 27 on the
+other side of the rule. The same helper is shared by `audits/audit_typography.py` and
+`audits/measure_linewidth.py` so the instruments and the converter agree.
+
+A rescue pass in the same merge also moves where an over-long message breaks between boxes,
+towards a comma or dash instead of mid-phrase, changing 137 strings with every word, control
+code and glyph colour unchanged. Measured on the merged output against the pre-merge build:
+lines over the 240px box width go from 26 to 2 (widest 469px to 253px), the 44 statement and
+prompt trims stay byte-identical, and coverage is unchanged. Verified on the rig:
+`fan_tone/RIG_FENDER_D7B.md`, two complete boxes with the arrow visible on
+`sweep/GK2_d7b.nds` (sha256 52ca3e4e...), matching the earlier proof at
+`fan_tone/RIG_FENDER_E106.md` against the pre-merge candidate.
+
+### DS button glyphs get Capcom's wording and the real DS button name (commit 180ddaff)
+
+Capcom's how-to-play lines carry {E2B0}, an inline picture of the controller button being
+described, which the DS engine does not know; `inject.py`'s foreign-code gate discarded the
+whole string and the fan translation's version survived instead. Measured on the pre-fix
+build, this cost 20 strings and 15,212 character units, almost entirely tutorial material.
+`tools/buttons.py` substitutes the DS button's name for the glyph before conversion, from a
+20-row, 40-glyph table in `tools/button_icons.json`, every icon id verified against the real
+Collection strings. Which button to name comes from the fan row for that same scene, never a
+global table, because the same icon means Rewind in one scene and the information list in
+another. The inserted name is wrapped in the keyword colour the fan used for the same picture.
+18 of the 20 rows now pass the DS-only-command gate on their own; coverage moves from 93.8% to
+94.6% (Episode 1 86.4% to 90.3%). The two rows that still fall back to fan text are the
+Gumshoe partner-topic rows, where the fan highlights eleven words against Capcom's six.
+
+Commit 2e3d11d closes the last of the 21 button rows: entry 106 string 0, the Episode 2
+re-creation switch, names no button in the fan row at all ("select Little Thief on the bottom
+screen"). Three independent sources agree it is the Y button: Episode 5's own fan wording for
+the same action, Episode 1's fan line naming Y as the partner button, and StrategyWiki's DS
+walkthrough for the same scene. 19 of the 21 rows land with this table complete; the injector
+reports zero records kept as fan for an official-only control code, where it reported three.
+
+### Zero-unit audit (commit 7e60963, on top of 66ee62d)
+
+The DS engine walks a string with its own arity table, and a zero unit in text position ends
+the string there; anything after it never runs. The gate change below already guards the main
+conversion path against this. `audits/audit_zeros.py` (new) additionally walks every shipped
+string, arity-aware, on whichever path produced it (including the row-by-row menu-bank path
+and the localisation-table patches, which bypass the per-string guard) and fails on any
+text-position zero except the one the fan ROM itself carries at entry 95 string 16, after
+{E121}, in the same place in both scripts. On the current output: 10,705 strings, one zero,
+allowed as the fan's.
+
+### The DS-only gate lifted (commit 66ee62d): coverage 94.6% to 98.9%
+
+A block in the converter kept the fan's line whenever Capcom's version carried fewer
+{E041}/{E042} codes than the fan's, added for the v1.4.2 hang at the Episode 1 Gourd Lake
+handoff. Re-analysis showed both codes are plain colour setters (orange keyword text, blue
+monologue text), not something the engine waits on, and that the v1.4.2 hang was really an
+unmapped {E2B0} button-glyph code passing through, which `_has_foreign` and `tools/buttons.py`
+already stop. A throwaway build with the gate off ran Episode 1 past the Gourd Lake handoff
+twice on the rig with no freeze, plus a six-attack adversarial review pass.
+
+The gate is now `KEEP_DSONLY_GATE = False` (code kept, not deleted), replaced by the guard
+that matches the real hang: a converted string with a zero unit in text position before its
+end keeps the fan's version instead. This refused two menu strings in entry 460, which is
+rejected as a whole by a separate control-code profile check anyway. 77 of the 90 rows the old
+gate held back are now Capcom's; 13 stay fan text for other reasons (a per-row menu pixel-width
+budget in three menu banks, a box-loss safety net, and entry 460's rejection). Verified on the
+rig: Episode 1 reaches the Gourd Lake handoff live with the gate off, captures in
+`rig/caps/d5gl_*.png`.
+
+### Coverage-counting note
+
+As stated in the intro above, the method by which a row counts as "official" (bytes differ
+from the fan row after names and titles are applied) has not changed since the correction
+made in 1.5.0. Every percentage in this entry comes from `python tools/coverage.py` run
+against the current build, quoted with that context so it is not mistaken for a new counting
+change.
+
+### Also in this release
+
+- `225b325` and `b33a9f8` (internal only, no ROM change): the public repository no longer
+  stores lines of Capcom's or the fan's dialogue, narration or document text in comments or
+  review tables (`tools/txtcut_trim.py`, hash-and-edit-ops the same way `stmt_trim.py` does).
+  Names, titles and UI labels the build needs are unaffected. The output ROM is byte-identical
+  before and after (`52ca3e4e...`).
 
 ## v1.9.0: every line re-measured against the game's own font
 

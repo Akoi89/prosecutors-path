@@ -160,18 +160,20 @@ hit the thing they now prevent.
 
 ## Coverage
 
+Measured on v1.10.0 with `tools/coverage.py`:
+
 | Episode | Official | character units |
 |---|---|---|
-| 1. *Turnabout Trigger* | 86.4% | 155,050 / 179,474 |
-| 2. *The Captive Turnabout* | 91.0% | 335,523 / 368,696 |
-| 3. *Turnabout Legacy* | 97.6% | 368,827 / 377,751 |
-| 4. *A Turnabout Forsaken* | 95.9% | 285,437 / 297,663 |
-| 5. *Turnabout for the Ages* | 96.1% | 478,208 / 497,811 |
-| Menus & UI | 86.9% | 96,934 / 111,588 |
-| **Total** | **93.8%** | 1,719,979 / 1,832,983 |
+| 1. *Turnabout Trigger* | 97.7% | 175,424 / 179,474 |
+| 2. *The Captive Turnabout* | 99.9% | 368,362 / 368,696 |
+| 3. *Turnabout Legacy* | 100.0% | 377,751 / 377,751 |
+| 4. *A Turnabout Forsaken* | 98.4% | 292,970 / 297,663 |
+| 5. *Turnabout for the Ages* | 100.0% | 497,811 / 497,811 |
+| Menus & UI | 89.3% | 99,617 / 111,588 |
+| **Total** | **98.9%** | 1,811,935 / 1,832,983 |
 
-**These are lower than the 96.5% every release since v1.4.0 quoted, and the ROM did not
-get worse; the counting got honest.** `tools/coverage.py` used to call a string official
+**The counting changed in 1.5.0.** Every release from v1.4.0 to v1.4.4 quoted 96.5%, and the
+ROM did not get worse when that figure dropped; the counting got honest. `tools/coverage.py` used to call a string official
 whenever its bytes differed from the fan ROM's, on the premise that the injector only
 replaces whole strings. That stopped being true in v1.4.0, when the rename pass started
 swapping Capcom's character names into fan-written rows: 84 long conversations

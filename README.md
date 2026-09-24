@@ -12,7 +12,7 @@ This toolchain takes Capcom's own script, art and voice recordings and injects t
 the DS game, so you can play the official localization on original hardware, on a
 flashcart, or in an emulator.
 
-**93.8% of the script's text is Capcom's writing**, measured by `tools/coverage.py`, so you
+**98.9% of the script's text is Capcom's writing**, measured by `tools/coverage.py`, so you
 can recompute it yourself. Earlier releases said 96.5%; that counted fan-written rows as
 official once Capcom's names had been swapped in, which isn't the same thing.
 
@@ -55,7 +55,7 @@ and the title screen are all redrawn at build time.
 Context, not a filter. If you're looking at something and can't tell which side of this
 list it falls on, send it anyway.
 
-- **Some of the script is still the fan translation.** About one line in sixteen. Capcom
+- **Some of the script is still the fan translation.** About one line in ninety. Capcom
   never localised this game officially on the DS, so where their Chronicles text has no
   counterpart here the AAI2 fan translation stays. Those lines are not wrong, they are
   just not Capcom's, and they can read slightly differently in tone.
@@ -63,13 +63,6 @@ list it falls on, send it anyway.
   rebuttal has ever been solved by a tester. That is the single biggest thing wrong with
   this release, and it is why the invitation above is so broad. [TESTING.md](TESTING.md)
   has the detail.
-- **A crash partway through Episode 2, cause unknown.** A tester reached the point where
-  the prosecution argues about where the murder weapon came from, and the game stopped
-  dead. It is not the answer-menu fault that was fixed earlier, because it happened on a
-  build that already had that fix, and everything about that scene checks out when we
-  measure it. We have not been able to make it happen ourselves, so we cannot say yet
-  which builds it affects or how to avoid it. If you hit it, a save from just before that
-  scene would help more than anything else you could send.
 - **Bugs fixed in an earlier version can come back.** Several problems listed as fixed in
   the release notes, a hang in Episode 1, a mouth moving on a silent line, quotation marks
   drawing wrong, were each found by one person playing. If you see one of them now, that
@@ -91,7 +84,7 @@ Two ways in, ending at the same ROM, and `--verify` confirms it either way.
 **Apply the patch** if you have the fan ROM and want it done in seconds:
 
 ```bash
-xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds" "Prosecutors-Path-1.9.1-fan-base.xdelta" "GK2 (Official English, DS port).nds"
+xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds" "Prosecutors-Path-1.10.0-fan-base.xdelta" "GK2 (Official English, DS port).nds"
 ```
 
 On Windows, DeltaPatcher asks for the same two files and writes the same output. The source
