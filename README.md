@@ -177,5 +177,5 @@ reason this project can exist at all.
 ## License
 
 MIT for the tools. See [LICENSE](LICENSE). That covers the code only; the game data it
-operates on isn't ours to license, and none of it is distributed here apart from the six
+operates on isn't mine to license, and none of it is distributed here apart from the six
 pictures noted above. See [NOTICE](NOTICE) for the exact scope.
