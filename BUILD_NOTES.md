@@ -126,7 +126,7 @@ betraying everything you were supposed to stand for") rendered as one run, "reme
 betraying everythin" with "g you were" lost, photographed at
 `rig/proof/e107/CUTOFF_fender_everythin_box.png`.
 
-Correcting the instruments to measure this properly first (commit 3c1fdee) found the honest
+Correcting the instruments to measure this properly first (commit 3c1fdee) found the true
 count of dialogue lines wider than the 240px box was 278 (worst 473px), not the 2 the old,
 buggy instrument reported; the fan ROM itself measures 278 the same way, so this is an
 inherited defect the tooling could not previously see, not a regression. The fix
@@ -605,7 +605,7 @@ left in any kept-fan row. Coverage is unchanged at 94.3%: renamed fan rows count
 sha256  2f5ba692e0c0bc2c45ab3c88dced781b8800bd117503dd69f5eca7a7873f1a61
 ```
 
-## New in v1.5.0: Capcom's titles everywhere, and an honest coverage number
+## New in v1.5.0: Capcom's titles everywhere, and a stricter coverage count
 
 **The last fan names are gone from the screens you see most.** The title screen now shows
 Capcom's *Ace Attorney Investigations 2: Prosecutor's Gambit* logo; the episode-select
@@ -682,7 +682,7 @@ ROM's. Since v1.4.0 the rename pass has been swapping Capcom's character names i
 fan-written rows, and every one of those rows was being counted as official. It now counts
 a row as official only if it differs from the fan row *after* names and titles are applied.
 By that rule v1.4.4 was **93.8%**, and 1.5.0 is **94.3%** (93.7% before the 108 condensed rows). The ROM did not get worse; the
-number got honest. Per-episode figures are in the README.
+count got stricter. Per-episode figures are in the README.
 
 ### Also
 

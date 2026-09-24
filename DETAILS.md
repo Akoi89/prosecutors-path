@@ -173,7 +173,7 @@ Measured on v1.10.0 with `tools/coverage.py`:
 | **Total** | **98.9%** | 1,811,935 / 1,832,983 |
 
 **The counting changed in 1.5.0.** Every release from v1.4.0 to v1.4.4 quoted 96.5%, and the
-ROM did not get worse when that figure dropped; the counting got honest. `tools/coverage.py` used to call a string official
+ROM did not get worse when that figure dropped; the counting got stricter. `tools/coverage.py` used to call a string official
 whenever its bytes differed from the fan ROM's, on the premise that the injector only
 replaces whole strings. That stopped being true in v1.4.0, when the rename pass started
 swapping Capcom's character names into fan-written rows: 84 long conversations

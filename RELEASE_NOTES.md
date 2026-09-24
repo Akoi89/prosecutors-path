@@ -31,7 +31,7 @@ Version 1.10.0 fixes a game freeze at the start of a Case 2 rebuttal and a possi
 - **v1.6.0** - choice buttons speak Capcom's words, descriptions stop losing their last letter.
 - **v1.5.2** - a hang in Episode 1 that every earlier release had.
 - **v1.5.1** - the last five lines with a fan character name.
-- **v1.5.0** - official titles everywhere, Capcom's own shout recordings, and an honest coverage number.
+- **v1.5.0** - official titles everywhere, Capcom's own shout recordings, and a stricter coverage count.
 - **v1.4.4** - ten lines that shipped visibly cut off.
 - **v1.4.3** - Episode 1 freezes at the Gourd Lake scene. Update before playing.
 - **v1.4.2** - an early Episode 1 freeze, found by a player.

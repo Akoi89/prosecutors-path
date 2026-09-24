@@ -1,6 +1,6 @@
 # Testing
 
-An honest account of what has been played and what has not. The short version is that
+A plain account of what has been played and what has not. The short version is that
 most of this game has never been run by anyone, on any build. If you play deep into it,
 what you find is the only thing that shortens this page.
 
