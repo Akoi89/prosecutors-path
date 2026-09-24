@@ -8,6 +8,7 @@ Version 1.10.0 fixes a game freeze at the start of a Case 2 rebuttal and a possi
 - **Several testimony statements only showed half their text too.** The game gives each one a single box to work with, and some ran long enough that the rest of the statement never appeared.
 - **Lines that carried on after a pause stopped cutting off mid-word.** A line of Eddie Fender's, for one, used to run straight into the next sentence and chop off partway through a word.
 - **Tutorial lines that mention a controller button now use Capcom's own wording.** They used to fall back to the fan translation entirely, because the DS doesn't understand the picture of a button that Capcom's script points at instead.
+- **The last fan-recorded shouts are Capcom's now.** Five voice shouts that were still the fan team's recordings switch to Capcom's English, and two sound effects to Capcom's own, so every shout the fan patch re-recorded now comes from the official release.
 - **More of the script is Capcom's own writing than before.** A safety check meant to stop a different, already-fixed freeze was holding back dozens of unrelated lines; narrowed to the actual danger, coverage climbs from the mid-90s to 98.9%, and two of the five episodes are now entirely Capcom's wording.
 
 ## Version history
@@ -54,8 +55,8 @@ Version 1.10.0 fixes a game freeze at the start of a Case 2 rebuttal and a possi
 
 ## Files
 
-- `gk2port-windows-x64.exe` and `gk2port-linux-x64`: the build tool, with `SHA256SUMS` alongside them. `gk2port --verify` checks a finished ROM against this version's published reference, `02a48ecf4126175ca9cc8fa309ec26208d22b2086b720068de46e3e87962a779`.
-- `Prosecutors-Path-1.10.0-fan-base.xdelta` (4,392,762 bytes bytes): the patch, uploaded separately and deliberately left out of `SHA256SUMS`, since it carries Capcom's script rather than just tool code.
+- `gk2port-windows-x64.exe` and `gk2port-linux-x64`: the build tool, with `SHA256SUMS` alongside them. `gk2port --verify` checks a finished ROM against this version's published reference, `dd0d000318a67e08f3a981d65a7217e6a6235ac279875ea437d22ebfa0c6892c`.
+- `Prosecutors-Path-1.10.0-fan-base.xdelta` (4,521,787 bytes): the patch, uploaded separately and deliberately left out of `SHA256SUMS`, since it carries Capcom's script rather than just tool code.
 - `GK2-v1.10.0.zip`: the same patch bundled with `xdelta3.exe` and a short README, for anyone who would rather not install a separate tool.
 - Full apply steps, source and output sizes and hashes, and troubleshooting are in [README.md](README.md).
 

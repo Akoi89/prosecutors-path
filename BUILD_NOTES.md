@@ -206,6 +206,22 @@ made in 1.5.0. Every percentage in this entry comes from `python tools/coverage.
 against the current build, quoted with that context so it is not mistaken for a new counting
 change.
 
+### All 20 shout slots are Capcom's audio (commit e67c26b)
+
+The fan patch re-recorded 20 samples in `com/kenji2_sound.sdat`. `tools/voices.py` had imported
+Capcom's English for 13 of them and said the Collection had no language variants for the other
+seven. It did, for five of them: the tool matched wave archives by name, and on the DS the name is
+not the SE number (SE 31 is `wav_se_013`, SE 33 `wav_se_019`, and so on). It now resolves every slot
+through the `seq_se` sequence archive's records and the bank table, and imports all 20: eighteen of
+Capcom's English shouts and, for SE 32 and SE 102, which are plain sound effects with no language
+variants, Capcom's base clips. The seven new slots are IMA ADPCM at 22 kHz like the other ADPCM
+shouts. The thirteen slots imported before come out byte-identical; only the sound archive changes,
+and every sample decodes back and correlates 0.990 to 1.000 with Capcom's clip.
+
+The release ROM (sha256 `dd0d0003...`) boots on melonDS to a title screen reading v1.10.0 and plays
+from a chapter save. The rig's emulator runs without an audio device, so the shouts were checked by
+decoding them, not by ear on the rig.
+
 ### Also in this release
 
 - `225b325` and `b33a9f8` (internal only, no ROM change): the public repository no longer
