@@ -221,7 +221,7 @@ clips stop at about 1.3% of full scale rather than at silence, where every retai
 zero, so every clip now gets an 8 ms half-cosine fade at its end; all 20 decode to a final sample of
 exactly 0.
 
-The release ROM (sha256 `dd0d0003...`) boots on melonDS to a title screen reading v1.10.0 and plays
+The release ROM (sha256 `cf361075...`) boots on melonDS to a title screen reading v1.10.0 and plays
 from a chapter save. The rig's emulator runs without an audio device, so the shouts were checked by
 decoding them, not by ear on the rig.
 
