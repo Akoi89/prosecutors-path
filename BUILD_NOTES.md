@@ -216,7 +216,10 @@ through the `seq_se` sequence archive's records and the bank table, and imports 
 Capcom's English shouts and, for SE 32 and SE 102, which are plain sound effects with no language
 variants, Capcom's base clips. The seven new slots are IMA ADPCM at 22 kHz like the other ADPCM
 shouts. The thirteen slots imported before come out byte-identical; only the sound archive changes,
-and every sample decodes back and correlates 0.990 to 1.000 with Capcom's clip.
+and every sample decodes back and correlates 0.990 to 1.000 with Capcom's clip. Ten of Capcom's
+clips stop at about 1.3% of full scale rather than at silence, where every retail DS shout ends at
+zero, so every clip now gets an 8 ms half-cosine fade at its end; all 20 decode to a final sample of
+exactly 0.
 
 The release ROM (sha256 `dd0d0003...`) boots on melonDS to a title screen reading v1.10.0 and plays
 from a chapter save. The rig's emulator runs without an audio device, so the shouts were checked by
