@@ -46,8 +46,8 @@ Version 1.10.0 fixes a game freeze at the start of a Case 2 rebuttal and a possi
 
 ## Known problems
 
-- No episode has been finished, and no rebuttal has been solved, on any build of this port. Testing happens scene by scene, mostly through a rig that can only press confirm and tap, with some scenes played by hand.
-- The Case 2 fix was proven by replaying the tester's own save through the whole rebuttal with no freeze. The Case 4 fix is the identical mistake in a different rebuttal, but no save has reached that scene yet, so it has only been checked against the game's own data, not watched running.
+- One tester finished Episode 1 on an older build (v1.8.5), and testers have got through a few rebuttals in later cases, but none of that was on this build, and most of the game has never been run. Testing happens scene by scene, mostly through a rig that can only press confirm and tap, with some scenes played by hand.
+- The Case 2 fix was checked by replaying the tester's own save: the rebuttal now opens with all five statements and the game keeps responding. Nobody has played that rebuttal through yet. The Case 4 fix is the identical mistake in a different rebuttal, but no save has reached that scene yet, so it has only been checked against the game's own data, not watched running.
 - The Winner's testimony fix has not been rephotographed since the last merge. The same underlying code change was proven on a different line in the same episode, and the new wording was reviewed before use, but nobody has watched that exact line on screen yet.
 - About one line in ninety is still the fan translation rather than Capcom's, in spots where Capcom's Collection has no matching text at all. That is not a defect, just a gap Capcom's own script does not cover.
 - Bugs listed as fixed in an earlier version have come back before. If something here shows up again, say so. That matters more than this note saying it is handled.

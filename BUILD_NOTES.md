@@ -42,7 +42,7 @@ string early, because `dstext.py` copies the Collection's argument units through
 while the region aligner's re-cutting (`RECUT_SHIFTED`) skews them. Statement 0 landed on an
 empty stub, no statement box was drawn, the next menu handler dereferenced a widget that was
 never made, and the ARM9 data-aborted and parked in the BIOS. `sweep/GK2_e92_B7.nds`, a
-proof build with only entry 92's index arguments corrected, played the rebuttal clean: five
+proof build with only entry 92's index arguments corrected, opened the rebuttal clean: five
 correct statements in order, on-topic Press reply, no crash, verified by eye.
 
 The toolchain already copied {E187}'s arguments from the fan ROM (the 1.8.6 fix) and
