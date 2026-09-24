@@ -71,7 +71,7 @@ next string instead. Of five seams flagged by a 2026-08-23 review, three remain 
 current script: entries 95, 221 and 259. Entry 95 is Dogen's testimony in Case 2, a few
 scenes after the Gavelle rebuttal: {E11B}<55,18> is a conditional jump (flag 55 -> string
 18), and in the fan ROM it is checked at the end of string 16, just before the jump back to
-string 8. Ours ended string 16 with that jump and put the check at the head of string 17
+string 8. Mine ended string 16 with that jump and put the check at the head of string 17
 instead, so after string 16 the flag was never tested and the testimony could loop forever.
 Commit aa605a8 restores each seam's run to match the fan unit for unit, gated so the commands
 removed from the next string's head must equal the commands copied into the previous one
@@ -285,7 +285,7 @@ Nearly all of that is two of the nine banks, 456 and 457, where the fan patch le
 widget almost empty. The "widest line the fan ever put there" is therefore drawn from a
 handful of Japanese rows and doesn't bound much: 227 pixels for one and 172 for the other.
 The sibling widgets show the strip is a good deal wider than that, since the fan patch
-itself draws a 340 pixel line in one of them, and nothing we write into these two goes past
+itself draws a 340 pixel line in one of them, and nothing I write into these two goes past
 240. Of the other seven banks, one improved and six didn't move.
 
 I did finally get one of these widgets on screen, in the first Mind Chess of Episode 1, and
@@ -295,7 +295,7 @@ it says something useful about that count. The option strip is about 238 pixels 
 box does, and the audit is pricing it in the dialogue font's pixels, which overstates the
 real width by roughly a third. Nothing in these banks is close to the edge of the strip,
 and the only widget where anything comes near it is one where the fan patch's own longest
-line is still longer than ours.
+line is still longer than mine.
 
 That doesn't make the count meaningless, since both sides of it are measured the same way,
 but it does mean the right fix is to give these widgets their own font rather than to
@@ -327,7 +327,7 @@ examined. Edgeworth asks what's missing from it, the red "Select your answer" ba
 and then nothing. No buttons, no input, the game is gone. The same thing happened in Episode
 3, at the second rebuttal against Gusto.
 
-It's our bug, and it has been in every release since 1.4.4. When the game builds an answer
+It's my bug, and it has been in every release since 1.4.4. When the game builds an answer
 menu it names the button image to use for each option. Those numbers come from Capcom's
 script, and Capcom's numbering is not the DS's. Fifty of the game's sixty two answer menus
 happened to line up anyway. Twelve did not. The Episode 3 one pointed at a colour palette
@@ -344,14 +344,14 @@ version stamp, and nothing else.
 
 There's also a new build check, `audits/audit_choicearg.py`, which refuses a build whose
 answer menus name a button image that isn't there. It's the ninth audit, and like the others
-it's tested against a deliberately broken copy of the build so we know it can actually fail.
+it's tested against a deliberately broken copy of the build so I know it can actually fail.
 
 Proof: the tester's own save file, on the 1.8.6 ROM, at the exact spot that froze. The three
 answers appear, the scene plays on.
 
 ## v1.8.5: the Logic keyword cards in the fan patch's own lettering
 
-The same tester who found the Episode 3 talk bug said the Logic keyword graphics we edit
+The same tester who found the Episode 3 talk bug said the Logic keyword graphics I edit
 looked a bit odd. They did. Those cards and the banner above each keyword's description are
 images, not text, so the official name has to be drawn into them. Until now it was drawn in
 the Collection's own font squashed down to the DS size and forced to one bit per pixel, on a
@@ -369,10 +369,10 @@ the fan's own card text with the finished pipeline gives back 75 of its 101 card
 its 93 banners pixel for pixel, whole images, background and the dark outline under the white
 letters included. Of the 26 cards that differ, 10 come out exact once the block of text moves
 the one row the fan moved it by hand (the fan used two heights for a two-line card with
-nothing in the text to tell them apart, and we use the one it used more often), 14 differ
-where the fan tightened a line by hand, and for 2 our record of the fan's text only holds the
+nothing in the text to tell them apart, and I use the one it used more often), 14 differ
+where the fan tightened a line by hand, and for 2 my record of the fan's text only holds the
 first line, so they were never a fair comparison. Where Capcom's name for a keyword is the
-same as the fan's, our card and banner come out byte-identical to the fan's: 17 cards and 18
+same as the fan's, my card and banner come out byte-identical to the fan's: 17 cards and 18
 banners.
 
 97 of the 133 keywords have an official name, and all 194 of their images are redrawn. Two
@@ -388,11 +388,11 @@ Reference sha256 for 1.8.5 is `d2f7988c...`.
 
 ## v1.8.4: talking to Ms. Bound opens her conversation, not Larry's
 
-A Reddit tester playing Episode 3 found that at the Zodiac Art Gallery's Fountain Patio, choosing Talk on Ms. Bound opened Larry's scene and his topics instead of hers. He sent his save. It reproduced on 1.8.3 in the emulator, and the same save on the fan ROM talks to her correctly, so it was ours.
+A Reddit tester playing Episode 3 found that at the Zodiac Art Gallery's Fountain Patio, choosing Talk on Ms. Bound opened Larry's scene and his topics instead of hers. He sent his save. It reproduced on 1.8.3 in the emulator, and the same save on the fan ROM talks to her correctly, so it was mine.
 
 The cause was one unit. The talk script for that area holds a four-unit string that is nothing but a command sending the game to the string with her conversation. The command's last argument, that string's number, sits just past the string's declared length, in the slot where a string normally ends with a zero. The fan ROM keeps it there and the engine reads it. The injector rebuilt the entry from the declared lengths and wrote a zero in that slot, which pointed the talk at string 0: Larry's scene. Every release I could still check has it, 1.4.4 and 1.7.0 included.
 
-The rebuild now keeps whatever the fan ROM stores after a string's declared end whenever the string itself is unchanged. Across the whole script the fan ROM stores something there in 11 places. Nine were already kept, one is a stray newline after text we replace, which the game doesn't read, and this was the one we lost. Only two strings in the fan ROM have a command whose arguments run past their declared end, and the other one has a zero there anyway. Read back against 1.8.3, one unit in one file changes.
+The rebuild now keeps whatever the fan ROM stores after a string's declared end whenever the string itself is unchanged. Across the whole script the fan ROM stores something there in 11 places. Nine were already kept, one is a stray newline after text I replace, which the game doesn't read, and this was the one I lost. Only two strings in the fan ROM have a command whose arguments run past their declared end, and the other one has a zero there anyway. Read back against 1.8.3, one unit in one file changes.
 
 None of the seven audits could see this: they all read strings up to their declared length and stop. A new one, `audits/audit_tails.py`, compares those slots with the fan ROM and reports 1.8.3's lost unit; its fixture in `audit_fixtures.py` proves it can fail. Checked in the emulator with the tester's own save: talking to Ms. Bound now opens her conversation in Capcom's words.
 
@@ -420,7 +420,7 @@ Reference sha256 for 1.8.2 is `ff5b6ea2...`.
 
 ## v1.8.1: silent boxes no longer move the speaker's mouth
 
-A Reddit tester playing 1.7.0 noticed that in the first Logic Chess of Episode 1, choosing to wait made Edgeworth's mouth move as if he were talking through a box that holds nothing but dots. He was right, and it was ours: every release so far did it, in every silent box in the game and, less visibly, on every ellipsis inside a line.
+A Reddit tester playing 1.7.0 noticed that in the first Logic Chess of Episode 1, choosing to wait made Edgeworth's mouth move as if he were talking through a box that holds nothing but dots. He was right, and it was mine: every release so far did it, in every silent box in the game and, less visibly, on every ellipsis inside a line.
 
 The cause is a glyph, not a control code. The fan translation prints its ellipses with the two-dot leader character (U+2025), and the DS engine treats that character as silence: the mouth stays still while it prints. Capcom's script writes ellipses as ordinary periods, and the converter carried them across as fullwidth periods, which draw the identical dot but count as letters, so the engine animates the mouth for each one. The print-mode argument that precedes an ellipsis (7 in the Collection's script, 8 in the DS original) turned out not to matter: with the periods kept, both values flap; with the fan's glyph, neither does. This was settled in the emulator from one save state at the wait move, with three builds differing only in those two things, thirty-odd frames each at 60 ms.
 

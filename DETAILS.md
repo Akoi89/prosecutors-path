@@ -387,7 +387,7 @@ tutorial opening. Episode 1 is where one of them happened to lock the game.
 
 `rig`-side, `audit_cmdloss.py` answers the obvious follow-up (*is another command being
 dropped the same way?*) by computing, for every control code, how often the fan string
-carries it against how often ours drops it. A ratio near 1.0 means the official script
+carries it against how often mine drops it. A ratio near 1.0 means the official script
 essentially never has that code, which is the signature of DS-only content. The highest
 ratio in the current build is 0.28, on a formatting code the official script uses 62,000
 times. Nothing is hiding.
@@ -509,7 +509,7 @@ python audits/audit_fixtures.py         # prove the audits can actually fail
 | `audits/audit_tails.py` | A command argument the fan ROM stores past a string's declared end, zeroed by the rebuild (the 1.8.4 Episode 3 talk fix) |
 | `audits/audit_choicearg.py` | A choice-menu {E187} argument that cannot resolve on the DS: a strip id past the DS's own block, or a target string index skewed against the fan (the Ep2 DS[58] frozen-prompt defect) |
 | `audits/audit_fixtures.py` | Breaks a copy of your build ten ways across the nine audits (audit_choicearg gets two, one per fault class), and checks each one notices |
-| `audits/audit_typography.py` | Not a width check, a SHAPE check: a spurious space, a line opening with a comma, empty brackets, a stray blank line. None of those make a line too wide, which is how the v1.9.0 development build put a space after 144 re-opened brackets and survived a full review. Comparative against an older ROM, since several of these quirks predate us; `--selftest` proves it can fail against eight broken fixtures |
+| `audits/audit_typography.py` | Not a width check, a SHAPE check: a spurious space, a line opening with a comma, empty brackets, a stray blank line. None of those make a line too wide, which is how the v1.9.0 development build put a space after 144 re-opened brackets and survived a full review. Comparative against an older ROM, since several of these quirks predate this port; `--selftest` proves it can fail against eight broken fixtures |
 | `audits/measure_linewidth.py` | Not an audit, a measurement: how many dialogue lines are wider than the 240px box, using the font's real advances. Its scope is pinned in its docstring because four differently scoped walkers gave four different line totals while agreeing exactly on the over-budget count, so any figure taken from it is quoted with its command |
 | `spt.py` | SPT container parser, both variants, with offset-scale detection |
 | `build_spt.py` | SPT writer |
