@@ -146,7 +146,7 @@ nameplates redrawn with official names:      147
 title screen: official logo 248x116 at (4,30), 439/768 tiles, 222 colours
 logic keyword cards: 97 of 133 slots named officially, 194 card images rewritten
 choice strips redrawn with official text: 297 (48 condensed, 20 at a smaller size, 0 without English)
-voices: 13 shouts in Capcom's English, sound archive 11066644 -> 11282047 bytes
+voices: 20 slots in Capcom's audio (18 English shouts, 2 sound effects), sound archive 11066644 -> 11283308 bytes
 ```
 
 Every one of those counters is a guard that fired. They exist because each one, once,
@@ -468,10 +468,12 @@ same thing:
   background and outline included, and the 17 cards and 18 banners whose official name is
   the fan's own wording come out byte-identical to the fan's.
 
-- **Voices**: thirteen of the shouts ("Objection!" and friends) are Capcom's 2024 English
-  recordings, pulled from the Collection's sound bundle by `tools/voices.py`, resampled to
-  each slot's retail format and rebuilt into `com/kenji2_sound.sdat`. The seven shout
-  samples the Collection does not localise stay as the fan team recorded them.
+- **Voices**: all twenty sound slots the fan patch re-recorded (the "Objection!" shouts and
+  friends) are Capcom's 2024 audio,
+  pulled from the Collection's sound bundle by `tools/voices.py`, resampled and rebuilt into
+  `com/kenji2_sound.sdat`. Eighteen are Capcom's English lines; the other two are plain sound
+  effects with no dialogue in the Collection at all, so Capcom's base clip goes in instead of
+  an English take. None of the fan team's shout recordings remain in the build.
 
 No font, audio or title artwork ships with the tool; like the script, all of it comes out
 of the player's own install. The one set of pictures that does ship is the six close-up

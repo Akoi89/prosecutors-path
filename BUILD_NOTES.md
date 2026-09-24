@@ -602,16 +602,17 @@ Ages"), episode select and splash card ("Turnabout Trigger"), all at 60/60.
 ### The shouts, in Capcom's English voices
 
 The fan patch recorded its own English "Objection!", "Hold it!", "Take that!" and the
-rest over the Japanese samples. The Collection carries Capcom's 2024 English recordings
-under the same sound-effect numbers, and thirteen of the twenty samples the fan team
-replaced have one. Those thirteen now play Capcom's takes: read from your Collection at
-build time, downmixed and resampled to the retail format of each slot (IMA ADPCM at
+rest over the Japanese samples. The Collection carries Capcom's 2024 audio for all twenty
+of the sound-effect slots the fan team replaced: eighteen are Capcom's English lines, and
+the other two (SE 32, SE 102) are plain sound effects with no dialogue in the Collection at
+all, so Capcom's base clip goes in instead of an English take. All twenty now play Capcom's
+takes: read from your Collection at build time, downmixed and resampled (IMA ADPCM at
 22 kHz; 16-bit PCM at 32 kHz for the long one), and written back into the sound archive
 with every header rebuilt from the sample data. The DS plays each shout to the end of its
-sample, so nothing is time-compressed or cut; the one take that runs half a second longer
-than the fan's goes in whole. The seven samples the Collection does not localise keep the
-fan's recordings. The rebuilt archive boots and plays in melonDS, and every new sample was
-decoded back out of it to confirm length, rate and level.
+sample, so nothing is time-compressed or cut; takes that run longer than the fan's (by up to
+half a second) go in whole. None of the fan team's shout recordings remain in the build.
+Every new sample was decoded back out of the rebuilt archive to confirm length, rate and
+level, and correlated against Capcom's own clip.
 
 ### Logic keyword cards in Capcom's words
 

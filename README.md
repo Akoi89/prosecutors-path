@@ -106,10 +106,9 @@ The **AAI2 fan translation team** did the hard part:
 **[Gyakuten Kenji 2: AAI2 Final v2](https://www.romhacking.net/translations/2260/)**.
 
 This is built entirely on top of their work: their variable-width font engine, most of
-their English graphics, their voice recordings for the shouts Capcom never localised, their
-menus, their ROM. Without the Final v2 patch there's nothing to inject *into*, and no font
-capable of rendering the result. They also solved problems this project simply inherits,
-like fitting English into a script laid out for Japanese.
+their English graphics, their menus, their ROM. Without the Final v2 patch there's nothing
+to inject *into*, and no font capable of rendering the result. They also solved problems
+this project simply inherits, like fitting English into a script laid out for Japanese.
 
 If you haven't played their translation, play it. It stood alone for over a decade and it's
 genuinely good. This is a different thing, not a better one: it swaps in Capcom's wording,
@@ -165,7 +164,7 @@ hadn't crossed, the 1.7.0 tag is the last one before it.
 
 Building requires your own legally-obtained copy of both games. Don't redistribute the
 output: it contains Capcom's copyrighted localization, and since 1.5.0 their logo art, two
-of their fonts and thirteen of their voice recordings, alongside the fan translation's
+of their fonts and twenty of their audio clips, alongside the fan translation's
 assets.
 
 The releases also carry an `.xdelta` from the fan ROM to the built one, and that delta *is*

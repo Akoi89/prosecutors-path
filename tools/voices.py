@@ -1,29 +1,37 @@
 # -*- coding: utf-8 -*-
 """Capcom's English voice shouts, from the player's Collection into the DS sound archive.
 
-The fan patch replaced 20 one-shot samples in com/kenji2_sound.sdat with its
-own English recordings of the shouts. The Collection localises 13 of those
-slots (AudioClips SE_<n>_eng in the gk2_se bundle; the SE numbering is the
-same on both platforms). The other seven have no language variants in the
-Collection at all, so the fan's versions stay.
+The fan patch replaced 20 one-shot samples in com/kenji2_sound.sdat with its own English
+recordings of the shouts. This port replaces every one of those 20 with Capcom's own audio
+from the Collection's gk2_se bundle: 18 are Capcom's English lines (AudioClips SE_<n>_eng),
+and 2 (SE 32, SE 102) are plain sound effects with no dialogue in the Collection at all, so
+Capcom's base clip (AudioClip SE_<n>) goes in instead. None of the fan team's recordings for
+these slots remain in the build.
 
-Per slot this does what the retail archive did:
+SE number does not tell you the wave archive by name: each SE is resolved by walking the
+seq_se SSAR record table (12-byte records: u32 offset, u16 bank, ...) to a bank, and the
+bank to a wave archive, in the INFO BANK table. Archive NAMES do not follow SE numbers (SE
+31 lands in wav_se_013, SE 33 in wav_se_019, and so on); this file never guesses from a name.
 
-  SE 37-46, 221, 222   IMA ADPCM, 22050 Hz, mono   (the retail format there)
-  SE 177               16-bit PCM, 32000 Hz, mono  (retail was PCM16/32k too)
+Per slot this re-encodes to one of two formats, not necessarily the slot's own retail
+encoding:
 
-The Collection clips are 44.1 kHz stereo 16-bit: downmixed by averaging,
-resampled with a windowed-sinc filter, peak-normalised the way every retail
-and fan shout is (peak 1.00), then encoded. SWAV headers (rate, timer,
-loop length) and the SWAR/SDAT tables are all rebuilt from the actual sample
-data, never patched on one side.
+  IMA ADPCM, 22050 Hz, mono    every shout slot except SE 177 (SE 31-46, 102, 221, 222).
+                               A known exception in the retail archive itself: SE 45's own
+                               retail encoding is PCM8 at 15768 Hz, not ADPCM/22050.
+  16-bit PCM, 32000 Hz, mono   SE 177 only (retail was PCM16/32 kHz too)
 
-There is no fixed slot on the DS: SWAR entries are variable-size and the
-SDAT FAT is rebuilt, and each shout's sequence is a single note of length 0
-with a flat envelope, so a sample plays to its end whatever its length.
-SE 177 is 0.5 s longer than the fan's; it goes in whole.
+The Collection clips are 44.1 kHz stereo 16-bit: downmixed by averaging, resampled with a
+windowed-sinc filter, peak-normalised to PEAK (0.98, just under the full-scale peak every retail and fan
+shout has), then encoded. SWAV headers (rate, timer, loop length) and the SWAR/SDAT tables are all
+rebuilt from the actual sample data, never patched on one side.
 
-    extract(bdir, dumpdir)        Collection -> dump/voice/SE_<n>_eng.wav
+There is no fixed slot on the DS: SWAR entries are variable-size and the SDAT FAT is
+rebuilt, and each shout's sequence is a single note of length 0 with a flat envelope, so a
+sample plays to its end whatever its length. SE 177 is 0.5 s longer than the fan's; it goes
+in whole.
+
+    extract(bdir, dumpdir)        Collection -> dump/voice/SE_<n>[_eng].wav
     apply(dumpdir, rom_path)      rebuild the sdat in the ROM in place
     python tools/voices.py        standalone: dump/voice -> out/audit/voice/
 """
@@ -34,11 +42,18 @@ sys.path.insert(0, os.path.dirname(__file__))
 SDAT_PATH = 'com/kenji2_sound.sdat'
 BUNDLE_PREFIX = 'gk2_se_trial_assets_all_'
 PEAK = 0.98
-# SE number -> (target rate, encoding)  encoding 1 = PCM16, 2 = IMA ADPCM
+# SE number -> (target rate, encoding, source-clip suffix)
+# encoding 1 = PCM16, 2 = IMA ADPCM
+# suffix '_eng' = Capcom's English line (AudioClip SE_<n>_eng); '' = the base clip
+# (AudioClip SE_<n>), used where the Collection has no English variant.
 SLOTS = {
-    37: (22050, 2), 38: (22050, 2), 39: (22050, 2), 40: (22050, 2), 41: (22050, 2),
-    42: (22050, 2), 43: (22050, 2), 44: (22050, 2), 45: (22050, 2), 46: (22050, 2),
-    177: (32000, 1), 221: (22050, 2), 222: (22050, 2),
+    31: (22050, 2, '_eng'), 32: (22050, 2, ''), 33: (22050, 2, '_eng'), 34: (22050, 2, '_eng'),
+    35: (22050, 2, '_eng'), 36: (22050, 2, '_eng'),
+    37: (22050, 2, '_eng'), 38: (22050, 2, '_eng'), 39: (22050, 2, '_eng'), 40: (22050, 2, '_eng'),
+    41: (22050, 2, '_eng'), 42: (22050, 2, '_eng'), 43: (22050, 2, '_eng'), 44: (22050, 2, '_eng'),
+    45: (22050, 2, '_eng'), 46: (22050, 2, '_eng'),
+    102: (22050, 2, ''),
+    177: (32000, 1, '_eng'), 221: (22050, 2, '_eng'), 222: (22050, 2, '_eng'),
 }
 ARC_TIMER = 16756991
 
@@ -48,7 +63,8 @@ def voice_dir(dumpdir):
 
 
 def required(dumpdir):
-    return [os.path.join(voice_dir(dumpdir), 'SE_%d_eng.wav' % n) for n in SLOTS]
+    return [os.path.join(voice_dir(dumpdir), 'SE_%d%s.wav' % (n, suf))
+            for n, (_, _, suf) in sorted(SLOTS.items())]
 
 
 # --- Collection -> WAV ---------------------------------------------------------
@@ -60,7 +76,7 @@ def extract(bdir, dumpdir):
     bundles = glob.glob(os.path.join(bdir, BUNDLE_PREFIX + '*.bundle'))
     if not bundles:
         raise SystemExit('no %s*.bundle under %s' % (BUNDLE_PREFIX, bdir))
-    want = {'SE_%d_eng' % n: n for n in SLOTS}
+    want = {'SE_%d%s' % (n, suf): n for n, (_, _, suf) in SLOTS.items()}
     got = {}
     for b in bundles:
         env = UnityPy.load(b)
@@ -77,7 +93,7 @@ def extract(bdir, dumpdir):
                     break
     missing = sorted(set(SLOTS) - set(got))
     if missing:
-        raise SystemExit('Collection has no English clip for SE %s' % missing)
+        raise SystemExit('Collection has no clip for SE %s' % missing)
     return out
 
 
@@ -225,7 +241,8 @@ def sdat_names(d, kind):
 
 
 def wavearc_files(d):
-    """wavearc name -> FAT file id, from the INFO block."""
+    """wavearc name -> FAT file id, from the INFO block. Names do not follow SE
+    numbers; kept here only to label the build log, never to resolve a slot."""
     info_off = struct.unpack_from('<I', d, 0x18)[0]
     recs = struct.unpack_from('<8I', d, info_off + 8)
     off = recs[3]
@@ -236,6 +253,37 @@ def wavearc_files(d):
         o = struct.unpack_from('<I', d, info_off + off + 4 * i + 4)[0]
         if o and names[i]:
             out[names[i]] = struct.unpack_from('<H', d, info_off + o)[0]
+    return out
+
+
+def se_to_wavearc_fid(d):
+    """SE number -> wave archive FAT file id, through the seq_se SSAR record table
+    and the INFO BANK table (same resolution as rig/voice_compare.py se_to_swar,
+    stopping at the file id instead of reading the archive's bytes)."""
+    info_off = struct.unpack_from('<I', d, 0x18)[0]
+    recs = struct.unpack_from('<8I', d, info_off + 8)
+
+    def table(kind):
+        off = recs[kind]
+        n = struct.unpack_from('<I', d, info_off + off)[0]
+        return [struct.unpack_from('<I', d, info_off + off + 4 * i + 4)[0] for i in range(n)]
+
+    files = sdat_parts(d)[2]
+    seq_ids = table(1)
+    ssar = files[struct.unpack_from('<H', d, info_off + seq_ids[0])[0]]
+    assert ssar[:4] == b'SSAR'
+    data = ssar.find(b'DATA')
+    n = struct.unpack_from('<I', ssar, data + 12)[0]
+    banks, wa = table(2), table(3)
+    out = {}
+    for se in range(n):
+        bank = struct.unpack_from('<H', ssar, data + 16 + 12 * se + 4)[0]
+        if bank >= len(banks) or not banks[bank]:
+            continue
+        w = struct.unpack_from('<H', d, info_off + banks[bank] + 4)[0]
+        if w == 0xFFFF or w >= len(wa) or not wa[w]:
+            continue
+        out[se] = struct.unpack_from('<H', d, info_off + wa[w])[0]
     return out
 
 
@@ -263,19 +311,19 @@ def build(dumpdir, log=None):
     """-> (new sdat bytes, report lines)."""
     log = log if log is not None else []
     sdat = open(os.path.join(dumpdir, 'ds_fan', *SDAT_PATH.split('/')), 'rb').read()
-    wa = wavearc_files(sdat)
+    se_fid = se_to_wavearc_fid(sdat)
+    name_by_fid = {v: k for k, v in wavearc_files(sdat).items()}
     repl = {}
-    for n, (rate, enc) in sorted(SLOTS.items()):
-        name = 'wav_se%03d' % n if n >= 100 else 'wav_se%03d' % n
-        # retail names: wav_se037..046, wav_se177, wav_se221, wav_se222
-        fid = wa.get(name)
+    for n, (rate, enc, suf) in sorted(SLOTS.items()):
+        fid = se_fid.get(n)
         if fid is None:
-            raise SystemExit('sdat has no wave archive %s' % name)
-        mono, src = read_wav_mono(os.path.join(voice_dir(dumpdir), 'SE_%d_eng.wav' % n))
+            raise SystemExit('sdat has no wave archive for SE %d' % n)
+        mono, src = read_wav_mono(os.path.join(voice_dir(dumpdir), 'SE_%d%s.wav' % (n, suf)))
         pcm = normalise(resample(mono, src, rate))
         repl[fid] = swar([swav(pcm, rate, enc)])
         log.append('SE %3d -> %-10s %s %5d Hz %6d samples %.2fs  %6d B' % (
-            n, name, 'pcm16' if enc == 1 else 'adpcm', rate, len(pcm), len(pcm) / float(rate), len(repl[fid])))
+            n, name_by_fid.get(fid, '?'), 'pcm16' if enc == 1 else 'adpcm', rate, len(pcm),
+            len(pcm) / float(rate), len(repl[fid])))
     return rebuild_sdat(sdat, repl), log
 
 
@@ -287,8 +335,9 @@ def apply(dumpdir, rom_path, log=print):
     open(rom_path, 'wb').write(rom)
     for l in lines:
         log(l)
-    log('voices: %d shouts in Capcom\'s English, sound archive %d -> %d bytes' % (
-        len(SLOTS), os.path.getsize(os.path.join(dumpdir, 'ds_fan', *SDAT_PATH.split('/'))), len(new)))
+    eng = sum(1 for v in SLOTS.values() if v[2])
+    log('voices: %d slots in Capcom\'s audio (%d English shouts, %d sound effects), sound archive %d -> %d bytes' % (
+        len(SLOTS), eng, len(SLOTS) - eng, os.path.getsize(os.path.join(dumpdir, 'ds_fan', *SDAT_PATH.split('/'))), len(new)))
 
 
 if __name__ == '__main__':
