@@ -94,11 +94,17 @@ def _to_units(s):
 # the card's font were fitted from rendered lines and live in tools/desc_font.json; the
 # fitter wraps with those advances and a margin below the field width. Glyphs never seen
 # in the measured lines (kept outside this repo) get a deliberately generous advance, so
-# an unmeasured letter can only wrap early, never clip. logicKW keeps the old dialogue-unit budget: it was measured the
-# same flawed way but no clipped Logic card has been observed.
+# an unmeasured letter can only wrap early, never clip.
+# The Logic card draws the same face in a narrower panel beside its picture. It kept the
+# old dialogue-unit budget (176) until a tester's capture of 1.10.0 (2026-09-26) showed a
+# card line running onto the panel's frame: that line measures 141.8 with desc_font, the
+# one above it 127.2 fits, and the panel's inside ends near 134 in the same units (ink
+# runs about 2 px under the advance sum). LOGIC_PX leaves a 2 px gap. A card that needs a
+# fourth line at this width keeps the fan's wording, as descriptions already do.
+LOGIC_PX = 132
 BOXES = {
-    'detailMsg': (None, 4),  # width comes from DESC_FONT below (real DS px)
-    'logicKW':   (176, 3),   # Logic cards
+    'detailMsg': (None, 4),     # width comes from DESC_FONT below (real DS px)
+    'logicKW':   ('logic', 3),  # Logic cards: desc_font advances, LOGIC_PX wide
 }
 _DESC_FONT = None
 def desc_font():
@@ -130,6 +136,15 @@ def desc_font():
 
 DESC_PX = 224
 DESC_LINES = 4
+
+def box_width(px):
+    """(width_fn, line_px) for a BOXES width entry: None is the description card,
+    'logic' the Logic card, a number an estimate-units budget."""
+    if px is None:
+        return desc_font()
+    if px == 'logic':
+        return desc_font()[0], LOGIC_PX
+    return dstext._estimate, px
 
 def _fan_age_line(u):
     """The fan patch prepends an 'Age: NN  Gender: X' line that the Japanese lacks;
@@ -174,8 +189,8 @@ def patch_entry(ds_entry, jp_src, lookup, box='detailMsg'):
         px, maxln = BOXES.get(box, (DESC_PX, DESC_LINES))
         old = dstext.LINE_PX
         old_fn = dstext.WIDTH_FN
-        if px is None:                       # measured widget font (description card)
-            dstext.WIDTH_FN, px = desc_font()
+        if px is None or px == 'logic':      # measured widget font (description, Logic cards)
+            dstext.WIDTH_FN, px = box_width(px)
         else:
             # This widget's budget in BOXES was cut in the ESTIMATE's units. Once the
             # dialogue font switched to real advances, measuring this box with them

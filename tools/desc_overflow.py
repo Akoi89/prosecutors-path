@@ -35,11 +35,8 @@ def plain(u):
 
 def wrapped(eng, suffix, age, px):
     old = dstext.LINE_PX; old_fn = dstext.WIDTH_FN
-    if px is None:                      # description card: measured font, see loc_patch.desc_font
-        from loc_patch import desc_font
-        dstext.WIDTH_FN, px = desc_font()
-    else:
-        dstext.WIDTH_FN = dstext._estimate   # px is an estimate-units budget
+    from loc_patch import box_width     # description/Logic card: measured font; else estimate units
+    dstext.WIDTH_FN, px = box_width(px)
     dstext.LINE_PX = px
     measure = dstext.WIDTH_FN        # the ruler THIS wrap used; see desc_fit.py
     try:
@@ -107,7 +104,7 @@ def main(out_txt, out_json=None):
         f.write('count by bank and lines needed: %s\n\n' % dict(by))
         for r in rows:
             f.write('[bank %d str %d]  %s box: %d lines at %spx; official needs %d%s%s\n' % (
-                r['bank'], r['str'], r['box'], r['allowed'], (r['px'] if r['px'] is not None else 'measured-font'), r['needed'],
+                r['bank'], r['str'], r['box'], r['allowed'], (r['px'] if isinstance(r['px'], (int, float)) else 'measured-font'), r['needed'],
                 '  (+Age line)' if r['age'] else '', '  (+suffix line)' if r['suffix'] else ''))
             f.write('  JAPANESE : %s\n' % r['ja'])
             f.write('  CAPCOM   : %s\n' % r['official'])
