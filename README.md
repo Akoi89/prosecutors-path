@@ -152,7 +152,7 @@ been tested, it's only been run.
 The tooling was written with **LLM assistance**: Claude, driven through Claude Code, over a
 series of sessions. That's stated plainly rather than buried. What ships is Capcom's own
 script, art and recordings plus the fan team's assets; nothing in the ROM is generated
-text. The code is about 12,730 lines across 52 modules, plus 14 audit scripts, MIT licensed, and it ships as source
+text. The code is about 13,070 lines across 52 modules, plus 14 audit scripts (the 13 audits and the harness that tests them), MIT licensed, and it ships as source
 precisely so you don't have to take any of that on faith.
 
 Because every hang but one was found by **playing the game**, not by an offline check (the

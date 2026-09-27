@@ -29,12 +29,12 @@ qualifies. Measured today with `python tools/coverage.py "out/GK2 (Official Engl
     Menus & UI       88.0%  98,157 / 111,588
     TOTAL            98.8%  1,810,475 / 1,832,983
 
-The Menus & UI and total figures move from the 89.3%/98.9% quoted earlier in this branch
+The Menus & UI and total figures are below the 89.3%/98.9% an earlier 1.10.0 candidate measured,
 because the Mind Chess font-measurement fix below reverts some rows to the fan's wording
 where Capcom's does not fit the bar (723 character units), partly offset by more official
 text elsewhere. sha256 of the release build is
 `d6f3891ab53609cfff938adb2c79d4bc3f26a6d86697b5167db8f864da0a4a51` (VERSION and
-REFERENCE_ROM_SHA256, commit 50d11fa), 50,627,184 bytes; two identical builds and a
+REFERENCE_ROM_SHA256, commit 757baf3), 50,627,184 bytes; two identical builds and a
 clean-clone executable doing a full extraction reproduce it.
 
 ### The Case 2 and Case 4 rebuttal freezes (entries 92 and 248)
@@ -183,7 +183,7 @@ text-position zero except the one the fan ROM itself carries at entry 95 string 
 {E121}, in the same place in both scripts. On the current output: 10,705 strings, one zero,
 allowed as the fan's.
 
-### The DS-only gate lifted (commit 66ee62d): coverage 94.6% to 98.9%
+### The DS-only gate lifted (commit 66ee62d): coverage 94.6% to 98.9% (98.8% after the Mind Chess fix)
 
 A block in the converter kept the fan's line whenever Capcom's version carried fewer
 {E041}/{E042} codes than the fan's, added for the v1.4.2 hang at the Episode 1 Gourd Lake
