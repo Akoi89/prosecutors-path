@@ -64,7 +64,9 @@ import tempfile
 
 import spt                                    # noqa: E402
 from dstext import ARGS                       # noqa: E402
-from inject import file_id                    # noqa: E402
+from inject import file_id, STAGING_CODES     # noqa: E402
+
+_BOXEND = (0xE102, 0xE104, 0xE185, 0xE081)
 
 REAL = _default_built()
 RIG = _os.path.dirname(_os.path.abspath(__file__))
@@ -373,6 +375,33 @@ def _find_code_offset(e, base, j, code, arg_index):
     return None
 
 
+def _find_code_offset_by_value(e, base, j, code, arg_index, value):
+    """Absolute file offset of the (arg_index)'th argument of the occurrence
+    of `code` in string j of entry bytes `e` (base = absolute offset `e`
+    starts at) whose CURRENT value at that position equals `value`. None if
+    string j has no such occurrence. Same shape as _find_code_offset above,
+    but picks the occurrence by its value rather than always the first -
+    DS[99] str 5 carries three {E15B} occurrences and only one of them is the
+    reported fault (see break_staging below)."""
+    h, recs = spt.parse(e, True)
+    starts = [h['dstart']] + [r[1] for r in recs]
+    lens = [h['lead']] + [r[2] for r in recs]
+    if j >= len(starts):
+        return None
+    s, ln = starts[j], lens[j]
+    u = spt.units(e[s:], ln)
+    k, n = 0, len(u)
+    while k < n:
+        v = u[k]
+        if 0xE000 <= v <= 0xF8FF:
+            if v == code and u[k + 1 + arg_index] == value:
+                return base + s + 2 * (k + 1 + arg_index)
+            k += 1 + ARGS.get(v, 0)
+        else:
+            k += 1
+    return None
+
+
 def break_indexarg_e11f(rom):
     """Decrement DS[92] str 1's first {E11F}'s argument position 1 by one -
     the real Case 2 rebuttal fault (CRASH_ENTRY92_20260922.md): every
@@ -393,6 +422,167 @@ def break_indexarg_e11f(rom):
     cur = struct.unpack_from('<H', rom, off)[0] ^ XOR
     out = bytearray(rom)
     out[off:off + 2] = enc(cur - 1)
+    return bytes(out), 1
+
+
+def break_staging(rom):
+    """Set DS[99] str 5's SECOND {E15B}'s x argument back to 192 - the real
+    Case 2 camera fault a tester reported: a scene
+    where the camera never returns to its resting position and an officer is
+    left out of frame, because the built ROM carried the Collection's own
+    re-tuned camera position (192) where the fan (the DS original) holds 140.
+    The string carries three {E15B} occurrences; the first and third are 192
+    on BOTH sides and were never the fault, so this targets the occurrence by
+    its current value (140, only true on a fixed build) rather than by
+    position. Applied to whichever ROM the harness is given (its optional
+    argument; bare, it uses out\\GK2 (Official English, DS port).nds), so the
+    fixture proves audit_staging.py rather than reproducing the fix itself.
+    The ROM must be a FIXED build: a pre-fix ROM has no occurrence at 140 to
+    find, so this fixture reports NOT PROVEN on it until a fixed build is the
+    release output."""
+    a, b = spt_span(rom)
+    cont = bytes(rom[a:b])
+    o, s = struct.unpack_from('<II', cont, 99 * 8)
+    off = _find_code_offset_by_value(cont[o:o + s], a + o, 5, 0xE15B, 0, 140) if s else None
+    if off is None:
+        return bytes(rom), 0
+    out = bytearray(rom)
+    out[off:off + 2] = enc(192)
+    return bytes(out), 1
+
+
+def _find_boxend_then_staging(e, base, j):
+    """(absolute file offset of the box-end unit, arity of the staging
+    command right after it) for the FIRST place in string j of entry bytes
+    `e` (base = absolute offset `e` starts at) where a box-end code
+    (_BOXEND) is immediately followed by a STAGING_CODES occurrence. None if
+    string j has no such place."""
+    h, recs = spt.parse(e, True)
+    starts = [h['dstart']] + [r[1] for r in recs]
+    lens = [h['lead']] + [r[2] for r in recs]
+    if j >= len(starts):
+        return None
+    s, ln = starts[j], lens[j]
+    u = spt.units(e[s:], ln)
+    k, n = 0, len(u)
+    prev_code, prev_k = None, None
+    while k < n:
+        v = u[k]
+        if 0xE000 <= v <= 0xF8FF:
+            arity = ARGS.get(v, 0)
+            if v in STAGING_CODES and prev_code in _BOXEND:
+                return base + s + 2 * prev_k, arity
+            prev_code, prev_k = v, k
+            k += 1 + arity
+        else:
+            k += 1
+    return None
+
+
+def break_staging_placement(rom):
+    """Swap DS[2] str 0's box-end unit with the staging command right after
+    it - moving that ONE occurrence one box EARLIER without touching the
+    SUBSEQUENCE (same code, same arguments, same order relative to every
+    other staging occurrence) or the box-end COUNT (the box-end is still
+    there, only its position relative to that one occurrence changes). This
+    is a PLACEMENT-only break: audit_staging.py's check 2 (box placement, the
+    fan's own occurrence at the same subsequence position must sit in the
+    same box) is what must catch it, not check 1 (the subsequence, which
+    stays identical on both sides). Same width, same units, only their order
+    changes - nothing else in the file moves. Applied to whichever ROM the
+    harness is given (its optional argument; bare, it uses out\\GK2 (Official
+    English, DS port).nds), so the fixture proves audit_staging.py rather
+    than reproducing a real fault."""
+    a, b = spt_span(rom)
+    cont = bytes(rom[a:b])
+    o, s = struct.unpack_from('<II', cont, 2 * 8)
+    found = _find_boxend_then_staging(cont[o:o + s], a + o, 0) if s else None
+    if found is None:
+        return bytes(rom), 0
+    off, arity = found
+    staging_width = (1 + arity) * 2
+    boxend_bytes = rom[off:off + 2]
+    staging_bytes = rom[off + 2:off + 2 + staging_width]
+    out = bytearray(rom)
+    out[off:off + 2 + staging_width] = staging_bytes + boxend_bytes
+    return bytes(out), 1
+
+
+def _find_staging_after_text(e, base, j):
+    """(absolute file offset to swap FROM, absolute file offset of the FIRST
+    STAGING_CODES occurrence in string j of entry bytes `e` (base = absolute
+    offset `e` starts at) that has some VISIBLE text before it since the
+    previous box-end OR staging occurrence - a plain unit that is not a
+    control code and not a bare {0A} line break, the same coarse
+    before/after-text measurement used elsewhere in this project - arity).
+    The FROM
+    offset anchors right after whichever came before (another staging
+    occurrence, or the box-end) rather than always the box's own start, so
+    moving the found occurrence there can never cross another staging
+    occurrence and change the SUBSEQUENCE - by returning on the FIRST match,
+    that anchor is always itself at a point with no text before it since the
+    box started, so the move still flips the COARSE property for the whole
+    box. None if string j has no such place."""
+    h, recs = spt.parse(e, True)
+    starts = [h['dstart']] + [r[1] for r in recs]
+    lens = [h['lead']] + [r[2] for r in recs]
+    if j >= len(starts):
+        return None
+    s, ln = starts[j], lens[j]
+    u = spt.units(e[s:], ln)
+    k, n = 0, len(u)
+    anchor = 0
+    has_text = False
+    while k < n:
+        v = u[k]
+        if 0xE000 <= v <= 0xF8FF:
+            arity = ARGS.get(v, 0)
+            if v in STAGING_CODES:
+                if has_text:
+                    return base + s + 2 * anchor, base + s + 2 * k, arity
+                anchor = k + 1 + arity
+                has_text = False
+            elif v in _BOXEND:
+                anchor = k + 1 + arity
+                has_text = False
+            k += 1 + arity
+        else:
+            if v != 0x0A:
+                has_text = True
+            k += 1
+    return None
+
+
+def break_staging_point(rom):
+    """Move DS[6] str 1's FIRST staging occurrence that has some visible text
+    ahead of it (since whichever comes first - the previous box-end, or the
+    previous staging occurrence) back to right after that same anchor,
+    swapping it past everything in between - on this ROM that is 38 units:
+    text plus several non-staging control codes including {E101}, {E107}
+    and {E108}. None of those are staging codes and none is a box-end, so
+    the SUBSEQUENCE (check 1) and box placement (check 2) stay exactly
+    right; only the COARSE before/after-text side (check 3) changes, because
+    the anchor itself always has no text ahead of it since the box started
+    (see _find_staging_after_text). DS[6] str 1 is one of the strings
+    audit_staging.py's check 3 already reports clean on the built ROM,
+    chosen so this fixture proves detection rather than landing on a string
+    check 3 never evaluates or one already flagged for an unrelated,
+    pre-existing reason. Same width, same units, only their order changes -
+    nothing else in the file moves. Applied to whichever ROM the harness is
+    given (its optional argument; bare, it uses out\\GK2 (Official English,
+    DS port).nds)."""
+    a, b = spt_span(rom)
+    cont = bytes(rom[a:b])
+    o, s = struct.unpack_from('<II', cont, 6 * 8)
+    found = _find_staging_after_text(cont[o:o + s], a + o, 1) if s else None
+    if found is None:
+        return bytes(rom), 0
+    anchor_off, off, arity = found
+    code_width = (1 + arity) * 2
+    prefix_bytes = rom[anchor_off:off]
+    code_bytes = rom[off:off + code_width]
+    out = bytearray(rom)
+    out[anchor_off:off + code_width] = code_bytes + prefix_bytes
     return bytes(out), 1
 
 
@@ -517,6 +707,9 @@ FIXTURES = [
     ('audit_choicearg.py', 'point DS[58] str 2 {E187} strip-arg at 170 - 363+170 = idlocal 533, a palette, not a sprite', break_choicearg_strip, 'rom'),
     ('audit_choicearg.py', "drop DS[92] str 18's {E187} target-string index by one (the region_align skew)", break_choicearg_target, 'rom'),
     ('audit_indexargs.py', "decrement DS[92] str 1's first {E11F} argument position 1 by one (the rebuttal statement-index fault)", break_indexarg_e11f, 'rom'),
+    ('audit_staging.py', "set DS[99] str 5's second {E15B} x argument back to 192 (the Case 2 camera fault)", break_staging, 'rom'),
+    ('audit_staging.py', "move one staging command into the wrong box in a string whose box-end count still matches the fan", break_staging_placement, 'rom'),
+    ('audit_staging.py', "move one staging command from after some text to before any text in its own box (same subsequence, same box)", break_staging_point, 'rom'),
     ('audit_zeros.py', "zero one ordinary text unit in DS[0] str 4 (a stray literal 0x0000 in text position - the DELTA 5 zero-in-text hang)", break_zero_text, 'rom'),
 ]
 
@@ -564,7 +757,7 @@ def main():
         path = os.path.join(WORK, script.replace('.py', '.nds' if kind == 'rom' else '.bin'))
         open(path, 'wb').write(broken)
         clean_arg = clean_path if kind == 'rom' else None
-        if script in ('audit_indexargs.py', 'audit_zeros.py'):
+        if script in ('audit_indexargs.py', 'audit_zeros.py', 'audit_staging.py'):
             # should-fix 2: an audit that already fails on the clean ROM would
             # make the ordinary text-diff test trivially pass. Require the
             # clean ROM to exit 0 (nothing wrong) and the broken copy to

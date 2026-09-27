@@ -6,7 +6,7 @@ the DS engine addresses strings by index, so record count, per-record A fields a
 the trailer word are carried over from the DS entry. An entry is only touched when
 its string count matches the Collection file's exactly.
 """
-import sys, os, io, json, struct, collections
+import sys, os, io, json, struct, collections, difflib
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # The audit this prints contains Japanese, which the Windows console's default
 # codepage cannot encode. reconfigure() rather than a fresh TextIOWrapper: wrapping
@@ -152,6 +152,48 @@ DS_VALUE_ARGS = {
 for _code, _positions in DS_VALUE_ARGS.items():
     assert all(p < ARGS[_code] for p in _positions), _code
 
+# The camera/character position/pose family: six commands whose ARGUMENTS are
+# DS screen coordinates or animation choices, not indices - {E13A} place
+# character, {E13B} slide character over time, {E16F} move character, {E114}
+# walk character, {E15B} camera, {E150} pose (<char><anim>). The Collection
+# re-tuned every one of these for its own screen and cast; the fan ROM (AAI2
+# Final v2) keeps the DS originals, which are the values right for the DS
+# engine, same reasoning as DS_VALUE_ARGS above but for a whole command family
+# rather than one argument slot. A tester playing the staged build reported a
+# Case 2 scene where the camera never returns to its resting position and an
+# officer is left out of frame; traced to spt entry 99 string 5, where our
+# build carries the Collection's own staging in place of the fan's. A second
+# tester reported (2026-09-26) a Case 3 scene where a character is drawn as
+# in the Collection rather than as on the DS; traced to spt entry 125, where
+# the fan carries about sixteen {E150} pose commands for three characters
+# that ours lacked entirely. Measured whole-game with dedicated scanning
+# tools (not part of this repo): 73 strings in 53 entries differ from the
+# fan in the five position/camera codes, and {E150} differs from the
+# fan in a further 8 strings in 5 entries; most differ only in argument
+# values, some are STRUCTURAL (the Collection added or dropped a command in
+# the sequence). See _restore_staging below, which restores the fan's
+# subsequence of these codes (with all their arguments, and in the right
+# message box) into every string this injector ships.
+#
+# {E12F} (the per-line talking animation, roughly 20,000 uses across the
+# script) is deliberately NOT in this table: it is set by Capcom to match its
+# OWN line's timing and delivery, not a DS position/pose value the fan
+# preserves - restoring it here would fight the Collection's own voice
+# direction rather than fix a staging fault. See _restore_index_args' own
+# exclusions list above for the same reasoning stated for INDEX_ARGS.
+STAGING_CODES = (0xE13A, 0xE13B, 0xE16F, 0xE114, 0xE15B, 0xE150)
+
+# The character commands among STAGING_CODES carry the character id as their
+# FIRST argument; {E15B} (camera) has no character. _restore_staging aligns
+# occurrences on (code, character id) for the former and (code,) for the
+# latter, so a run of "char 5 twice then char 32 twice" is never matched
+# against "char 32 twice then char 5 twice" just because the codes agree.
+_STAGING_CHAR_CODES = (0xE13A, 0xE13B, 0xE16F, 0xE114, 0xE150)
+
+
+def _staging_key(code, args):
+    return (code, args[0]) if code in _STAGING_CHAR_CODES else (code,)
+
 
 def _restore_index_args(conv, ds, code, table=INDEX_ARGS):
     """Several engine commands carry arguments that are STRING INDICES within
@@ -229,6 +271,729 @@ def _restore_index_args(conv, ds, code, table=INDEX_ARGS):
             if changed:
                 rewritten += 1
     return rewritten, mismatched_strings
+
+
+# Box-end codes for _restore_staging's insertion-anchor fallback AND its box-
+# placement check - deliberately this specific list, not _SEAM_BOXEND a few
+# lines down (narrower, for a different rule) and not BOXEND (the box-count
+# fingerprint used elsewhere in this file).
+_STAGING_BOXEND = (0xE102, 0xE104, 0xE185, 0xE081)
+
+
+def _box_index(x, pos):
+    """How many _STAGING_BOXEND codes occur in x strictly before raw index
+    pos - which box (0-based) raw index pos falls in."""
+    n = 0
+    for k in _code_positions(x):
+        if k >= pos:
+            break
+        if x[k] in _STAGING_BOXEND:
+            n += 1
+    return n
+
+
+def _box_starts(x):
+    """Raw start index of every box in x: box 0 begins at 0; box t+1 begins
+    right after the t-th _STAGING_BOXEND code (in order) and its argument."""
+    starts = [0]
+    for k in _code_positions(x):
+        if x[k] in _STAGING_BOXEND:
+            starts.append(k + 1 + ARGS[x[k]])
+    return starts
+
+
+def _text_count(u, lo, hi):
+    """Count of VISIBLE text units in u[lo:hi], walked arity-aware: anything
+    that is not a control code or its arguments, and not a bare {0A} line
+    break on its own - the one definition of "visible text" used everywhere
+    this file or audits/audit_staging.py needs it: the proportional-point
+    placement's F/O/f scaling and the coarse before/after-text property,
+    _has_text below, are the same count; a line break alone was never "some
+    text" for either purpose."""
+    n = 0
+    k = lo
+    while k < hi:
+        v = u[k]
+        if 0xE000 <= v <= 0xF8FF:
+            k += 1 + ARGS.get(v, 0)
+        else:
+            if v != 0x0A:
+                n += 1
+            k += 1
+    return n
+
+
+def _has_text(u, lo, hi):
+    """The COARSE in-box property: is there any visible text unit in
+    u[lo:hi] at all (_text_count > 0), without counting how many."""
+    return _text_count(u, lo, hi) > 0
+
+
+def _leading_codes(x, lo, hi):
+    """Control-code IDs (not their arguments) that lead x[lo:hi], in order,
+    stopping at the first visible text unit or at `hi` - a box's own OPENING
+    codes, compared by id only when deciding where to insert at the very
+    start of a box (see _place_like_fan)."""
+    out, k = [], lo
+    while k < hi:
+        v = x[k]
+        if 0xE000 <= v <= 0xF8FF:
+            out.append(v)
+            k += 1 + ARGS.get(v, 0)
+        else:
+            break
+    return out
+
+
+def _text_prefix_point(u, lo, hi, target):
+    """Raw index in [lo, hi] after exactly `target` text units of u[lo:hi],
+    walked one TOKEN at a time (a control code plus its own arguments is one
+    token, contributing 0; anything else is one token, contributing 1) - so
+    the result always sits on a token boundary, never between a code and its
+    arguments or inside a run of arguments. target <= 0 returns lo
+    unconditionally: the very start of the
+    span, before any opening codes it might have ("at target 0, insert right
+    after the previous box-end code... before its opening codes")."""
+    if target <= 0:
+        return lo
+    seen, k = 0, lo
+    while k < hi:
+        v = u[k]
+        if 0xE000 <= v <= 0xF8FF:
+            k += 1 + ARGS.get(v, 0)
+        else:
+            k += 1
+            seen += 1
+            if seen >= target:
+                return k
+    return hi
+
+
+def _box_span(x, box_idx):
+    """(lo, hi) raw span of box `box_idx` in x, or None if x has fewer boxes."""
+    starts = _box_starts(x)
+    if box_idx >= len(starts):
+        return None
+    lo = starts[box_idx]
+    hi = starts[box_idx + 1] if box_idx + 1 < len(starts) else len(x)
+    return lo, hi
+
+
+def _place_like_fan(u, a, box_idx, fan_pos):
+    """Raw index in box `box_idx` of u at the SAME RELATIVE TEXT POINT as the
+    fan's occurrence at raw index `fan_pos` in box `box_idx` of a - an
+    earlier version of this placement always landed right after a box's
+    OPENING codes regardless of where the fan actually put the command; this
+    scales instead: f = text units before fan_pos in its own fan box, F =
+    text units in that whole fan box, O = text units in our corresponding
+    box; target = round(f * O / F) text units into our box (0 if F == 0, so
+    an entirely textless fan box still lands at its own start), snapped to a
+    token boundary. None if u has fewer than box_idx + 1 boxes.
+
+    At target 0 specifically: landing at the raw box start (before EVERY
+    opening code) can still put the command ahead of a code the fan itself
+    has ahead of it in that box, if ours opens with the same one - DS[137]
+    string 10's box 0 is `{E100}<0> pose {E101}...` in both the fan and an
+    earlier build that landed the pose before {E100} instead of after it.
+    Compare the fan's own leading code IDs ahead of its occurrence
+    (_leading_codes) against ours' leading code IDs, by id only (not
+    arguments), and skip forward past their
+    common prefix before landing - the same {E100} at the front of both
+    still means "insert right after it", not "at the very start"."""
+    fspan = _box_span(a, box_idx)
+    uspan = _box_span(u, box_idx)
+    if uspan is None or fspan is None:
+        return None
+    flo, fhi = fspan
+    f = _text_count(a, flo, fan_pos)
+    F = _text_count(a, flo, fhi)
+    ulo, uhi = uspan
+    O = _text_count(u, ulo, uhi)
+    target = round(f * O / F) if F else 0
+    if target <= 0:
+        fan_lead = _leading_codes(a, flo, fan_pos)
+        our_lead = _leading_codes(u, ulo, uhi)
+        k = 0
+        while k < len(fan_lead) and k < len(our_lead) and fan_lead[k] == our_lead[k]:
+            k += 1
+        pos = ulo
+        for code in our_lead[:k]:
+            pos += 1 + ARGS.get(code, 0)
+        return pos
+    return _text_prefix_point(u, ulo, uhi, target)
+
+
+def _adjacent_no_text(oa, a, prev_raw, next_raw):
+    """True if fan occurrences at raw indices prev_raw and next_raw (into an
+    occurrence list `oa` built over string `a`) sit in the SAME box with no
+    TEXT between the end of prev_raw's own units and the start of next_raw -
+    only then does "right after/before the neighbour" reproduce the fan's
+    placement; a neighbour in a different box, or with text between, needs
+    the proportional-point placement instead. False for an out-of-range
+    index (no such neighbour exists)."""
+    if prev_raw < 0 or next_raw < 0 or next_raw >= len(oa) or prev_raw >= len(oa):
+        return False
+    pk, pc, _ = oa[prev_raw]
+    nk, _, _ = oa[next_raw]
+    if _box_index(a, pk) != _box_index(a, nk):
+        return False
+    return _text_count(a, pk + 1 + ARGS[pc], nk) == 0
+
+
+def _restore_staging(conv, ds):
+    """Per string, restore the fan's SUBSEQUENCE of STAGING_CODES (with every
+    argument, in the same message box, and at the same RELATIVE TEXT POINT
+    inside that box) - nothing else in the string changes.
+
+    Most of the strings the whole-game scan found (see STAGING_CODES above)
+    carry the same staging occurrences in the same order as the fan, only the
+    argument VALUES differ (the Collection's re-tuned coordinates/poses);
+    those are copied in place, occurrence by occurrence. A smaller set is
+    STRUCTURAL - the Collection added, dropped or reordered a staging command
+    - so the two occurrence lists (ours vs the fan's) are aligned first, not
+    on the CODE alone (entry 125 string 0 has the fan placing char 5
+    twice then char 32 twice, all four {E13A} in the SAME box, where ours had
+    one of each; aligning on code alone matched (5, 32) to the fan's (5, 5)
+    and put char 32's pair in the wrong box). The alignment KEY is (code,
+    character id) for the five character commands and (code,) alone for
+    {E15B} (camera, no character) - _staging_key above.
+
+    Before alignment, both occurrence lists are DEDUPED (_dedupe): the fan
+    sometimes issues the exact same staging command twice with NOTHING
+    between the two but {E107}/{E108} pacing codes, and (code, character id)
+    alone cannot tell two DIFFERENT poses of the same character apart, so a
+    run of "the same character, several different poses" would otherwise
+    look like one ambiguous block of identical keys to difflib. Collapsing
+    every occurrence that merely shares a VALUE, not just a back-to-back
+    repeat, was tried first and proved too broad: entry 128 string 1 reuses
+    the SAME pose value at two points in the SAME
+    box with nine text units and an {E101} between them - not a back-to-back
+    repeat - and collapsing it anyway put both copies together at one end of
+    the box, losing the one meant for the other end. Only a TRUE repeat
+    (nothing textual or structural between the two) collapses to one
+    representative plus a multiplicity; anything else stays two occurrences,
+    each placed on its own merits below.
+
+    A key that only names the code and character cannot tell two DIFFERENT
+    occurrences of the same character's command apart when OUR side repeats
+    it more than the fan does (real content between the repeats, so _dedupe
+    left them separate) - _disambiguate relabels every excess occurrence of
+    ours EXCEPT the one that best corresponds to the fan's, so the excess
+    falls to removal on its own merits instead of stealing an 'equal' match
+    that belongs to a closer occurrence (entry 137 string 10: our side had
+    five copies of a pose the fan uses once; a plain match kept the wrong
+    one, in the wrong box, and deleted the copy that was already right).
+
+    Placement for a command this function INSERTS or MOVES: the same
+    relative TEXT POINT inside the fan's box as the fan's own occurrence -
+    `f` text units before it in the fan's box, `F` text units in that whole
+    box, `O` text units in our corresponding box; target = round(f * O / F)
+    text units into our box (0 if F == 0), snapped to a token boundary
+    (_place_like_fan/_text_prefix_point) - never after every opening code by
+    default, which could print a pose before any of its box's own text when
+    the fan meant it mid-line or at the very end; and at target 0, never
+    before an opening code the fan itself has ahead of the command AND our
+    box also opens with (compared by code id, not arguments; a plain "always
+    the very start" placed a pose ahead of a speaker-set code both the fan
+    and ours already had there). Two shortcuts skip this maths for the
+    common case of a duplicate riding the neighbour it is inserted next to:
+    the very FIRST fan occurrence of an our-side-empty run goes right after
+    our nearest preceding surviving occurrence, and the very LAST goes right
+    before our next surviving occurrence, but ONLY when that neighbour is
+    the SAME occurrence in the fan too - same box, no text between
+    (_adjacent_no_text). Every other occurrence, including one whose
+    "neighbour" shortcut fails this check, is placed by the proportional
+    point instead, each on its own text point independently (not as one
+    shared block) - multiple such placements queue against the ORIGINAL
+    string and are spliced in together, in fan order, when the string is
+    rebuilt. A block where our side is NOT empty (both sides have
+    occurrences to align) keeps the fan's run where our first removed
+    occurrence stood.
+
+    Bounds-checked the same way _restore_index_args is: a string truncated at
+    its declared length (spt.tails) could put an argument past either
+    string's end. Whatever is built is verified afterwards - the recomputed
+    staging list must equal the fan's exactly - and if it does not, or a
+    bounds check ever fails, the string is left exactly as it stood before
+    this function touched it. Never raises.
+
+    Separately, and regardless of whether a string needed restoring: if our
+    string and the fan's carry the same COUNT of _STAGING_BOXEND codes, every
+    staging occurrence's box index is compared against the fan's occurrence
+    at the same position. A string whose subsequence ALREADY matched the
+    fan's (so the alignment above never touched it) can still land a staging
+    occurrence in the wrong box - an unrelated code shifted the box-end count
+    around without changing the total. Rather than leave that unrepaired,
+    _relocate_boxes moves ONLY that occurrence's own raw units (code plus its
+    arguments, nothing else in the string) to the fan's box, at the fan's
+    relative text point inside it (an earlier version of this move used the
+    same after-every-opening-code rule mentioned above and put entry 277
+    string 1's pose ahead of text the fan prints it after), and re-verifies
+    the subsequence still matches before keeping the move. Only a mismatch
+    that CANNOT be fixed this way (the target box does not exist, or the
+    move would break the subsequence) is LOGGED and shipped as-is -
+    reverting would put back whatever the Collection shipped, which is not
+    known to be right either.
+
+    Once box placement is right, ONE more thing is checked - an earlier
+    version of this pass also scaled every occurrence's exact in-box text
+    POINT to a proportional target and moved anything more than 2 units off,
+    even in a string whose subsequence and box already equalled the fan's;
+    that used the fan's own (different) wording to guess where a pose
+    belongs in ours, and touched 28 strings that needed no fix at all. That
+    is removed: a string already matching the fan on subsequence and box
+    comes out
+    byte-identical to the build before this pass, except that each
+    occurrence's COARSE property - _has_text, some visible text before it in
+    its own box, or none - is compared to the fan's, and only a mismatch is
+    moved (still by the proportional-point placement/_relocate_boxes) to the
+    fan's side of the text. A coarse before/after-text comparison run over
+    the whole game found 634 of 637 already-matching strings already
+    agreeing with the fan here; only 124/3, 147/0 and 214/1 (each a pose
+    Capcom sets before the text where the fan sets it after some) do not.
+    The build log's count is higher because it also includes strings that
+    were resequenced first and then needed this move.
+
+    Returns (values, resequenced, skipped, box_mismatches, moved_box,
+    moved_coarse): strings fixed by a straight argument copy, strings whose
+    staging sequence had to be resequenced (NOT counting a string that was
+    only moved by one of the two passes below - those are counted only in
+    moved_box/moved_coarse, so a resequenced string always needed a real
+    realignment), strings left untouched because the result could not be
+    proven right, the string indices (within this entry) whose box placement
+    disagreed with the fan's, and two separate STRING counts for
+    _relocate_boxes's two passes - box placement and coarse text side - so a
+    string that needed both is visible in each count
+    rather than being double-counted into one combined total."""
+    values = resequenced = skipped = moved_box = moved_coarse = 0
+    box_mismatches = []
+    for j in range(len(conv)):
+        u = conv[j]
+        a = list(ds[j][3])
+
+        def occs(x):
+            out = []
+            for k in _code_positions(x):
+                v = x[k]
+                if v in STAGING_CODES:
+                    n = ARGS[v]
+                    out.append((k, v, tuple(x[k + 1:k + 1 + n])))
+            return out
+
+        ou, oa = occs(u), occs(a)
+
+        def _relocate_boxes(x, targets, expect_seq):
+            """Move ONLY the raw units of mismatched staging occurrences
+            (their own code unit plus arguments - nothing else) to the box
+            each should sit in per `targets` ((occurrence index, fan box
+            index) pairs), at the fan's own relative text point inside that
+            box (proportional-point placement: _place_like_fan, using this same string's `oa` for
+            the fan occurrence's position), leaving every other unit exactly
+            where it was. Every target's insertion point is computed against
+            the ORIGINAL x, all moving occurrences are removed together, and
+            occurrences that land at the SAME point are reinserted together
+            in FAN order (occurrences the fan placed before or after each
+            other keep that relative order) - moving several at once one at
+            a time, recomputing
+            positions as it goes, could otherwise reorder a whole cluster
+            relative to itself. None if a target box does not exist in x, or
+            the result would stop matching `expect_seq` (the fan's
+            subsequence) - the caller logs the mismatch instead of shipping a
+            broken move."""
+            occ = occs(x)
+            if any(t >= len(occ) for t, _ in targets):
+                return None
+            plans = []
+            for t, box_idx in targets:
+                k, code, _ = occ[t]
+                n = ARGS[code]
+                ins = _place_like_fan(x, a, box_idx, oa[t][0])
+                if ins is None:
+                    return None
+                plans.append((t, k, n, ins))
+            spans = sorted((k, k + 1 + n, t) for t, k, n, _ in plans)
+            rest, keep_ranges = [], []
+            prev = 0
+            for k, end, _t in spans:
+                keep_ranges.append((prev, k, len(rest)))
+                rest.extend(x[prev:k])
+                prev = end
+            keep_ranges.append((prev, len(x), len(rest)))
+            rest.extend(x[prev:len(x)])
+
+            def to_new(idx):
+                for lo, hi, base in keep_ranges:
+                    if lo <= idx <= hi:
+                        return base + (idx - lo)
+                return len(rest)
+
+            blocks = {t: x[k:k + 1 + n] for t, k, n, _ in plans}
+            groups = {}
+            for t, k, n, ins in plans:
+                groups.setdefault(to_new(ins), []).append(t)
+            cur = list(rest)
+            for ins in sorted(groups, reverse=True):
+                block = []
+                for t in sorted(groups[ins]):
+                    block += blocks[t]
+                cur = cur[:ins] + block + cur[ins:]
+            if [(c, ag) for _, c, ag in occs(cur)] != expect_seq:
+                return None
+            return cur
+
+        fan_seq = [(c, args) for _, c, args in oa]
+        final_u = u
+        if [(c, args) for _, c, args in ou] != fan_seq:
+            try:
+                keys_u = [_staging_key(c, args) for _, c, args in ou]
+                keys_a = [_staging_key(c, args) for _, c, args in oa]
+                if keys_u == keys_a:
+                    nu = list(u)
+                    for (ku, cu, _), (ka, _, aargs) in zip(ou, oa):
+                        n = ARGS[cu]
+                        if ku + 1 + n > len(nu) or ka + 1 + n > len(a):
+                            raise ValueError('truncated string')
+                        nu[ku + 1:ku + 1 + n] = list(aargs)
+                    kind = 'values'
+                else:
+                    m = len(ou)
+                    bp = [0] * (m + 1)
+                    for t in range(m):
+                        bp[t + 1] = ou[t][0] + 1 + ARGS[ou[t][1]]
+                    gaps = [list(u[bp[t]:ou[t][0]]) for t in range(m)]
+                    gaps.append(list(u[bp[m]:len(u)]))
+                    slots = [list(u[ou[t][0]:ou[t][0] + 1 + ARGS[ou[t][1]]]) for t in range(m)]
+                    removed = [False] * m
+
+                    def _true_repeat(raw, end_prev, start_next):
+                        """True if raw[end_prev:start_next] holds nothing but
+                        {E107}/{E108} pacing codes - a genuine
+                        back-to-back repeat, not the same value reused at two
+                        different points in the box (entry 128 string 1)."""
+                        k = end_prev
+                        while k < start_next:
+                            v = raw[k]
+                            if v in (0xE107, 0xE108):
+                                k += 1 + ARGS.get(v, 0)
+                            else:
+                                return False
+                        return True
+
+                    def _dedupe(occ_list, raw):
+                        """Maximal runs of TRUE-repeat occurrences (same code
+                        and args, _true_repeat between each consecutive
+                        pair). Returns [(raw_index_of_representative,
+                        multiplicity), ...]."""
+                        out = []
+                        i, n = 0, len(occ_list)
+                        while i < n:
+                            k = i + 1
+                            while (k < n and occ_list[k][1] == occ_list[i][1]
+                                   and occ_list[k][2] == occ_list[i][2]
+                                   and _true_repeat(raw, occ_list[k - 1][0] + 1 + ARGS[occ_list[k - 1][1]],
+                                                     occ_list[k][0])):
+                                k += 1
+                            out.append((i, k - i))
+                            i = k
+                        return out
+
+                    def _rep_units(rep_i, mult):
+                        ka, ca, aargs = oa[rep_i]
+                        n = ARGS[ca]
+                        if ka + 1 + n > len(a):
+                            raise ValueError('truncated string')
+                        return ([ca] + list(aargs)) * mult
+
+                    dedup_u = _dedupe(ou, u)
+                    dedup_a = _dedupe(oa, a)
+                    du = len(dedup_u)
+
+                    def _frac(x, pos):
+                        """0..1: how far through its own box raw index pos
+                        sits, by TEXT units - None if x has no box there."""
+                        b = _box_index(x, pos)
+                        span = _box_span(x, b)
+                        if span is None:
+                            return None
+                        lo, hi = span
+                        total = _text_count(x, lo, hi)
+                        return _text_count(x, lo, pos) / total if total else 0.0
+
+                    def _disambiguate():
+                        """A reduced (code, char) key does not distinguish
+                        two occurrences of the SAME character's command with
+                        DIFFERENT values - fine when there is at most one on
+                        each side, but if OUR side repeats a key at points
+                        _dedupe did not merge (real content between them, not
+                        a true repeat) more times than the fan does, plain
+                        key-based alignment has no way to tell which of ours
+                        already corresponds to the fan's occurrence and
+                        matches whichever difflib meets first: entry 137
+                        string 10 has five occurrences of a pose the fan only
+                        uses once; a plain match paired the fan's copy with
+                        whichever of ours came first (in the wrong box),
+                        deleted the copy that was ALREADY RIGHT, and placed
+                        the survivor into the fan's box from the wrong side.
+                        Relabel every occurrence of our excess EXCEPT
+                        whichever sits in the SAME BOX as the fan's
+                        occurrence (ties broken by text fraction) so it gets
+                        a unique key and can never claim an 'equal' match -
+                        it falls to removal instead, on its own merits. (The
+                        opposite direction - the fan repeating a key more
+                        than we do - was tried the same way and confirmed, by
+                        comparing a build with and without it over the whole
+                        game, to change nothing: removed.)"""
+                        keys_a_d = [_staging_key(oa[s][1], oa[s][2]) for s, _ in dedup_a]
+                        keys_u_d = [_staging_key(ou[s][1], ou[s][2]) for s, _ in dedup_u]
+                        ra, ru = {}, {}
+                        for idx, k in enumerate(keys_a_d):
+                            ra.setdefault(k, []).append(idx)
+                        for idx, k in enumerate(keys_u_d):
+                            ru.setdefault(k, []).append(idx)
+                        for key in set(ra) | set(ru):
+                            a_idxs, u_idxs = ra.get(key, []), ru.get(key, [])
+                            if len(u_idxs) > len(a_idxs):
+                                a_box = {ai: _box_index(a, oa[dedup_a[ai][0]][0]) for ai in a_idxs}
+                                u_box = {ui: _box_index(u, ou[dedup_u[ui][0]][0]) for ui in u_idxs}
+                                af = {ai: _frac(a, oa[dedup_a[ai][0]][0]) for ai in a_idxs}
+                                uf = {ui: _frac(u, ou[dedup_u[ui][0]][0]) for ui in u_idxs}
+                                pairs = sorted(
+                                    (0 if u_box[ui] == a_box[ai] else 1,
+                                     abs(af[ai] - uf[ui]) if af[ai] is not None and uf[ui] is not None else 1.0,
+                                     ai, ui)
+                                    for ai in a_idxs for ui in u_idxs)
+                                chosen, used_a = set(), set()
+                                for _, _, ai, ui in pairs:
+                                    if ui in chosen or ai in used_a:
+                                        continue
+                                    chosen.add(ui)
+                                    used_a.add(ai)
+                                for ui in u_idxs:
+                                    if ui not in chosen:
+                                        keys_u_d[ui] = ('EXCESS', ui)
+                        return keys_a_d, keys_u_d
+
+                    keys_a_d, keys_u_d = _disambiguate()
+
+                    # Positions chosen by proportional-point placement queue here against the
+                    # ORIGINAL string (never against a gap already grown by
+                    # an earlier insertion), sorted into place per gap once
+                    # every opcode has been read - order_seq is the tiebreak
+                    # so same-point insertions still land in fan order.
+                    lead_prefix = {}
+                    trail_suffix = {}
+                    pending = {t: [] for t in range(m + 1)}
+                    order_seq = [0]
+
+                    def _gap_of(idx):
+                        for t in range(m + 1):
+                            end = ou[t][0] if t < m else len(u)
+                            if bp[t] <= idx <= end:
+                                return t
+                        return m
+
+                    def _queue(idx, units):
+                        t = _gap_of(idx)
+                        pending[t].append((idx - bp[t], order_seq[0], units))
+                        order_seq[0] += 1
+
+                    def _place(fan_pos, units):
+                        box_idx = _box_index(a, fan_pos)
+                        ins = _place_like_fan(u, a, box_idx, fan_pos)
+                        if ins is None:
+                            ins = len(u)
+                        _queue(ins, units)
+
+                    sm = difflib.SequenceMatcher(None, keys_a_d, keys_u_d, autojunk=False)
+                    for op, i1, i2, j1, j2 in sm.get_opcodes():
+                        if op == 'equal':
+                            for di, dj in zip(range(i1, i2), range(j1, j2)):
+                                rs, rc = dedup_u[dj]
+                                fi, fmult = dedup_a[di]
+                                _, ca, aargs = oa[fi]
+                                n = ARGS[ca]
+                                if oa[fi][0] + 1 + n > len(a):
+                                    raise ValueError('truncated string')
+                                take = min(rc, fmult)
+                                for t in range(take):
+                                    ku, cu, _ = ou[rs + t]
+                                    if ku + 1 + n > len(u):
+                                        raise ValueError('truncated string')
+                                    slots[rs + t] = [ca] + list(aargs)
+                                for t in range(rs + take, rs + rc):
+                                    removed[t] = True
+                                if fmult > rc:
+                                    # A TRUE repeat (see _dedupe) our side only has
+                                    # once: the extra copy is a genuine
+                                    # back-to-back duplicate, so it rides
+                                    # right after the copy already there.
+                                    extra = ([ca] + list(aargs)) * (fmult - rc)
+                                    lead_prefix[rs + rc] = lead_prefix.get(rs + rc, []) + extra
+                            continue
+
+                        if j1 < j2:
+                            # Both sides have deduped groups here (replace, or
+                            # an our-only run to drop): the fan's run goes
+                            # where our first removed group stood.
+                            raw_start = dedup_u[j1][0]
+                            raw_end = dedup_u[j2 - 1][0] + dedup_u[j2 - 1][1]
+                            units = []
+                            for di in range(i1, i2):
+                                fi, fmult = dedup_a[di]
+                                units += _rep_units(fi, fmult)
+                            slots[raw_start] = units
+                            for t in range(raw_start + 1, raw_end):
+                                removed[t] = True
+                            continue
+
+                        # Our side is EMPTY here (deduped j1 == j2): the fan
+                        # has one or more deduped groups ours entirely lacks.
+                        # First, chain consecutive fan groups that have NO
+                        # TEXT between them - this is about ADJACENCY, not
+                        # value identity, so it ignores KEY entirely (a
+                        # key-based run split was tried first and proved too
+                        # narrow). Only the chain touching the block's own
+                        # start can ride the real preceding surviving
+                        # occurrence, and only the chain touching its own end
+                        # can ride the real following one, and only when that
+                        # neighbour really is adjacent with no text either;
+                        # every other chain (including a boundary chain that
+                        # fails its neighbour check) is placed by the
+                        # proportional-point placement as one unit, using its
+                        # first member's fan position. (Removing the "ride
+                        # the following occurrence" shortcut for the chain
+                        # touching the block's own end was tried, expecting
+                        # it to be redundant once a chain can be placed on
+                        # its own; comparing a build with and without it,
+                        # byte for byte, over the whole game showed exactly
+                        # one difference, entry 99 string 5: without the
+                        # shortcut, the proportional placement moved an
+                        # {E16F} move-character command to land after the
+                        # engine command {E15A}<0> instead of before it,
+                        # where the shortcut (and the fan) keep it. Kept.)
+                        chains = []
+                        for di in range(i1, i2):
+                            if chains and _adjacent_no_text(
+                                    oa, a, dedup_a[di - 1][0] + dedup_a[di - 1][1] - 1, dedup_a[di][0]):
+                                chains[-1].append(di)
+                            else:
+                                chains.append([di])
+                        lead_claim = (j1 > 0 and i1 > 0 and _adjacent_no_text(
+                            oa, a, dedup_a[i1 - 1][0] + dedup_a[i1 - 1][1] - 1, dedup_a[i1][0]))
+                        trail_claim = (j2 < du and i2 < len(dedup_a) and _adjacent_no_text(
+                            oa, a, dedup_a[i2 - 1][0] + dedup_a[i2 - 1][1] - 1, dedup_a[i2][0]))
+
+                        for ci, chain in enumerate(chains):
+                            units = []
+                            for di in chain:
+                                fi, fmult = dedup_a[di]
+                                units += _rep_units(fi, fmult)
+                            if ci == 0 and lead_claim:
+                                raw_gap = dedup_u[j1][0] if j1 < du else m
+                                lead_prefix[raw_gap] = lead_prefix.get(raw_gap, []) + units
+                            elif ci == len(chains) - 1 and trail_claim:
+                                raw_gap = dedup_u[j2][0] if j2 < du else m
+                                trail_suffix[raw_gap] = trail_suffix.get(raw_gap, []) + units
+                            else:
+                                _place(oa[dedup_a[chain[0]][0]][0], units)
+
+                    for t in range(m + 1):
+                        content = gaps[t]
+                        if pending[t]:
+                            items = sorted(pending[t], key=lambda p: (p[0], p[1]))
+                            rebuilt, prev = [], 0
+                            for off, _, punits in items:
+                                off = max(0, min(off, len(content)))
+                                rebuilt.extend(content[prev:off])
+                                rebuilt.extend(punits)
+                                prev = off
+                            rebuilt.extend(content[prev:])
+                            content = rebuilt
+                        gaps[t] = lead_prefix.get(t, []) + content + trail_suffix.get(t, [])
+
+                    nu = []
+                    for t in range(m):
+                        nu.extend(gaps[t])
+                        if not removed[t]:
+                            nu.extend(slots[t])
+                    nu.extend(gaps[m])
+                    kind = 'resequenced'
+            except (ValueError, IndexError):
+                skipped += 1
+                continue
+
+            if [(c, args) for _, c, args in occs(nu)] != fan_seq:
+                skipped += 1
+                continue
+            conv[j] = nu
+            final_u = nu
+            if kind == 'values':
+                values += 1
+            else:
+                resequenced += 1
+
+        # Box placement check: only where box-end COUNTS agree (a
+        # translation-driven box count difference makes a box-for-box
+        # comparison meaningless, not a placement fault) and only once the
+        # subsequence itself is known to match the fan's (true here either
+        # because the string always matched, or because it was just proven
+        # above) - so occurrence counts are always equal when this runs.
+        occ_o = occs(final_u) if final_u is not u else ou
+        box_ok = False
+        if len(_box_starts(final_u)) == len(_box_starts(a)) and len(oa) == len(occ_o):
+            bad = [(t, _box_index(a, oa[t][0])) for t in range(len(oa))
+                   if _box_index(a, oa[t][0]) != _box_index(final_u, occ_o[t][0])]
+            if bad:
+                fixed = _relocate_boxes(final_u, bad, fan_seq)
+                if fixed is not None:
+                    conv[j] = fixed
+                    final_u = fixed
+                    occ_o = occs(final_u)
+                    moved_box += 1
+                    box_ok = True
+                else:
+                    box_mismatches.append(j)
+            else:
+                box_ok = True
+
+        # COARSE in-box property, checked separately from box placement and
+        # only once it is right: an earlier version of this pass also scaled
+        # every occurrence's exact in-box text point to a proportional target
+        # and moved anything more than 2 units off, even in a string whose
+        # subsequence AND box already equalled the fan's - a string the
+        # Collection placed against ITS OWN wording, where a point derived
+        # from the fan's different wording is a guess. A coarse
+        # before/after-text comparison run over the whole game found that of
+        # 637 strings whose subsequence and box already matched, 634 already
+        # agree with the fan on this coarser property; only 3 (124/3, 147/0,
+        # 214/1) do not, so only those need moving (the log's count also
+        # includes resequenced strings that land on the wrong side). Once every occurrence
+        # sits in the right box, each occurrence's COARSE property - is
+        # there any visible text before it in its own box, _has_text, not a
+        # scaled text-unit count - is compared to the fan's; only a mismatch
+        # is moved, still by the proportional-point placement
+        # (_relocate_boxes/_place_like_fan), to the fan's side of the text.
+        # Everything else in a box-correct string is left exactly as it was
+        # - byte-identical to the build before this pass unless this is the
+        # reason it changed.
+        if box_ok:
+            coarse_bad = []
+            for t in range(len(oa)):
+                b = _box_index(a, oa[t][0])
+                fspan, ospan = _box_span(a, b), _box_span(final_u, b)
+                if fspan is None or ospan is None:
+                    continue
+                fan_after = _has_text(a, fspan[0], oa[t][0])
+                our_after = _has_text(final_u, ospan[0], occ_o[t][0])
+                if fan_after != our_after:
+                    coarse_bad.append((t, b))
+            if coarse_bad:
+                fixed = _relocate_boxes(final_u, coarse_bad, fan_seq)
+                if fixed is not None:
+                    conv[j] = fixed
+                    final_u = fixed
+                    moved_coarse += 1
+    return values, resequenced, skipped, box_mismatches, moved_box, moved_coarse
 
 
 # Box-end codes for the seam-cue rule below - deliberately NOT inject.py's own
@@ -636,6 +1401,9 @@ def main(base=None, out=None):
     dsvalue_mismatch = collections.OrderedDict((c, 0) for c in DS_VALUE_ARGS)
     seamcues = 0
     seamcue_seams = []
+    staging_values = staging_resequenced = staging_skipped = 0
+    staging_moved_box = staging_moved_coarse = 0
+    staging_box_mismatches = []
     stmttrim = stmttrim_fallback = 0
     foreign = 0
     zerounit = 0
@@ -900,7 +1668,8 @@ def main(base=None, out=None):
                         if v == 0x0A:
                             segs.append(0)
                         else:
-                            ch = (chr(v - 0xFEE0) if 0xFF01 <= v <= 0xFF5E else
+                            ch = ('e' if v in (0x0415, 0x30A7) else  # fan font's e-grave/e-acute slots
+                                  chr(v - 0xFEE0) if 0xFF01 <= v <= 0xFF5E else
                                   ' ' if v == 0xFF3F else
                                   TYPO.get(v) or (chr(v) if 0x20 <= v < 0x7F else None))
                             # an unpriceable glyph poisons the row: force it wide so
@@ -1005,6 +1774,14 @@ def main(base=None, out=None):
             n_r, n_m = _restore_index_args(conv, ds, _code, DS_VALUE_ARGS)
             dsvalue_counts[_code] += n_r
             dsvalue_mismatch[_code] += n_m
+        (n_stage_v, n_stage_r, n_stage_s, stage_box_js,
+         n_stage_moved_box, n_stage_moved_coarse) = _restore_staging(conv, ds)
+        staging_values += n_stage_v
+        staging_resequenced += n_stage_r
+        staging_skipped += n_stage_s
+        staging_box_mismatches += [(i, j) for j in stage_box_js]
+        staging_moved_box += n_stage_moved_box
+        staging_moved_coarse += n_stage_moved_coarse
         recs = [(ds[j][1], conv[j]) for j in range(1, len(ds))]
         # A string the injector left as the fan wrote it keeps whatever the fan put in
         # its terminator slot: that slot can be the last argument of a command cut off
@@ -1085,6 +1862,15 @@ def main(base=None, out=None):
     for _code, _n in dsvalue_counts.items():
         print('DS map/list value restored from the fan, {%s}: %d  (mismatched strings: %d)'
               % (format(_code, 'X'), _n, dsvalue_mismatch[_code]))
+    print('staging (camera and character positions) restored from the fan: '
+          '%d strings by value, %d resequenced, %d skipped, %d placed in a '
+          'different box than the fan, %d %s moved to fix box placement, '
+          '%d %s moved to the fan\'s side of the text in the box'
+          % (staging_values, staging_resequenced, staging_skipped, len(staging_box_mismatches),
+             staging_moved_box, 'string' if staging_moved_box == 1 else 'strings',
+             staging_moved_coarse, 'string' if staging_moved_coarse == 1 else 'strings'))
+    if staging_box_mismatches:
+        print('  ' + ', '.join('entry %d str %d' % t for t in staging_box_mismatches))
     if KEEP_DSONLY_GATE:
         print('rows kept as fan to keep a DS-only command:  %d  (in %d script banks)'
               % (dsonly, len(dsonly_banks)))
