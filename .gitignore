@@ -45,3 +45,8 @@ dist/
 
 # the six shipped close-up pictures (README, Legal)
 !tools/cg_art_final/*.png
+
+# saves, patch bundles and archives never belong in the repo
+*.sav
+*.zip
+*.7z
