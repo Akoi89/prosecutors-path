@@ -239,7 +239,11 @@ def break_tails(rom):
     return bytes(out), done
 
 
-WIDE_UNIT = 0xFF37          # fullwidth 'W', 9px in the dialogue width model
+# fullwidth 'W'. Real advances (checked against the ROM, not the old estimate
+# model): 10px in SMALL1, 13px in MAIN - see break_widgets_narrow's docstring
+# below, which found the same glyph is NOT 9px in either table. Used at
+# 13px/MAIN by break_narration_width (measure_linewidth.py's fixture).
+WIDE_UNIT = 0xFF37
 
 
 def break_widgets(rom):
@@ -332,6 +336,53 @@ def break_widgets_narrow(rom):
             return bytes(out), 1
         break
     return bytes(rom), 0
+
+
+def break_narration_width(rom):
+    """Widen a NARRATION line (no {E101}) past the 240px dialogue budget -
+    proves the 2026-09-27 measure_linewidth.py fix (narration scope) can
+    fail. DS[18] str5 is part of the same scene as str4 (which carries
+    {E100}{E101}) but never reopens the box itself, so the PRE-fix
+    E101-only scope of measure_linewidth.py never looked at this string at
+    all - exactly the blind spot the fix exists to close. Every visible unit
+    becomes 'W' (0xFF37, 13px in the MAIN real-advance table measure_linewidth.py
+    builds against), so the string's widest line - same box-end codes at the
+    same positions, same line breaks, nothing added or removed - grows from
+    209px to well over 400px. Control codes, their arguments, 0x0A and the
+    null separator are left untouched, so only the defect this fixture exists
+    to prove is introduced.
+    """
+    a, b = spt_span(rom)
+    cont = bytes(rom[a:b])
+    o, s = struct.unpack_from('<II', cont, 18 * 8)
+    if not s or cont[o:o + 4] != b' TPS':
+        return bytes(rom), 0
+    e = cont[o:o + s]
+    h, recs = spt.parse(e, True)
+    starts = [h['dstart']] + [r[1] for r in recs]
+    lens = [h['lead']] + [r[2] for r in recs]
+    j = 5
+    if j >= len(starts):
+        return bytes(rom), 0
+    sbase = a + o + starts[j]
+    ln = lens[j]
+    if sbase + ln * 2 > b:
+        return bytes(rom), 0
+    units = [struct.unpack_from('<H', rom, sbase + k * 2)[0] ^ XOR for k in range(ln)]
+    out = bytearray(rom)
+    done, skip = 0, 0
+    for k, v in enumerate(units):
+        if skip:
+            skip -= 1
+            continue
+        if 0xE000 <= v <= 0xF8FF:
+            skip = ARGS.get(v, 0)
+            continue
+        if v in (0, 0x0A):
+            continue
+        out[sbase + k * 2:sbase + k * 2 + 2] = enc(WIDE_UNIT)
+        done += 1
+    return bytes(out), done
 
 
 def _find_e187_offset(e, base, j, arg_index):
@@ -761,6 +812,7 @@ FIXTURES = [
     ('audit_staging.py', "move one staging command into the wrong box in a string whose box-end count still matches the fan", break_staging_placement, 'rom'),
     ('audit_staging.py', "move one staging command from after some text to before any text in its own box (same subsequence, same box)", break_staging_point, 'rom'),
     ('audit_zeros.py', "zero one ordinary text unit in DS[0] str 4 (a stray literal 0x0000 in text position - the DELTA 5 zero-in-text hang)", break_zero_text, 'rom'),
+    ('measure_linewidth.py', "widen DS[18] str5 (a narration line with no {E101}) past 240px - the 2026-09-27 blind-spot fix", break_narration_width, 'rom'),
 ]
 
 
@@ -808,16 +860,22 @@ def main():
         open(path, 'wb').write(broken)
         clean_arg = clean_path if kind == 'rom' else None
         if script in ('audit_indexargs.py', 'audit_zeros.py', 'audit_staging.py',
-                      'audit_widgets.py'):
+                      'audit_widgets.py', 'measure_linewidth.py'):
             # should-fix 2: an audit that already fails on the clean ROM would
             # make the ordinary text-diff test trivially pass. Require the
             # clean ROM to exit 0 (nothing wrong) and the broken copy to
             # exit 1 (audit_indexargs.py's / audit_zeros.py's / audit_widgets.py's
-            # own sys.exit(1) on any hit). audit_widgets.py added 2026-09-27
-            # alongside its real exit code (see the sweep fix spec) - before
-            # that it only ever printed, so the text-diff path below was the
-            # only way to prove break_widgets (bank 453, still exercised here)
-            # was noticed at all.
+            # / measure_linewidth.py's own sys.exit(1)/return 1 on any hit).
+            # audit_widgets.py added 2026-09-27 when it gained a real exit
+            # code (rc=1 on any bank-453/454/455 row over its proven SMALL
+            # field, or any 453-455 row that lost a line) - before that it
+            # only ever printed, so the text-diff path below was the only way
+            # to prove break_widgets (bank 453, still exercised here) was
+            # noticed at all.
+            # measure_linewidth.py added the same day, when its scope widened
+            # to measure narration (strings with no {E101}) as well as
+            # dialogue - see break_narration_width above, which this entry
+            # exercises.
             clean_out, clean_rc = run_full(script, clean_arg)
             dirty_out, dirty_rc = run_full(script, path)
             ok = clean_rc == 0 and dirty_rc == 1
