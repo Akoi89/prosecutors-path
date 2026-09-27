@@ -195,13 +195,44 @@ ROWFIX = {(432, 292): (_fwseq('Was Samson'), _fwseq('Samson')),
           # path and is not what "unreachable" refers to.) Confirmed by rebuilding
           # after the deletion: the output ROM is byte-identical without them.
 
-# Option-widget banks: one line each, and the widget's proven width is whatever
-# the fan actually displayed in it - the same budget inject.py uses when it
-# swaps these rows. A renamed row wider than that keeps the fan line rather than
-# risking a clip, exactly as the injector does.
+# Option-widget banks: one line each. 456/457 keep the older budget - whatever
+# the fan actually displayed in that bank, measured in dstext._estimate units,
+# same as inject.py's own now-superseded fan-max budget for them. 453/454/455
+# (WIDGET_SMALL_BANKS below) instead use the SMALL-font real advances against
+# the 2026-09-27 sweep's proven field widths (fontwidths.small_widths, loaded
+# by inject.py's use_small_widths() below) - the estimate model and a
+# fan-row-derived budget both measure the wrong thing for these three, exactly
+# as they did in inject.py's own widget path before that fix.
 WIDGET_BANKS = {453, 454, 455, 456, 457}
+WIDGET_SMALL_BANKS = {453, 454, 455}
+WIDGET_PROVEN_PX = {453: 189, 454: 229, 455: 189}
+_SMALL = {}
+
+
+def use_small_widths(widths):
+    """Load the SMALL1 real advances inject.py read from the ROM. Call once,
+    before harmonize_entry() runs on any Mind Chess bank; a falsy `widths`
+    (ROM did not match) leaves _SMALL empty, and row_px_small() below then
+    prices every renamed row 9999 - the widget-budget check that uses it can
+    then only fail toward keeping the fan's row, never ship an unmeasured
+    one."""
+    global _SMALL
+    if not widths:
+        return False
+    _SMALL = widths
+    return True
 TYPO = {0x2018: "'", 0x2019: "'", 0x201C: '"', 0x201D: "'",
         0x2013: '-', 0x2014: '-', 0x2026: '.', 0x2025: '.'}
+# Banks whose renamed rows must fall back to a plain 'e' rather than the
+# redrawn MAIN-only accent slots (2026-09-27 text-box sweep): the description/
+# Logic face already did this (DESC_BANKS); the Mind Chess banks (453-458, the
+# option/question/banner widgets and their "_dl" copies alike - the spec calls
+# for all six, not just WIDGET_BANKS' 453-457) draw a SMALL face that has no
+# U+0415 record at all (fontwidths.SMALL_TABLE_OFF) and an unverified U+30A7
+# one, so a kept-fan row renamed to "Gavelle" must not carry the accent into a
+# face that may not draw it (found on-ROM: 453/451, 455/111 both spelled it
+# with U+0415).
+ACCENT_OFF_BANKS = DESC_BANKS | WIDGET_BANKS | {458}
 
 def row_px(u):
     """Widest display line, measured the way inject.py measures these rows."""
@@ -218,6 +249,51 @@ def row_px(u):
             if ch: segs[-1] += _w(ch)
         k += 1
     return max(segs)
+
+
+def row_px_small(u):
+    """Widest display line for a WIDGET_SMALL_BANKS row, measured with the
+    ROM's own SMALL1 advances (_SMALL, loaded by use_small_widths()) instead
+    of the estimate model row_px() uses - the same font Mind Chess actually
+    draws these rows in (2026-09-27 text-box sweep). `u` is already fullwidth
+    (substitute()'s _fwc() converts every replacement character before this
+    ever runs), so most units are looked up as-is.
+
+    The fan's redrawn accent slots (MAIN-only) map to a plain fullwidth 'e'
+    first. Every OTHER unit is looked up DIRECTLY in _SMALL first, because the
+    apostrophe (dstext.APOS, U+201D) and the open/close quote (U+201C) the
+    fan's font actually draws are themselves real entries in SMALL1 (2px and
+    7px) - only when that direct lookup misses does this fall back to TYPO's
+    plain-ASCII spelling, re-fullwidthed (the em/en dash and the Collection's
+    single-character ellipsis have no direct SMALL1 entry of their own, so
+    they do need this). Getting this order backwards - re-fullwidthing the
+    apostrophe/quote through TYPO before trying them directly - looks them up
+    as U+FF07/U+FF02, which SMALL1 does not have either, so a renamed row
+    with so much as one apostrophe priced at 9999 and always kept the fan
+    name (found 2026-09-27 refuting this file's own first draft: 453/247 and
+    453/536 wrongly kept fan names, and 453/299's "Tangaroa's" trim measured
+    10,178px instead of its real ~181px). A glyph _SMALL has no record for at
+    all - including every character while _SMALL is empty - still prices at
+    9999, so an unmeasured row can only fail the budget check toward keeping
+    the fan's line, never ship unmeasured."""
+    segs, k = [0], 0
+    while k < len(u):
+        v = u[k]
+        if CTRL(v):
+            k += 1 + dstext.ARGS.get(v, 0); continue
+        if v == 0x0A:
+            segs.append(0)
+        else:
+            vv = _PLAIN_E if v in _ACCENT_VALS else v
+            a = _SMALL.get(vv)
+            if a is None and v in TYPO:
+                c = TYPO[v]
+                fv = 0xFF3F if c == ' ' else ord(c) - 0x21 + 0xFF01
+                a = _SMALL.get(fv)
+            segs[-1] += 9999 if a is None else a
+        k += 1
+    return max(segs)
+
 
 BOXEND = {0xE102, 0xE104, 0xE106, 0xE185, 0xE081}
 
@@ -377,7 +453,11 @@ def harmonize_entry(entry, fan_entry, idx):
         return entry, 0, []
     lim, cap = LIMITS.get(idx, (DIALOG_LIMIT, None))
     budget = None
-    if idx in WIDGET_BANKS and F:
+    rowpx_fn = row_px
+    if idx in WIDGET_SMALL_BANKS:
+        rowpx_fn = row_px_small
+        budget = WIDGET_PROVEN_PX[idx]
+    elif idx in WIDGET_BANKS and F:
         budget = max(row_px(list(u)) for u in F.values())
     changed = 0
     over = []
@@ -386,10 +466,12 @@ def harmonize_entry(entry, fan_entry, idx):
         uu = list(u)
         if si in F and tuple(u) == F[si]:
             nu, c = substitute(uu)
-            if c and idx in DESC_BANKS:
-                # This row's font is the smaller description/Logic face, whose
-                # slots have not been checked for the redrawn accents; fall back
-                # to the plain letter rather than assume they carry it too.
+            if c and idx in ACCENT_OFF_BANKS:
+                # This row's font is the smaller description/Logic face, or one
+                # of the Mind Chess widget banks, whose slots have not been
+                # checked for the redrawn accents (SMALL1 has no U+0415 record
+                # at all - see fontwidths.py); fall back to the plain letter
+                # rather than assume they carry it too.
                 nu = [_PLAIN_E if v in _ACCENT_VALS else v for v in nu]
             if c:
                 fx = ROWFIX.get((idx, si))
@@ -414,10 +496,10 @@ def harmonize_entry(entry, fan_entry, idx):
                                     break
                                 line_no += 1; start = k2 + 1
                         bad = [(k3, w) for k3, w in enumerate(line_widths(nu)) if w > lim]
-                if budget is not None and row_px(nu) > budget:
+                if budget is not None and rowpx_fn(nu) > budget:
                     # wider than the fan ever proved this widget can draw -
                     # keep the fan row rather than risk a clipped line
-                    over.append((si, [('widget', row_px(nu), budget)]))
+                    over.append((si, [('widget', rowpx_fn(nu), budget)]))
                     recs.append((a, uu))
                     continue
                 if bad:
@@ -430,8 +512,8 @@ def harmonize_entry(entry, fan_entry, idx):
                     # name where it fits, official surname where it does not,
                     # and the fan line only if even that is too wide.
                     nu2, c2, kept_lines = per_line_harmonize(uu, lim, fix=ROWFIX.get((idx, si)))
-                    if c2 and idx in DESC_BANKS:
-                        # same plain-letter fallback as above for the smaller face
+                    if c2 and idx in ACCENT_OFF_BANKS:
+                        # same plain-letter fallback as above for the smaller/widget face
                         nu2 = [_PLAIN_E if v in _ACCENT_VALS else v for v in nu2]
                     if kept_lines:
                         over.append((si, [('line-kept-fan', kept_lines)]))

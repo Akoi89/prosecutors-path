@@ -615,6 +615,67 @@ def _split_card_rows(tokens):
         out.extend(r)
     return out
 
+def _cur_line_start(seq, start=0):
+    """Index in `seq` where its last emitted display line begins, scanning
+    FORWARD from `start` (a boundary known to fall between whole units, never
+    inside a control code's own arguments - every caller passes chunk_start,
+    which convert() only ever advances right after appending a complete
+    sequence). Walks arity-aware for the same reason _line_width does: 0x0A
+    is a common ARGUMENT value (E101 carries it 2,098 times in the corpus,
+    E12F 1,079, 80+ other codes at least once), so a backward scan for a bare
+    0x0A - the first version of this helper - could stop on an argument unit
+    instead of a real line break and report a line start that was never one."""
+    i, n = start, len(seq)
+    last = start
+    while i < n:
+        v = seq[i]
+        if CTRL(v):
+            i += 1 + ARGS.get(v, DEFAULT_ARGS)
+            continue
+        if v == 0x0A:
+            i += 1
+            last = i
+            continue
+        i += 1
+    return last
+
+def _count_line_breaks(seq, start=0):
+    """Real line breaks in `seq` from `start`, walked arity-aware like
+    _cur_line_start, so a 0x0A that is a control code's argument never counts."""
+    i, n, count = start, len(seq), 0
+    while i < n:
+        v = seq[i]
+        if CTRL(v):
+            i += 1 + ARGS.get(v, DEFAULT_ARGS)
+            continue
+        if v == 0x0A:
+            count += 1
+        i += 1
+    return count
+
+
+def _line_width(seq):
+    """Plain px sum of a slice already emitted to the output stream. Walks
+    ARGS-aware (like every other width walker in this project) so a control
+    code's own ARGUMENT units - plain small integers, not in the control
+    range - are skipped along with the code itself rather than priced as if
+    they were text glyphs; missing this inflated a line by ~7px per argument
+    unit skipped over (found 2026-09-27: a box-open run of {E100}/{E101}/
+    {E107} carries 4 such units before any real text, which was enough on its
+    own to push several genuinely-fitting lines over LINE_PX and split them
+    for no reason)."""
+    total = 0
+    i, n = 0, len(seq)
+    while i < n:
+        v = seq[i]
+        if CTRL(v):
+            i += 1 + ARGS.get(v, DEFAULT_ARGS)
+            continue
+        total += W(chr(v))
+        i += 1
+    return total
+
+
 def convert(units, wrap=True, page=True, hard_nl='e20d'):
     """hard_nl: 'e20d' keeps a source newline as a line break only when {E20D} follows
     (location/date cards); True keeps every newline; False folds them all to spaces."""
@@ -785,6 +846,15 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
             chunks = merged
         depth = 0
         style = None            # the {E04x} opener currently in effect, or None
+        # chunk_start tracks where the CURRENT chunk's own content starts in
+        # `out` (set in the loop body below, per chunk), so the line-start
+        # scan in the paren-close reservation never walks back into an
+        # earlier chunk's or an earlier MESSAGE's already-shipped box -
+        # neither a chunk transition nor a message's own last box necessarily
+        # ends on a literal {0x0A} (most single-line boxes do not), so
+        # scanning for one alone can cross into unrelated, already laid-out
+        # text and measure several boxes concatenated as if they were "the
+        # current line".
         for ci, chunk in enumerate(chunks):
             prefix_px = 0       # width this chunk's first line has already spent
             if ci:
@@ -801,16 +871,56 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
                 already_closes = _opens_with_close(chunk)
                 reopen = style if style is not None and not already_closes else None
                 if style is not None and not already_closes: out.append(STYLE_OFF)
-                if depth > 0: out.append(PAREN_CLOSE)
+                if depth > 0:
+                    # This synthetic ')' is appended straight to `out` after
+                    # _layout() has already committed the chunk's lines, so
+                    # the wrap decision above never budgeted for it - a line
+                    # landing in the last few px of LINE_PX can ship one glyph
+                    # over (traced 2026-09-27, spt 100/32: laid out at 236px,
+                    # ')' is 5px in the MAIN table, 236+5=241). Reserve its
+                    # width against the line already on `out`: if it does not
+                    # fit, push that line's own last word onto a new line
+                    # first, exactly as the ordinary wrap would have if it had
+                    # known this glyph was coming.
+                    ls = _cur_line_start(out, chunk_start)
+                    if _line_width(out[ls:]) + W(chr(PAREN_CLOSE)) > LINE_PX:
+                        # Moving the word down adds a line to THIS chunk. Only
+                        # do that if the chunk still fits BOX_LINES afterward -
+                        # otherwise the new line is a 4th one the box never
+                        # shows, silently dropping text, which is worse than
+                        # shipping this one line a few px over (found
+                        # 2026-09-27 review: reserving the width inside
+                        # _layout()/split_tokens() so pagination itself sees it
+                        # would be the general fix, but that touches every
+                        # parenthesised message's own box count and needs its
+                        # own verification pass).
+                        lines_here = 1 + _count_line_breaks(out, chunk_start)
+                        if lines_here < BOX_LINES:
+                            sp = None
+                            for k in range(len(out) - 1, ls, -1):
+                                if out[k] == SPACE:
+                                    sp = k; break
+                            if sp is not None:
+                                out[sp] = 0x0A
+                    out.append(PAREN_CLOSE)
                 if term == AUTO_BREAK:
                     out.extend((0xE108, AUTO_DELAY, AUTO_BREAK, 0xE107, NEW_BOX_ARG))
                 else:
                     out.extend((WAIT_BREAK, 0xE107, NEW_BOX_ARG))
+                # chunk_start marks the NEXT chunk's own content, so it must
+                # be taken AFTER the box-break sequence above but BEFORE the
+                # paren re-open just below - missing that let a later
+                # single-line box inside the same parenthetical be measured
+                # without the reopened '(' it will actually carry, undercounting
+                # that line's real width by one glyph.
+                chunk_start = len(out)
                 if depth > 0:
                     out.append(PAREN_OPEN)
                     prefix_px = W(chr(PAREN_OPEN))
                 if reopen is not None: out.append(reopen)
                 style = reopen
+            else:
+                chunk_start = len(out)
             placed, _ = _layout(chunk, prefix_px)
             cur = 0
             centred = False     # this row opened with {E20D}

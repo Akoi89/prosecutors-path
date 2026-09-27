@@ -38,7 +38,27 @@ TABLE_N = 2012
 # 240 = the 256px screen less an 8px margin each side.
 LINE_PX = 240
 
+# The SMALLER face Mind Chess draws its option/question/banner rows in (banks
+# 453-455), found by the 2026-09-27 text-box sweep: the Mind Chess widget path
+# in inject.py was measuring these rows with the MAIN table above, which is
+# not the font the engine uses there, and a capture of the option bar showed a
+# row clipped where the MAIN measurement said it still fit. There are TWO
+# tables shaped like this one at 0x553E4 and 0x5C81C ("SMALL1"/"SMALL2"
+# below); they are NOT the same face - measured, they differ on 426 of the
+# codepoints they share (e.g. '1' is 4px in SMALL1, 5px in SMALL2; 'X' is 8px
+# vs 7px) and SMALL1 lacks 15 fullwidth punctuation marks SMALL2 has. SMALL1
+# is used here because it is the one Mind Chess actually draws (the same rows
+# a capture of the option bar and a capture of the question bar measured
+# against), not because the two tables agree. Neither slot in ACCENT_SLOTS
+# below exists in SMALL1's fullwidth-Latin range in the same way MAIN's does
+# (SMALL1 has no U+0415 record at all), so a converter for
+# this face must turn ACCENT_SLOTS_ON off rather than assume the redrawn
+# accent glyphs carry over.
+SMALL_TABLE_OFF = 0x000553E4
+SMALL_TABLE_N = 849
+
 CACHE = 'ds_font_widths.json'
+SMALL_CACHE = 'ds_font_widths_small.json'
 
 BLZ_THRESHOLD = 2
 
@@ -108,18 +128,18 @@ def _blz_decode(pak):
     return bytes(out)
 
 
-def _read_table(arm9):
-    """-> {codepoint: advance}, or None if this does not look like the table.
-
-    Range checks alone are not enough: a table shifted by a few records in some
-    other build would still be full of plausible-looking values. These checks are
-    structural, so they fail on a shift rather than on a different set of widths.
+def _read_table_range(arm9, off, n):
+    """-> {codepoint: advance}, or None if this slice does not look like a real
+    glyph-advance table. Shared structural checks for MAIN and SMALL1 below:
+    range checks alone are not enough, since a table shifted by a few records
+    in some other build would still be full of plausible-looking values -
+    these checks fail on a shift rather than on a different set of widths.
     """
-    if TABLE_OFF + (TABLE_N + 1) * 8 > len(arm9):
+    if off + n * 8 > len(arm9):
         return None
     w, prev = {}, -1
-    for i in range(TABLE_N):
-        cp, adv, ptr = struct.unpack_from('<HHI', arm9, TABLE_OFF + i * 8)
+    for i in range(n):
+        cp, adv, ptr = struct.unpack_from('<HHI', arm9, off + i * 8)
         if not (0x0020 <= cp <= 0xFFFD and 0 < adv <= 32
                 and 0x02000000 <= ptr < 0x02400000):
             return None                        # a correct read is 100%, not 99%
@@ -127,16 +147,36 @@ def _read_table(arm9):
             return None                        # the real table ascends strictly
         prev = cp
         w[cp] = adv
-    # The record just past the end bounds the table; a shifted read runs into
-    # real records here instead of the zero sentinel.
-    if struct.unpack_from('<HHI', arm9, TABLE_OFF + TABLE_N * 8) != (0, 0, 0):
-        return None
     # The whole fullwidth Latin alphabet is contiguous in the real table. A slice
     # taken from the wrong place will be missing part of it.
     for lo, hi in ((0xFF21, 0xFF3A), (0xFF41, 0xFF5A)):
         if any(cp not in w for cp in range(lo, hi + 1)):
             return None
     return w
+
+
+def _read_table(arm9):
+    """-> {codepoint: advance} for the MAIN dialogue table, or None."""
+    if TABLE_OFF + (TABLE_N + 1) * 8 > len(arm9):
+        return None
+    w = _read_table_range(arm9, TABLE_OFF, TABLE_N)
+    if w is None:
+        return None
+    # The record just past MAIN's last entry bounds the table; a shifted read
+    # runs into real records here instead of the zero sentinel. SMALL1 (below)
+    # does not end on this sentinel, so this extra check is MAIN-only.
+    if struct.unpack_from('<HHI', arm9, TABLE_OFF + TABLE_N * 8) != (0, 0, 0):
+        return None
+    return w
+
+
+def _read_small_table(arm9):
+    """-> {codepoint: advance} for the SMALL1 table (Mind Chess option/question/
+    banner rows, banks 453-455), or None. Same per-record and Latin-contiguity
+    checks as MAIN; no zero-sentinel check, since SMALL1's next record past its
+    last entry is not (0,0,0) on this ROM (measured 2026-09-27) - requiring it
+    would reject a correct read rather than catch a wrong one."""
+    return _read_table_range(arm9, SMALL_TABLE_OFF, SMALL_TABLE_N)
 
 
 def _arm9_slice(rom_path):
@@ -208,3 +248,48 @@ def widths(rom_path=None):
     except Exception:
         pass                                   # a cache we cannot write is not fatal
     return w, LINE_PX
+
+
+def small_widths(rom_path=None):
+    """Cached advances for the SMALL1 face Mind Chess draws banks 453-455 in.
+
+    Returns {codepoint: advance_px}, or None when the ROM is not available or
+    does not match - the caller then keeps its own conservative fallback
+    rather than measure a SMALL-font widget with the wrong table. There is no
+    line-budget counterpart to LINE_PX here: each Mind Chess bank's own field
+    width (189, 229, ...) is a property of the widget, not the font, and is
+    supplied by the caller.
+    """
+    if not rom_path or not os.path.exists(rom_path):
+        return None
+    try:
+        blob, digest = _arm9_slice(rom_path)
+    except Exception:
+        return None
+    if blob is None:
+        return None
+
+    cache = work('dump', SMALL_CACHE)
+    if os.path.exists(cache):
+        try:
+            d = json.load(open(cache))
+            if d.get('arm9_sha256') == digest and d.get('table_offset') == SMALL_TABLE_OFF:
+                return {int(k): v for k, v in d['widths'].items()}
+        except Exception:
+            pass                               # unreadable or stale: re-derive below
+
+    arm9 = _blz_decode(blob)
+    w = _read_small_table(arm9) if arm9 is not None else None
+    if not w:
+        return None
+    try:
+        os.makedirs(os.path.dirname(cache), exist_ok=True)
+        json.dump({'source': os.path.basename(rom_path),
+                   'arm9_sha256': digest,
+                   'table_offset': SMALL_TABLE_OFF,
+                   'glyphs': len(w),
+                   'widths': {str(k): v for k, v in sorted(w.items())}},
+                  open(cache, 'w'), indent=0)
+    except Exception:
+        pass                                   # a cache we cannot write is not fatal
+    return w

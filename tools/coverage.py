@@ -69,6 +69,16 @@ def main(argv=None):
         adv, px = fontwidths.widths(fanrom) if fanrom else (None, None)
         if not dstext.use_real_widths(adv, px):
             print('note: could not read the ROM advances; measuring with the estimate')
+        # Mind Chess's SMALL-font advances (2026-09-27), so the harmonize_entry
+        # self-comparison below (names.use_small_widths) checks a renamed
+        # 453/454/455 row's width the same way the build itself did. Left
+        # unset, names._SMALL stays empty and row_px_small() prices every
+        # renamed row 9999 - always "over budget" - so the simulated `hu`
+        # below falls back to the UN-renamed fan row even for a row the build
+        # actually shipped renamed, and that shipped row then matches
+        # NEITHER `fu` nor `hu` and gets miscounted as official.
+        import names as _small_names
+        _small_names.use_small_widths(fontwidths.small_widths(fanrom))
     import ndsx
     tmp = os.path.join(os.environ.get('TEMP', '.'), '_coverage_extract')
     import shutil
@@ -88,8 +98,17 @@ def main(argv=None):
 
     # A fan row that only had character names (or, in bank 460, episode names)
     # swapped in is still the fan's writing: count it as FAN, not official.
-    # Otherwise the rename pass would inflate this figure for free.
-    import names as _names, episode_titles as _titles
+    # Otherwise the rename pass would inflate this figure for free. A fan row
+    # that only had its own wrapped line break moved (tools/linefix.py, spt
+    # 19/26 - fan-inherited dialogue text over the real-pixel budget) is the
+    # same case: still the fan's writing, not new text, so its (entry,
+    # string) key alone is enough to count it as fan regardless of whether
+    # the byte comparisons above happen to match (found 2026-09-27: they
+    # do not, since linefix's edit makes the built row differ from both the
+    # raw fan row and the harmonize_entry-simulated `hu` here, which inflated
+    # this figure by that row's own char count for exactly the same reason
+    # the rename check exists).
+    import names as _names, episode_titles as _titles, linefix as _linefix
     tab = {}
     for i, fent in fan.items():
         b = built.get(i)
@@ -113,7 +132,8 @@ def main(argv=None):
                 continue
             k = bucket(i)
             off, tot = tab.get(k, (0, 0))
-            is_fan = list(fu) == list(bu) or tuple(bu) == hu
+            is_fan = (list(fu) == list(bu) or tuple(bu) == hu
+                      or (i, fa) in _linefix.LINEFIX)
             tab[k] = (off + (0 if is_fan else n), tot + n)
 
     print('%-12s %9s %12s' % ('', 'official', 'char units'))

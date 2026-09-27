@@ -243,13 +243,15 @@ WIDE_UNIT = 0xFF37          # fullwidth 'W', 9px in the dialogue width model
 
 
 def break_widgets(rom):
-    """Widen option rows past anything the fan ever drew in that widget.
+    """Widen option rows past the widget's proven field.
 
-    Bank 453 (confrontation lines) has a fan-proven maximum of about 251px.
-    Every visible unit and every line break in a row becomes a 9px 'W', so a row
-    of 32+ units renders at 288px or more on one line - wider than the widget
-    and wider than its own fan row. Control codes and their arguments are left
-    alone so the row is wide for the right reason, not corrupt.
+    Bank 453 (confrontation lines) has a proven SMALL-font field of 189px
+    (2026-09-27 text-box sweep; audit_widgets.py's SMALL_BANKS). Every visible
+    unit and every line break in a row becomes 'W' (10px in SMALL1), so a row
+    of 32+ units renders at 320px or more on one line - wider than the field
+    and wider than its own fan row either way the row is measured. Control
+    codes and their arguments are left alone so the row is wide for the right
+    reason, not corrupt.
     """
     a, b = spt_span(rom)
     out = bytearray(rom)
@@ -283,6 +285,53 @@ def break_widgets(rom):
             done += 1
         break
     return bytes(out), done
+
+
+def break_widgets_narrow(rom):
+    """Push one bank-453 row to 190-200px in the SMALL font - just past the
+    189px field - while staying at 247-260px in the MAIN dialogue font (real
+    advances, not the estimate model: 'W' is 10px in SMALL1 but 13px in MAIN,
+    not 9px - checked against the ROM, not assumed), under the ~285px budget
+    a fan-max MAIN measurement of this bank would have used. Proves the
+    SMALL-font measurement specifically: break_widgets above (320px+ in
+    either font) is wide enough that an older, MAIN-font-and-fan-max version
+    of audit_widgets.py would also have caught it, so it does not on its own
+    prove THIS fix added anything - this one measures 0 over on the OLD
+    fan-max-in-MAIN rule and over on the new SMALL/189 rule. Every visible
+    unit becomes 'W'; picks the first row with 19 or 20 of them (this ROM:
+    DS[453] str103, 20 units, 200px SMALL / 260px MAIN), so the replaced row
+    lands in the target window exactly from its own unit count, not by
+    chance.
+    """
+    a, b = spt_span(rom)
+    out = bytearray(rom)
+    for i, base, e in _tps_entries(rom):
+        if i != 453:
+            continue
+        cnt = struct.unpack_from('<H', e, 0x06)[0]
+        for j in range(1, cnt):
+            off, clen = struct.unpack_from('<HH', e, 0x10 + (j - 1) * 8 + 4)
+            sbase = base + off * 2
+            if sbase + clen * 2 > b:
+                continue
+            units = [struct.unpack_from('<H', out, sbase + k * 2)[0] ^ XOR for k in range(clen)]
+            targets, skip = [], 0
+            for k, v in enumerate(units):
+                if skip:
+                    skip -= 1
+                    continue
+                if 0xE000 <= v <= 0xF8FF:
+                    skip = ARGS.get(v, 0)
+                    continue
+                if v == 0x0A or 0x21 <= v <= 0x7E or 0xFF01 <= v <= 0xFF5E:
+                    targets.append(k)
+            if len(targets) not in (19, 20):
+                continue
+            for k in targets:
+                out[sbase + k * 2:sbase + k * 2 + 2] = enc(WIDE_UNIT)
+            return bytes(out), 1
+        break
+    return bytes(rom), 0
 
 
 def _find_e187_offset(e, base, j, arg_index):
@@ -701,7 +750,8 @@ FIXTURES = [
     ('audit_arity.py',   'fullwidth E108 arguments (the v1.3.3 Little Thief bug)', break_arity, 'rom'),
     ('audit_empty.py',   'blank whole strings of visible text',                  break_empty,   'rom'),
     ('audit_hint.py',    'shrink SPT buffer hints below their longest string',   break_hint,    'rom'),
-    ('audit_widgets.py', 'widen bank-453 option rows past the fan maximum',      break_widgets, 'rom'),
+    ('audit_widgets.py', 'widen bank-453 option rows past the proven SMALL field (320px+, either font)', break_widgets, 'rom'),
+    ('audit_widgets.py', 'push one bank-453 row to 190-200px in SMALL only (247-260px in MAIN, real advances) - just past the field, not merely very wide', break_widgets_narrow, 'rom'),
     ('audit_titles.py',  'erase the first letter of four fan title strips',      break_titles,  'idlocal'),
     ('audit_tails.py',   'zero the units strings keep past their declared length (the 1.8.3 Bound/Larry talk)', break_tails, 'rom'),
     ('audit_choicearg.py', 'point DS[58] str 2 {E187} strip-arg at 170 - 363+170 = idlocal 533, a palette, not a sprite', break_choicearg_strip, 'rom'),
@@ -757,12 +807,17 @@ def main():
         path = os.path.join(WORK, script.replace('.py', '.nds' if kind == 'rom' else '.bin'))
         open(path, 'wb').write(broken)
         clean_arg = clean_path if kind == 'rom' else None
-        if script in ('audit_indexargs.py', 'audit_zeros.py', 'audit_staging.py'):
+        if script in ('audit_indexargs.py', 'audit_zeros.py', 'audit_staging.py',
+                      'audit_widgets.py'):
             # should-fix 2: an audit that already fails on the clean ROM would
             # make the ordinary text-diff test trivially pass. Require the
             # clean ROM to exit 0 (nothing wrong) and the broken copy to
-            # exit 1 (audit_indexargs.py's / audit_zeros.py's own sys.exit(1)
-            # on any hit).
+            # exit 1 (audit_indexargs.py's / audit_zeros.py's / audit_widgets.py's
+            # own sys.exit(1) on any hit). audit_widgets.py added 2026-09-27
+            # alongside its real exit code (see the sweep fix spec) - before
+            # that it only ever printed, so the text-diff path below was the
+            # only way to prove break_widgets (bank 453, still exercised here)
+            # was noticed at all.
             clean_out, clean_rc = run_full(script, clean_arg)
             dirty_out, dirty_rc = run_full(script, path)
             ok = clean_rc == 0 and dirty_rc == 1

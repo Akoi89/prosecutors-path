@@ -151,13 +151,23 @@ def main(argv):
     print('advances from: %s' % _os.path.basename(fan))
     print()
     print('%-44s %8s %9s %7s  %s' % ('rom', 'lines', 'over %d' % BOX, 'max', 'widest at'))
+    worst_over = 0
     for r in roms:
         L = lines_of(spt_of(r), W, args)
         over = [x for x in L if x[0] > BOX]
         mx = max(L)
+        worst_over = max(worst_over, len(over))
         print('%-44s %8d %9d %7d  entry %d str %d'
               % (_os.path.basename(r)[:44], len(L), len(over), mx[0], mx[1], mx[2]))
+    # Real audit exit code (added 2026-09-27, alongside audit_widgets.py's own):
+    # any dialogue line over the 240px box on any ROM passed fails the run, so
+    # this can be wired into run_audits.sh instead of only read by eye.
+    if worst_over:
+        print('\nFAIL: %d line(s) over %dpx' % (worst_over, BOX))
+        return 1
+    print('\nPASS: no dialogue line over %dpx' % BOX)
+    return 0
 
 
 if __name__ == '__main__':
-    main(_sys.argv[1:])
+    _sys.exit(main(_sys.argv[1:]))

@@ -28,6 +28,7 @@ from loc_patch import load_lookup, patch_entry
 from map_ids import ds_entries
 from paths import work, data
 import stmt_trim
+import linefix
 
 # Codes that end a message box (the box-count fingerprint used for alignment checks).
 BOXEND = {0xE102, 0xE104, 0xE106, 0xE185, 0xE081}
@@ -87,6 +88,52 @@ RECUT_SHIFTED = True
 # behaviour; the block itself is kept, not deleted, so the gate can be turned back
 # on without reconstructing it.
 KEEP_DSONLY_GATE = False
+
+# Mind Chess option/question/banner rows (2026-09-27 text-box sweep). These
+# three banks draw in the SMALL face (fontwidths.small_widths), not the MAIN
+# dialogue face the sparse widget path used to measure every bank with - a
+# capture of the option bar showed a row's final letter dropped where the
+# MAIN measurement said it still fit. 456/457/458 share the same on-disk row
+# shape and the same estimate-unit budget in names.py's WIDGET_BANKS, but the
+# sweep found no engine handle for 456/457 in the arm9 or any overlay, and 458
+# (Collection match score 1.0, the same 12 two-line rows as 455) sits at 2 of
+# 160 rows non-empty in the fan ROM itself - so close to entirely unused that
+# it is probably never read either - extending this fix to them would touch
+# banks nothing displays, and forcing 456 (Collection match score 0.75)
+# through this gate would newly trip the score<0.90 reject just below and
+# drop official text an unread bank never shows anyway, so they are left out.
+SMALL_WIDGET_BANKS = {453, 454, 455}
+# Per-bank proven field width in SMALL px. 453 and 454's are the sweep's
+# captured/measured limits (a capture of the option bar placed its field at
+# 189<=L<193; a capture of the question bar showed a 192px row drawn whole,
+# and the fan itself shipped this bank up to 229 with nothing narrower ever
+# proven wrong). 455 is a single-line banner: the sweep found 12 of 32 rows
+# silently losing their whole second line because the widget path never
+# reached this bank at all (see the forced entry below), so it wrapped as
+# ordinary MAIN dialogue at the 240px budget instead of drawing SMALL and
+# staying on one line. Never inflate these from a fan placeholder row
+# ("Temp." dev text, 453/54) - they are fixed numbers, not a max over fan
+# rows, precisely so a placeholder cannot set the budget.
+WIDGET_PROVEN_PX = {453: 189, 454: 229, 455: 189}
+# 455 never reaches the sparse-widget gate on its own: its Collection/JP
+# control-code profile overlap is high (never <0.35, unlike 453/454, whose
+# rows are option-widget text foreign enough to the profile to trip it),
+# even though it is display-identical in kind to 453/454 (a single option
+# line, SMALL font, exam_ask_title in the trial bundle). Force it through so
+# it gets the same unwrapped-widget treatment instead of ordinary paginated
+# dialogue wrap. Checked empirically 2026-09-27 (build instrumented to print
+# every bank that reaches the gate): only 453, 454 and unrelated banks
+# 213/339-342/345/352/353/460 do on their own; 455/456/457/458 never do.
+FORCE_WIDGET_GATE = {455}
+# Accent-off scope for change 2 of the sweep fix: wider than SMALL_WIDGET_BANKS
+# on purpose. 456-458 never reach the sparse widget path above (confirmed
+# empirically, see FORCE_WIDGET_GATE's comment) and keep the ordinary
+# convert(u) call a few lines down for whatever Capcom text lands there, but
+# they are the same SMALL-font family as 453-455 (their "_dl" copies) and the
+# spec calls for all six banks accent-clean, not only the three whose width
+# this fix also corrects (456/451 and 458/111 both still carried U+0415
+# before this set existed).
+MIND_CHESS_BANKS = {453, 454, 455, 456, 457, 458}
 
 
 def _boxend_counts(u):
@@ -1376,6 +1423,17 @@ def main(base=None, out=None):
     else:
         print('font metrics: ROM advances unavailable, estimating (line budget %d)'
               % dstext.LINE_PX)
+    # The SMALLER face Mind Chess draws banks 453-455 in (2026-09-27 text-box
+    # sweep: a capture of the option bar showed a row clipped where the widget
+    # path's old MAIN-font measurement said it still fit - Mind Chess never
+    # draws MAIN). None when the ROM does not match; the widget path below
+    # then keeps the fan's row for every one of these banks rather than
+    # measure with the wrong font again.
+    _small_adv = fontwidths.small_widths(BASE)
+    if _small_adv:
+        print('small-font metrics: %d real advances from the ROM' % len(_small_adv))
+    else:
+        print('small-font metrics: ROM advances unavailable - Mind Chess widgets keep fan text')
     # ships with the tool (inside the bundle when frozen), unlike everything
     # else under dump/, which the user extracts from their own copies
     m = json.load(open(data('ds_to_collection_final.json')))
@@ -1551,7 +1609,19 @@ def main(base=None, out=None):
                 stmttrim += 1
             elif trimstat is False:
                 stmttrim_fallback += 1
-            d, un = convert(u)
+            if i in MIND_CHESS_BANKS:
+                # Every Mind Chess bank draws SMALL, which has no U+0415
+                # record and an unverified U+30A7 one (see MIND_CHESS_BANKS
+                # above) - off for the ordinary conversion path too, not just
+                # the sparse widget one, since 456-458 never reach that path.
+                _accent_saved = dstext.ACCENT_SLOTS_ON
+                dstext.ACCENT_SLOTS_ON = False
+                try:
+                    d, un = convert(u)
+                finally:
+                    dstext.ACCENT_SLOTS_ON = _accent_saved
+            else:
+                d, un = convert(u)
             for v in un: unmapped[v] = unmapped.get(v, 0) + 1
             if _has_foreign(d):
                 conv.append(list(ds[n_][3])); foreign += 1; continue
@@ -1640,7 +1710,8 @@ def main(base=None, out=None):
         if prof:
             a = collections.Counter({int(k, 16): v for k, v in prof['ctrl'].items()})
             b = collections.Counter(v for c2 in conv for v in c2 if 0xE000 <= v <= 0xF8FF)
-            if a and sum((a & b).values()) / sum(a.values()) < 0.35:
+            overlap_low = bool(a) and sum((a & b).values()) / sum(a.values()) < 0.35
+            if overlap_low or i in FORCE_WIDGET_GATE:
                 # A near-zero profile overlap usually means a WRONG file match -
                 # reject. But the exam/exam_ask confrontation banks fail this test
                 # for a different reason: only the trial bundle carries them, and
@@ -1653,9 +1724,10 @@ def main(base=None, out=None):
                     shape += 1; continue
                 # These rows are OPTION-WIDGET lines, not dialogue: every fan row
                 # is a single line, up to ~306px - far wider than the dialogue box
-                # the default conversion wraps for. Re-convert unwrapped, and use
-                # the fan's own widest row as the widget's proven budget: anything
-                # wider keeps the fan line rather than risking a clip.
+                # the default conversion wraps for. Re-convert unwrapped, and
+                # measure against the widget's proven budget: anything wider
+                # keeps the fan line rather than risking a clip.
+                small = i in SMALL_WIDGET_BANKS
                 TYPO = {0x2018: "'", 0x2019: "'", 0x201C: '"', 0x201D: '"',
                         0x2013: '-', 0x2014: '-', 0x2026: '.', 0x2025: '.'}
                 def _rowpx(u):
@@ -1677,29 +1749,71 @@ def main(base=None, out=None):
                             segs[-1] += 9999 if ch is None else dstext._w(ch)
                         k2 += 1
                     return max(segs), len(segs)
-                # the budget comes from the fan's ENGLISH rows only - the bank's
-                # untranslated Japanese placeholder rows are not display-proven
-                # and their glyphs are unpriceable anyway
-                lat = [t[3] for t in ds
-                       if t[3] and sum(1 for v in t[3]
-                                       if 0xFF21 <= v <= 0xFF5A or 0x41 <= v <= 0x7A) > 4]
-                if not lat:
-                    shape += 1; continue
-                budget = max(_rowpx(u)[0] for u in lat)
+                # Mind Chess (banks 453-455) draws SMALL, not MAIN - measure with
+                # the ROM's own SMALL1 table instead of dstext._w (2026-09-27 text-
+                # box sweep). SMALL1 has no U+0415 record at all; it does have one
+                # for U+30A7 (6px), but whether that slot is really the fan's
+                # redrawn e-acute in this face, and not just a coincidentally valid
+                # entry, is unverified - so both map to plain fullwidth 'e' here
+                # too rather than measure a glyph this face may not actually draw.
+                def _rowpx_small(u):
+                    segs = [0]
+                    k2 = 0
+                    while k2 < len(u):
+                        v = u[k2]
+                        if 0xE000 <= v <= 0xF8FF:
+                            k2 += 1 + ARGS.get(v, 0); continue
+                        if v == 0x0A:
+                            segs.append(0)
+                        else:
+                            vv = 0xFF45 if v in (0x0415, 0x30A7) else v  # plain fullwidth 'e'
+                            av = _small_adv.get(vv) if _small_adv else None
+                            if av is None and 0x20 <= vv <= 0x7E:
+                                av = _small_adv.get(vv - 0x21 + 0xFF01) if _small_adv else None
+                            # an unpriceable glyph, or no SMALL table at all, poisons
+                            # the row: force it wide so the budget test can only fail
+                            # toward keeping fan, same discipline as _rowpx above
+                            segs[-1] += 9999 if av is None else av
+                        k2 += 1
+                    return max(segs), len(segs)
+                if small:
+                    rowpx = _rowpx_small
+                    budget = WIDGET_PROVEN_PX[i]
+                else:
+                    rowpx = _rowpx
+                    # the budget comes from the fan's ENGLISH rows only - the bank's
+                    # untranslated Japanese placeholder rows are not display-proven
+                    # and their glyphs are unpriceable anyway
+                    lat = [t[3] for t in ds
+                           if t[3] and sum(1 for v in t[3]
+                                           if 0xFF21 <= v <= 0xFF5A or 0x41 <= v <= 0x7A) > 4]
+                    if not lat:
+                        shape += 1; continue
+                    budget = max(rowpx(u)[0] for u in lat)
                 kept = gained = 0
-                for j2 in range(len(ds)):
-                    u2 = en[j2][3]
-                    flat, _ = convert(u2, wrap=False, page=False, hard_nl=False)
-                    la2 = sum(1 for v in flat if 0xFF21 <= v <= 0xFF5A or 0x41 <= v <= 0x7A)
-                    px2, nl2 = _rowpx(flat)
-                    if (la2 == 0 or j2 in relaid or nl2 > 1 or px2 > budget
-                            or _boxend_counts(flat) != _boxend_counts(ds[j2][3])):
-                        if list(conv[j2]) != list(ds[j2][3]):
-                            conv[j2] = list(ds[j2][3]); kept += 1
-                    else:
-                        conv[j2] = flat
-                        if list(flat) != list(ds[j2][3]):
-                            gained += 1
+                old_accent = dstext.ACCENT_SLOTS_ON
+                if small:
+                    # SMALL1 has no U+0415 record, and its U+30A7 record is
+                    # unverified as the actual redrawn glyph (see _rowpx_small
+                    # above); keep the plain letter here rather than assume
+                    # this face carries the fan's MAIN-only accent glyphs.
+                    dstext.ACCENT_SLOTS_ON = False
+                try:
+                    for j2 in range(len(ds)):
+                        u2 = en[j2][3]
+                        flat, _ = convert(u2, wrap=False, page=False, hard_nl=False)
+                        la2 = sum(1 for v in flat if 0xFF21 <= v <= 0xFF5A or 0x41 <= v <= 0x7A)
+                        px2, nl2 = rowpx(flat)
+                        if (la2 == 0 or j2 in relaid or nl2 > 1 or px2 > budget
+                                or _boxend_counts(flat) != _boxend_counts(ds[j2][3])):
+                            if list(conv[j2]) != list(ds[j2][3]):
+                                conv[j2] = list(ds[j2][3]); kept += 1
+                        else:
+                            conv[j2] = flat
+                            if list(flat) != list(ds[j2][3]):
+                                gained += 1
+                finally:
+                    dstext.ACCENT_SLOTS_ON = old_accent
                 if not gained:
                     # nothing official survived the per-row gate - keep the fan
                     # entry byte-for-byte rather than rebuilding its container
@@ -1822,6 +1936,13 @@ def main(base=None, out=None):
     # (Simon Keyes, Ray Shields, ...). Rewrite them to Capcom's, verified
     # string-identical-to-fan first so official text is never touched.
     import names as _names
+    # Mind Chess's SMALL-font real advances, so a kept-fan row renamed here
+    # (e.g. 453/391, "Swift" -> "Lloyd") is measured against the same proven
+    # field width and font the widget path above uses, not names.py's older
+    # estimate-unit budget. A ROM that does not match leaves _names._SMALL
+    # empty, and every renamed WIDGET_SMALL_BANKS row then prices 9999 and
+    # keeps its fan wording rather than ship unmeasured.
+    _names.use_small_widths(_small_adv)
     renamed = 0
     over_rows = []
     for i, d in entries.items():
@@ -1838,6 +1959,22 @@ def main(base=None, out=None):
         # the fan's row shipped instead. Reported, not warned about.
         print('rows left fan-named (official name would not fit): %d'
               % len(over_rows))
+
+    # A fan-inherited dialogue line over the proven 240px budget (2026-09-27
+    # text-box sweep, spt 19/26): move one wrapped line break by a word,
+    # hash-guarded against the exact row this table was built from - see
+    # tools/linefix.py for why neither existing mechanism (ROWFIX, the dstext
+    # wrap itself) reaches it. spt 100/32 (Capcom's own text) used this same
+    # mechanism until 2026-09-27's rework fixed its cause in dstext.py instead.
+    linefixed = linefix_fallback = 0
+    for _ent_i in {ei for ei, _si in linefix.LINEFIX}:
+        d = entries.get(_ent_i)
+        if d:
+            nd, c, fb = linefix.patch_entry(_ent_i, d)
+            if c: entries[_ent_i] = nd; linefixed += c
+            linefix_fallback += fb
+    print('dialogue lines re-broken to fit the proven budget: %d  (fallback: %d)'
+          % (linefixed, linefix_fallback))
 
     newspt = build_archive(entries)
     print('entries replaced with official English: %d' % swapped)
