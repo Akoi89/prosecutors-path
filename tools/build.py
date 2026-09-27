@@ -472,6 +472,8 @@ def main(argv=None):
     out_path = a.out or os.path.join(work(), inject.DEFAULT_OUT)
     title_assets.apply(dumpdir, out_path, version=VERSION)
     voices.apply(dumpdir, out_path)
+    import compact
+    compact.compact_file(out_path)
     return 0
 
 
