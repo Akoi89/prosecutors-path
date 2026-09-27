@@ -304,16 +304,18 @@ def W(ch):
 # The MAIN dialogue font (arm9 table at 0x45B4C) has no accented codepoints of its
 # own, so _fw's decomposition fallback below normally drops the accent and prints a
 # plain letter. The fan team redrew two accented letters into unused slots of that
-# same font, verified by rendering the font's own bitmaps (2026-09-19): e-grave is
-# drawn at U+0415 (width 8), e-acute
-# at U+30A7 (width 8). Only these two - no other accented letter has a slot, and
+# same font: e-grave is drawn at U+30A7 and e-acute at U+0415 (both width 8). The
+# glyph rows are stored least-significant bit first; an early check read them
+# mirrored and swapped the two, which showed on screen as an acute where the script
+# has a grave (rig capture, 2026-09-27). Only these two - no other accented letter
+# has a slot here, and
 # c-cedilla in particular has no glyph anywhere, so it stays a plain c through the
 # fallback below. The evidence/profile description card and the Logic card use a
 # SMALLER face (loc_patch.desc_font) whose slots have not been checked for accents,
 # so their callers turn this switch off for the duration of their convert() call,
 # the same way they swap WIDTH_FN/LINE_PX.
 ACCENT_SLOTS_ON = True
-ACCENT_SLOTS = {0x00E8: 0x0415, 0x00E9: 0x30A7}
+ACCENT_SLOTS = {0x00E8: 0x30A7, 0x00E9: 0x0415}
 
 def _fw(ch):
     o = ord(ch)
