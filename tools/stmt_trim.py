@@ -222,11 +222,17 @@ def _norm_char(v):
     what _serialize() writes out for an untouched slot (see module
     docstring). Every straight quote maps to dstext.DQ_OPEN, which is only
     right because dstext uses the same glyph for opening and closing quotes
-    (DQ_OPEN == DQ_CLOSE)."""
+    (DQ_OPEN == DQ_CLOSE). The judge's redrawn accent slots (dstext.
+    ACCENT_SLOTS, U+0415/U+30A7) fold back to a plain fullwidth 'e' here too,
+    so a stored row's hash and `want` stay valid whether dstext's accent
+    switch is on or off - the switch must never decide whether an approved
+    trim still applies."""
     if v == 0x22:
         return dstext.DQ_OPEN
     if v in (0x27, 0x2019):
         return dstext.APOS
+    if v in dstext.ACCENT_SLOTS.values():
+        return 0xFF45
     return v
 
 

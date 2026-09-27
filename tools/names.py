@@ -27,10 +27,12 @@ PAIRS = [
     # full names
     ('Simon Keyes', 'Simeon Saint'),
     ('Horace Knightley', 'Bronco Knight'),
-    # the DS text font has no accented glyphs (the converter strips them), so
-    # dialogue uses 'Gavelle' - matching how the official swapped text already
-    # renders her name. Only the nameplate graphic carries the accent.
-    ('Justine Courtney', 'Verity Gavelle'),
+    # The fan team redrew an e-grave into an unused slot of the main dialogue
+    # font (dstext.ACCENT_SLOTS), so a row landing in ordinary dialogue can carry
+    # the accent Capcom's own script uses for her name. _fwc below maps it to
+    # that slot; rows in the smaller description/Logic face (DESC_BANKS) fall
+    # back to a plain 'e' there, since that face's slots are unverified.
+    ('Justine Courtney', 'Verity Gavèlle'),
     ('Sebastian Debeste', 'Eustace Winner'),
     ('Blaise Debeste', 'Excelsius Winner'),
     ('Patricia Roland', 'Fifi Laguarde'),
@@ -61,7 +63,7 @@ PAIRS = [
     ('Blaisie', 'Celsius'),        # the chairman's self-chosen nickname
     ('Conductor', 'Ringleader'),   # the masked auction figure
     # surnames
-    ('Keyes', 'Saint'), ('Knightley', 'Knight'), ('Courtney', 'Gavelle'),
+    ('Keyes', 'Saint'), ('Knightley', 'Knight'), ('Courtney', 'Gavèlle'),
     ('Debeste', 'Winner'), ('Roland', 'Laguarde'), ('Shields', 'Fender'),
     ('Dogen', 'Kanis'), ('Huang', 'Wang'), ('Swift', 'Lloyd'),
     ('Elbird', 'Carcerato'), ('Rooke', 'Rook'), ('Crane', 'Ringer'),
@@ -96,6 +98,7 @@ def _ch(v):
 
 def _fwc(c):
     if c == ' ': return SPACE
+    if ord(c) in dstext.ACCENT_SLOTS: return dstext.ACCENT_SLOTS[ord(c)]
     return ord(c) - 0x21 + 0xFF01
 
 LETTER = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')   # '-' is a boundary: 'Courtney-pie' must rename
@@ -144,6 +147,15 @@ def substitute(u):
 LIMITS = {432: (180, 4), 438: (180, 4), 395: (176, 3), 391: (176, 3),
           453: (306, 1), 454: (306, 1), 455: (306, 1), 456: (306, 1), 457: (306, 1)}
 DIALOG_LIMIT = 200
+# 432/395 are the description/Logic banks (loc_patch.desc_font's smaller face,
+# accent slots unverified there - see dstext.ACCENT_SLOTS_ON). 438 and 391 share
+# those two banks' exact width/line budgets above, which is why they are grouped
+# with them here rather than left as ordinary dialogue. The option-widget banks
+# (WIDGET_BANKS below) render inline in a message box in the main dialogue font,
+# so they are NOT in this set.
+DESC_BANKS = {432, 438, 395, 391}
+_ACCENT_VALS = set(dstext.ACCENT_SLOTS.values())        # {0x0415, 0x30A7}
+_PLAIN_E = 0xFF01 + (ord('e') - 0x21)                    # fullwidth 'e'
 # Acceptance bound for a RENAMED line (no re-wrapping involved). 200 is the wrap
 # budget for reflowing official text; the fan patch itself shipped 1,224 dialogue
 # lines wider than 216 px (max 238, p99 218), so a renamed line up to 216 is within
@@ -374,6 +386,11 @@ def harmonize_entry(entry, fan_entry, idx):
         uu = list(u)
         if si in F and tuple(u) == F[si]:
             nu, c = substitute(uu)
+            if c and idx in DESC_BANKS:
+                # This row's font is the smaller description/Logic face, whose
+                # slots have not been checked for the redrawn accents; fall back
+                # to the plain letter rather than assume they carry it too.
+                nu = [_PLAIN_E if v in _ACCENT_VALS else v for v in nu]
             if c:
                 fx = ROWFIX.get((idx, si))
                 if fx:
@@ -413,6 +430,9 @@ def harmonize_entry(entry, fan_entry, idx):
                     # name where it fits, official surname where it does not,
                     # and the fan line only if even that is too wide.
                     nu2, c2, kept_lines = per_line_harmonize(uu, lim, fix=ROWFIX.get((idx, si)))
+                    if c2 and idx in DESC_BANKS:
+                        # same plain-letter fallback as above for the smaller face
+                        nu2 = [_PLAIN_E if v in _ACCENT_VALS else v for v in nu2]
                     if kept_lines:
                         over.append((si, [('line-kept-fan', kept_lines)]))
                     if c2:

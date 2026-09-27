@@ -189,6 +189,7 @@ def patch_entry(ds_entry, jp_src, lookup, box='detailMsg'):
         px, maxln = BOXES.get(box, (DESC_PX, DESC_LINES))
         old = dstext.LINE_PX
         old_fn = dstext.WIDTH_FN
+        old_accent = dstext.ACCENT_SLOTS_ON
         if px is None or px == 'logic':      # measured widget font (description, Logic cards)
             dstext.WIDTH_FN, px = box_width(px)
         else:
@@ -200,6 +201,10 @@ def patch_entry(ds_entry, jp_src, lookup, box='detailMsg'):
             # was cut for.
             dstext.WIDTH_FN = dstext._estimate
         dstext.LINE_PX = px
+        # This card's font is smaller than the dialogue face and whether its slots
+        # carry the same redrawn accents has not been checked (dstext.ACCENT_SLOTS);
+        # keep the plain letter here rather than assume they do.
+        dstext.ACCENT_SLOTS_ON = False
         try:
             # These tables are wrapped for the Collection's own card (~35 chars),
             # so their newlines are soft too - fold them and re-wrap for this box.
@@ -211,6 +216,7 @@ def patch_entry(ds_entry, jp_src, lookup, box='detailMsg'):
         finally:
             dstext.LINE_PX = old
             dstext.WIDTH_FN = old_fn
+            dstext.ACCENT_SLOTS_ON = old_accent
         if age: conv = age + [0x0A] + conv
         if 1 + sum(1 for v in conv if v == 0x0A) > maxln:
             # Official wording overruns the box; the fan's fits. Keep the fan's.

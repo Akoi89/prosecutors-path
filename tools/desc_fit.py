@@ -20,12 +20,17 @@ from spt import all_strings
 
 def wrap_lines(eng, suffix, age_text, px):
     old = dstext.LINE_PX; old_fn = dstext.WIDTH_FN
+    old_accent = dstext.ACCENT_SLOTS_ON
     if px is None:                      # description card: measured font, see loc_patch.desc_font
         from loc_patch import desc_font
         dstext.WIDTH_FN, px = desc_font()
     else:
         dstext.WIDTH_FN = dstext._estimate   # px is an estimate-units budget
     dstext.LINE_PX = px
+    # These rows are always the description/Logic small face (see SOURCES in
+    # desc_overflow.py); its slots have not been checked for the dialogue font's
+    # redrawn accents, so keep the plain letter here too.
+    dstext.ACCENT_SLOTS_ON = False
     measure = dstext.WIDTH_FN        # the ruler THIS wrap used; the finally below
                                      # restores the global one, and reporting widths
                                      # with that instead measures the result of one
@@ -37,6 +42,7 @@ def wrap_lines(eng, suffix, age_text, px):
             conv = conv + [0x0A] + sc
     finally:
         dstext.LINE_PX = old; dstext.WIDTH_FN = old_fn
+        dstext.ACCENT_SLOTS_ON = old_accent
     n_age = 1 if age_text else 0
     lines, cur = [], []
     for v in conv:

@@ -35,9 +35,14 @@ def plain(u):
 
 def wrapped(eng, suffix, age, px):
     old = dstext.LINE_PX; old_fn = dstext.WIDTH_FN
+    old_accent = dstext.ACCENT_SLOTS_ON
     from loc_patch import box_width     # description/Logic card: measured font; else estimate units
     dstext.WIDTH_FN, px = box_width(px)
     dstext.LINE_PX = px
+    # SOURCES above is only ever bank 432 (description) or 395 (Logic), the small
+    # face whose slots have not been checked for the dialogue font's redrawn
+    # accents; keep the plain letter here too.
+    dstext.ACCENT_SLOTS_ON = False
     measure = dstext.WIDTH_FN        # the ruler THIS wrap used; see desc_fit.py
     try:
         conv, _ = dstext.convert(_to_units(eng), page=False, hard_nl=False)
@@ -46,6 +51,7 @@ def wrapped(eng, suffix, age, px):
             conv = conv + [0x0A] + sc
     finally:
         dstext.LINE_PX = old; dstext.WIDTH_FN = old_fn
+        dstext.ACCENT_SLOTS_ON = old_accent
     if age:
         conv = age + [0x0A] + conv
     lines, cur = [], []

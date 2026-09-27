@@ -48,13 +48,22 @@ logic. The remap is reversed on the way back out, in `_serialize`'s output
 only, never in a stored hash or word text.
 """
 import hashlib
+import dstext
 import stmt_trim
 
 _SYM_TO_CODE = {0x25A0: 0xF700, 0x3000: 0xF701}
 _CODE_TO_SYM = {v: k for k, v in _SYM_TO_CODE.items()}
+_ACCENT_TO_PLAIN = {chr(v): 'e' for v in dstext.ACCENT_SLOTS.values()}
 
 
 def _key(text):
+    # This module's rows are plain close-up text, hashed before any dstext
+    # conversion, so the judge's redrawn accent slots (dstext.ACCENT_SLOTS)
+    # are not expected here today - but the same guard as stmt_trim.py's
+    # _norm_char is applied on principle, so a stored hash can never be made
+    # to depend on whether dstext's accent switch happens to be on or off.
+    for a, p in _ACCENT_TO_PLAIN.items():
+        text = text.replace(a, p)
     return hashlib.sha1(text.encode('utf-8')).hexdigest()[:16]
 
 

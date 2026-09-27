@@ -301,12 +301,28 @@ WIDTH_FN = _w
 def W(ch):
     return WIDTH_FN(ch)
 
+# The MAIN dialogue font (arm9 table at 0x45B4C) has no accented codepoints of its
+# own, so _fw's decomposition fallback below normally drops the accent and prints a
+# plain letter. The fan team redrew two accented letters into unused slots of that
+# same font, verified by rendering the font's own bitmaps (2026-09-19): e-grave is
+# drawn at U+0415 (width 8), e-acute
+# at U+30A7 (width 8). Only these two - no other accented letter has a slot, and
+# c-cedilla in particular has no glyph anywhere, so it stays a plain c through the
+# fallback below. The evidence/profile description card and the Logic card use a
+# SMALLER face (loc_patch.desc_font) whose slots have not been checked for accents,
+# so their callers turn this switch off for the duration of their convert() call,
+# the same way they swap WIDTH_FN/LINE_PX.
+ACCENT_SLOTS_ON = True
+ACCENT_SLOTS = {0x00E8: 0x0415, 0x00E9: 0x30A7}
+
 def _fw(ch):
     o = ord(ch)
     if o == 0x20: return chr(SPACE)
     if 0x21 <= o <= 0x7E: return chr(o - 0x21 + 0xFF01)
     if (0xFF01 <= o <= 0xFF60 or 0x3000 <= o <= 0x30FF
             or 0x4E00 <= o <= 0x9FFF or 0x2010 <= o <= 0x203B): return ch
+    if ACCENT_SLOTS_ON and o in ACCENT_SLOTS:
+        return chr(ACCENT_SLOTS[o])
     d = unicodedata.normalize('NFD', ch)
     base = ''.join(c for c in d if not unicodedata.combining(c))
     if base and base != ch: return ''.join(_fw(c) for c in base)
@@ -485,12 +501,75 @@ def _split_at_sep(row):
 
 TITLE_DASHES = [CARD_SEP, CARD_SEP]      # '-- Testimony --' rows are titles, not places
 
-def _bind_title_closer(tokens):
-    """A centred '-- title --' row that wraps must not leave the closing '--' alone on the
-    second line (7 testimony titles did, e.g. '-- President Wang's Testimony' / '--').
-    Glue the closer to the word before it so the break moves back one word
-    ('-- President Wang's' / 'Testimony --'). Same units, same width; only the wrap
-    point can change, and only when the row wraps at all."""
+# A title row's second line should break at a natural phrase boundary rather than
+# wherever the generic greedy wrap happens to run out of room (which could leave a
+# single word, or even the closing dashes alone, on line 2). Decided 2026-09-26:
+# among every break between words
+# where both resulting lines fit LINE_PX, prefer one that falls right before a word
+# in this set - a preposition reads as the start of a new phrase - and among those,
+# the one whose longer line is shortest; failing that, just the shortest-longer-line
+# break overall. Ordinary English function words, not game text.
+TITLE_BREAK_WORDS = {'of', 'in', 'about', 'while', 'to', 'on', 'at',
+                      'for', 'with', 'from', 'into'}
+
+def _row_px(chunk):
+    """Pixel width of `chunk` laid out as a single line - the same gap/width rule
+    _layout uses (a pending space only costs anything once a following word is
+    placed), so a candidate's width here always matches what _layout would compute
+    for it as an independent one-line row."""
+    total, pending = 0, False
+    for kind, val in chunk:
+        if kind == 'w':
+            gap = W(chr(SPACE)) if pending else 0
+            total += gap + sum(W(chr(u)) for u in val)
+            pending = False
+        elif kind == 's':
+            pending = True
+    return total
+
+def _word_text(val):
+    """A word token's value, decoded back to lowercase ASCII with its surrounding
+    punctuation stripped, for matching against TITLE_BREAK_WORDS."""
+    s = ''.join(chr(u - 0xFF01 + 0x21) if 0xFF01 <= u <= 0xFF5E else chr(u) for u in val)
+    return s.strip('.,!?;:“”()').lower()
+
+def _title_break(tokens, words):
+    """(line1_tokens, line2_tokens) for the best candidate break, or None if no
+    candidate leaves both lines within LINE_PX. Every candidate splits right before
+    one of `words[1:]`. The opening and closing dashes are word tokens of their own,
+    so a break that would leave either line holding only the dashes is skipped."""
+    best = None            # (is_preferred, longer_px, line1, line2)
+    for i in range(1, len(words)):
+        if i == 1 and tokens[words[0]][1] == TITLE_DASHES:
+            continue
+        if i == len(words) - 1 and tokens[words[-1]][1] == TITLE_DASHES:
+            continue
+        line1 = tokens[:words[i]]
+        while line1 and line1[-1][0] == 's':
+            line1 = line1[:-1]
+        line2 = tokens[words[i]:]
+        if _layout(line1)[1] != 1 or _layout(line2)[1] != 1:
+            continue
+        longer = max(_row_px(line1), _row_px(line2))
+        preferred = _word_text(tokens[words[i]][1]) in TITLE_BREAK_WORDS
+        cand = (preferred, longer, line1, line2)
+        if best is None:
+            best = cand
+        elif preferred and not best[0]:
+            best = cand
+        elif preferred == best[0] and longer < best[1]:
+            best = cand
+    if best is None:
+        return None
+    return best[2], best[3]
+
+def _break_title_row(tokens):
+    """A centred '-- title --' row too long for one line breaks at a natural
+    phrase boundary (TITLE_BREAK_WORDS), not wherever the generic greedy wrap
+    happens to fit the most words - which could leave the closing '--' alone on
+    line 2 (7 testimony titles did under the old rule). Untouched when the row
+    already fits on one line, or no candidate break fits both lines (falls back
+    to the ordinary wrap in that case)."""
     words = [k for k, (kind, _) in enumerate(tokens) if kind == 'w']
     if len(words) < 3 or tokens[words[0]][1][:2] != TITLE_DASHES:
         return tokens
@@ -498,11 +577,13 @@ def _bind_title_closer(tokens):
         return tokens
     if 'br' in (kind for kind, _ in tokens):
         return tokens
-    a, b = words[-2], words[-1]
-    if [kind for kind, _ in tokens[a + 1:b]] != ['s']:
+    if _layout(tokens)[1] <= 1:
         return tokens
-    glued = ('w', tokens[a][1] + [SPACE] + tokens[b][1])
-    return tokens[:a] + [glued] + tokens[b + 1:]
+    split = _title_break(tokens, words)
+    if split is None:
+        return tokens
+    line1, line2 = split
+    return line1 + [('br', None), ('c', [LAYOUT_ROW])] + line2
 
 def _split_card_rows(tokens):
     """Place rows split at their ' - ' onto a second {E20D} row, when both halves fit on
@@ -679,7 +760,7 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
                 elif kind == 'br': out.append(0x0A)
                 elif kind == 's': out.append(SPACE)
             return
-        tokens = _bind_title_closer(_split_card_rows(tokens))
+        tokens = _break_title_row(_split_card_rows(tokens))
         _, nlines = _layout(tokens)
         nb = max(1, -(-nlines // BOX_LINES)) if page else 1
         chunks = [tokens]
