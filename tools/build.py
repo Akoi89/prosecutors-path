@@ -347,6 +347,7 @@ def main(argv=None):
                                            '(so you can drag it onto this program)')
     ap.add_argument('--fan-rom', help='the AAI2 Final v2 fan-patched DS ROM')
     ap.add_argument('--jp-rom', help=argparse.SUPPRESS)   # no longer needed
+    ap.add_argument('--no-loudness', action='store_true', help=argparse.SUPPRESS)  # dev/testing only: disable the shout loudness stage
     ap.add_argument('--collection',
                     help='Ace Attorney Investigations Collection install folder. '
                          'Found automatically in any Steam library. Not needed with '
@@ -471,7 +472,7 @@ def main(argv=None):
     import title_assets, voices
     out_path = a.out or os.path.join(work(), inject.DEFAULT_OUT)
     title_assets.apply(dumpdir, out_path, version=VERSION)
-    voices.apply(dumpdir, out_path)
+    voices.apply(dumpdir, out_path, loudness=not a.no_loudness)
     import compact
     compact.compact_file(out_path)
     return 0

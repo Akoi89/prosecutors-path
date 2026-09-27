@@ -148,11 +148,10 @@ def normalise(x, peak=PEAK):
     return [max(-32768, min(32767, int(round(v * g)))) for v in x]
 
 
-# --- optional loudness stage (off by default until approved by ear) ---------------------
-# Gain each clip toward a target active RMS (Capcom's JP retail loudness for that SE),
-# then a look-ahead peak limiter so the boost never clips. Pure Python, deterministic
-# (no randomness, no order-dependent float sums), off unless a caller asks for it, so a
-# normal build (voices.apply, which never passes loudness=True) is unaffected.
+# --- loudness stage (on in every build; approved by ear 2026-09-27) ----------------------
+# Gain each clip toward a target active RMS (Capcom's JP retail loudness for that SE, stored
+# in TARGET_RMS so no Japanese files are needed), then a look-ahead peak limiter so the boost
+# never clips. Pure Python, deterministic (no randomness, no order-dependent float sums).
 MAX_GAIN_DB = 8.0
 
 
@@ -441,10 +440,12 @@ def se_to_clip(d, se):
 
 
 def jp_targets(jp_sdat_path):
-    """SE -> active RMS of the JP retail clip, read from the player's own dump/ds_jp
-    archive via the same SSAR/BANK resolution as se_to_wavearc_fid; {} (stage off) if
-    that archive is not present. No measured numbers from these clips are written
-    anywhere; this is recomputed at build time every time."""
+    """Dev-only helper: SE -> active RMS of the JP retail clip, read from a JP sound
+    archive (dump/ds_jp/com/kenji2_sound.sdat, present only on the developer's own
+    machine) via the same SSAR/BANK resolution as se_to_wavearc_fid; {} if that archive
+    is not present. Not called from build()/apply() -- the normal build path uses the
+    stored TARGET_RMS table below so players never need a JP ROM. Use this only to
+    recompute TARGET_RMS if the JP retail clips are re-extracted."""
     if not jp_sdat_path or not os.path.exists(jp_sdat_path):
         return {}
     d = open(jp_sdat_path, 'rb').read()
@@ -460,19 +461,39 @@ def jp_targets(jp_sdat_path):
     return out
 
 
-def build(dumpdir, log=None, loudness=False, stats=None):
+# Stored per-slot loudness targets: active RMS (active_rms(), the 30 dB-of-peak window,
+# on the same int16 sample scale) of the JP retail clip for each of the 20 SE slots this
+# module writes, measured once via jp_targets() against dump/ds_jp/com/kenji2_sound.sdat.
+# No audio data is stored, only these 20 numbers -- the same way tools/desc_font.json
+# already stores measured font advances in this repo. This lets the build always apply
+# the loudness stage without a Japanese ROM/dump on the player's machine. Recompute with
+# jp_targets() (dev-only, above) if the JP retail clips are ever re-extracted.
+TARGET_RMS = {
+    31: 10819.18244016365, 32: 8956.603577089849, 33: 9132.279022863308,
+    34: 9110.728636743668, 35: 13337.203625851793, 36: 12626.655729930999,
+    37: 10659.855979585323, 38: 9856.169572864957, 39: 8544.069766146391,
+    40: 10032.653666504079, 41: 10332.265178374819, 42: 12100.282104878446,
+    43: 9710.743599756219, 44: 12042.823471359341, 45: 12565.45367058348,
+    46: 10193.988421618265, 102: 8666.111431797497, 177: 10583.663563417977,
+    221: 9903.578389037842, 222: 10274.714966120377,
+}
+
+
+def build(dumpdir, log=None, loudness=True, stats=None):
     """-> (new sdat bytes, report lines).
 
-    loudness=True turns on the optional stage-1 gain-toward-JP-target + limiter, applied
-    between normalise and fade_out (see jp_targets/loudness_stage above); off by default,
-    so voices.apply's normal build path is unaffected. If given, `stats` is filled in
-    place with {se: (gain_db, max_reduction_db)} for slots the stage actually touched.
+    loudness=True (the default, what voices.apply/build.py always use) applies the
+    stage-1 gain-toward-JP-target + limiter, between normalise and fade_out (see
+    loudness_stage above), using the stored TARGET_RMS table -- no JP ROM/dump needed.
+    Pass loudness=False only to disable the stage for testing/comparison (e.g.
+    the private listening tools' "before" column). If given, `stats` is filled in place
+    with {se: (gain_db, max_reduction_db)} for slots the stage actually touched.
     """
     log = log if log is not None else []
     sdat = open(os.path.join(dumpdir, 'ds_fan', *SDAT_PATH.split('/')), 'rb').read()
     se_fid = se_to_wavearc_fid(sdat)
     name_by_fid = {v: k for k, v in wavearc_files(sdat).items()}
-    targets = jp_targets(os.path.join(dumpdir, 'ds_jp', *SDAT_PATH.split('/'))) if loudness else {}
+    targets = TARGET_RMS if loudness else {}
     repl = {}
     for n, (rate, enc, suf) in sorted(SLOTS.items()):
         fid = se_fid.get(n)
@@ -492,9 +513,9 @@ def build(dumpdir, log=None, loudness=False, stats=None):
     return rebuild_sdat(sdat, repl), log
 
 
-def apply(dumpdir, rom_path, log=print):
+def apply(dumpdir, rom_path, log=print, loudness=True):
     from title_logo import splice
-    new, lines = build(dumpdir)
+    new, lines = build(dumpdir, loudness=loudness)
     rom = open(rom_path, 'rb').read()
     rom = splice(rom, SDAT_PATH, new)
     open(rom_path, 'wb').write(rom)
@@ -508,6 +529,13 @@ def apply(dumpdir, rom_path, log=print):
 if __name__ == '__main__':
     from paths import work
     dumpdir = work('dump')
+    if '--recompute-targets' in sys.argv:
+        # Dev-only: recompute TARGET_RMS from dump/ds_jp and print it for comparison;
+        # never called from build()/apply(). Requires the developer's own JP dump.
+        t = jp_targets(os.path.join(dumpdir, 'ds_jp', *SDAT_PATH.split('/')))
+        for n in sorted(SLOTS):
+            print('%d: %r  (stored %r)' % (n, t.get(n), TARGET_RMS.get(n)))
+        raise SystemExit(0)
     outdir = os.path.join(work('out'), 'audit', 'voice')
     os.makedirs(outdir, exist_ok=True)
     new, lines = build(dumpdir)
