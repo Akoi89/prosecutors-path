@@ -285,8 +285,23 @@ The animated Mind Chess banner still read "Logic Chess", the older working name,
 Capcom's script calls it "Mind Chess" and ends its win screen on "Checkmate" rather than the
 fan's wording. Both are now drawn from the player's own Collection install into the fan's
 existing banner pieces: only tile pixels and each piece's horizontal offset change, the animation
-itself is untouched. Rendered from the ROM with the game's own animation positions; not yet
-captured on the rig, since the banner shows at each bout, at its start and its end.
+itself is untouched. Rendered from the ROM with the game's own animation positions.
+
+A tester's video of the first candidate showed three problems, all fixed in commit a8ac8a4:
+"Mind" and "Checkmate" were drawn in two colours only, next to the fan's "Chess", which shades
+from blue to white through the banner's 11-step palette ramp (idlocal entry 26, bank 0). All
+redrawn letters now use that ramp. "Checkmate" was upright; it now has the same lean as "Mind".
+And the cut between its first sprite piece (cell 9) and the rest (cell 10) ran through the "e";
+it now falls in the gap between "e" and "c", with the word narrowed slightly (183 of 192 px) and
+re-centred so the cut lands on the piece boundary. The build stops if no clean cut exists.
+
+Checked on the rig on 2026-09-27 at 60 fps, Case 4's Mind Chess against Excelsius Winner: both
+banners are right at rest. During the end banner's zoom-in, the first three frames still hide part
+of "Checkmate" ("Clckmate", "Chckmate", "Ch|ckmate"), as the earlier build did. Cells 9 and 10
+scale about their own anchors and overlap while enlarged; the seam inside cell 10's two objects
+never breaks. The fix is to carry the whole word in one cell, which means adding an OAM entry to
+the cell data, the same change "Commence" needs for Capcom's name-on-top layout. Both are planned
+for the next release.
 
 ### Louder shouts (commits e688f39, f0c37be)
 

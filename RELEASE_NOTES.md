@@ -48,7 +48,8 @@ Version 1.10.0 fixes a Case 2 rebuttal freeze and the same fault in Case 4, seve
 ## Known problems
 
 - Most of the game still hasn't been run by anyone; see the Credits below for what has been finished. The Case 2 fix was checked by replaying the tester's own save: the rebuttal opens with all five statements, the game keeps responding, and he played it through to the end. The Case 4 fix is the identical mistake in a different rebuttal, but no save has reached that scene yet, so it has only been checked against the game's own data, not watched running.
-- The camera and pose fixes were checked by measurement and by rendering the scenes, not by watching them run on the rig. The Mind Chess banner hasn't been seen on screen yet either; it's rendered from the ROM using the game's own animation positions.
+- The camera and pose fixes were checked by measurement and by rendering the scenes, not by watching them run on the rig. The Mind Chess banner has been checked on screen, at the start and end of a Mind Chess in Case 4.
+- At the end of a Mind Chess, "Checkmate" zooms in, and for its first three frames (about a twentieth of a second) part of the word is hidden, so it reads "Chckmate" or similar before it settles. Earlier builds do the same. The word is drawn in two pieces that grow separately while it zooms; drawing it as one piece is planned for the next release.
 - About one character in eighty is still the fan translation rather than Capcom's, in spots where Capcom's Collection has no matching text at all, or where its wording does not fit a Mind Chess row's bar.
 - Bugs listed as fixed in an earlier version have come back before. If something here shows up again, say so. That matters more than this note saying it is handled.
 
