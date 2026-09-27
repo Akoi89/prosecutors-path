@@ -148,6 +148,75 @@ def normalise(x, peak=PEAK):
     return [max(-32768, min(32767, int(round(v * g)))) for v in x]
 
 
+# --- optional loudness stage (off by default until approved by ear) ---------------------
+# Gain each clip toward a target active RMS (Capcom's JP retail loudness for that SE),
+# then a look-ahead peak limiter so the boost never clips. Pure Python, deterministic
+# (no randomness, no order-dependent float sums), off unless a caller asks for it, so a
+# normal build (voices.apply, which never passes loudness=True) is unaffected.
+MAX_GAIN_DB = 8.0
+
+
+def _db(x):
+    return 20 * math.log10(x) if x > 0 else -99.0
+
+
+def active_rms(x, floor_db=30.0):
+    """RMS over samples within floor_db of the clip's own peak: closer to how loud a
+    shout with a high crest factor actually sounds than a whole-clip RMS. Same measure
+    as the private measurement script used to size this stage, on the same int16-scale
+    samples."""
+    if not x:
+        return 0.0
+    pk = max(abs(v) for v in x)
+    if pk <= 0:
+        return 0.0
+    thr = pk * 10 ** (-floor_db / 20.0)
+    act = [v for v in x if abs(v) >= thr]
+    return math.sqrt(sum(v * v for v in act) / len(act))
+
+
+def peak_limiter(x, rate, ceiling, look_ms=1.5, release_ms=60.0):
+    """Look-ahead peak limiter: gain <= 1.0 always, |sample| never exceeds ceiling.
+    Attack is instant (the look-ahead sees a peak coming and starts reducing before it
+    arrives, so there is no click); release ramps the gain back toward 1.0 linearly over
+    release_ms so recovery is smooth. No hard clipping, no added noise, deterministic.
+    Returns (limited samples as floats, max gain reduction dB, mean gain reduction dB)."""
+    n = len(x)
+    if n == 0 or ceiling <= 0:
+        return list(x), 0.0, 0.0
+    look = max(1, int(round(rate * look_ms / 1000.0)))
+    release = max(1, int(round(rate * release_ms / 1000.0)))
+    desired = [min(1.0, ceiling / abs(v)) if abs(v) > ceiling else 1.0 for v in x]
+    la = [0.0] * n
+    for i in range(n):
+        la[i] = min(desired[i:min(n, i + look + 1)])
+    release_step = 1.0 / release
+    out = [0.0] * n
+    applied = [0.0] * n
+    g = 1.0
+    for i in range(n):
+        target = la[i]
+        g = target if target < g else min(target, g + release_step)
+        applied[i] = g
+        out[i] = x[i] * g
+    return out, _db(min(applied)), _db(sum(applied) / n)
+
+
+def loudness_stage(x, rate, target_rms, peak=PEAK):
+    """Gain `x` toward `target_rms` active RMS (capped at +MAX_GAIN_DB), then limit the
+    peak back to peak*32767. Returns (samples, gain_db applied, max limiter reduction dB)."""
+    if target_rms <= 0:
+        return list(x), 0.0, 0.0
+    cur = active_rms(x)
+    if cur <= 0:
+        return list(x), 0.0, 0.0
+    gain = min(target_rms / cur, 10 ** (MAX_GAIN_DB / 20.0))
+    boosted = [v * gain for v in x]
+    limited, max_red_db, _mean_red_db = peak_limiter(boosted, rate, peak * 32767.0)
+    out = [max(-32768, min(32767, int(round(v)))) for v in limited]
+    return out, _db(gain), max_red_db
+
+
 # Ten of Capcom's clips stop at about 1.3% of full scale instead of at silence, where every retail
 # DS shout ends at zero; a sample that stops on a non-zero value can tick as playback cuts off.
 # A half-cosine fade over the last FADE_MS brings every clip down to zero - far too short to hear as
@@ -275,7 +344,7 @@ def wavearc_files(d):
 
 def se_to_wavearc_fid(d):
     """SE number -> wave archive FAT file id, through the seq_se SSAR record table
-    and the INFO BANK table (same resolution as rig/voice_compare.py se_to_swar,
+    and the INFO BANK table (the same resolution the private listening tools use,
     stopping at the file id instead of reading the archive's bytes)."""
     info_off = struct.unpack_from('<I', d, 0x18)[0]
     recs = struct.unpack_from('<8I', d, info_off + 8)
@@ -324,19 +393,98 @@ def rebuild_sdat(d, repl):
     return bytes(out)
 
 
-def build(dumpdir, log=None):
-    """-> (new sdat bytes, report lines)."""
+def _swar_first_swav(s):
+    """Read (not write) path for the loudness stage's JP target only."""
+    assert s[:4] == b'SWAR', s[:4]
+    data = s.find(b'DATA')
+    cnt = struct.unpack_from('<I', s, data + 8 + 32)[0]
+    o = struct.unpack_from('<I', s, data + 8 + 32 + 4)[0]
+    end = struct.unpack_from('<I', s, data + 8 + 32 + 8)[0] if cnt > 1 else len(s)
+    return s[o:end]
+
+
+def _decode_swav(w):
+    """Decode a SWAV to (rate, samples); a read-only path used to measure the JP
+    retail loudness target (and, from a private tool, to render a listening page)
+    -- never used to write a shout."""
+    typ, loop, rate, timer, loopofs = struct.unpack_from('<BBHHH', w, 0)
+    nonloop = struct.unpack_from('<I', w, 8)[0]
+    body = w[12:12 + (loopofs + nonloop) * 4]
+    if typ == 0:
+        return rate, [struct.unpack_from('<b', body, i)[0] * 256 for i in range(len(body))]
+    if typ == 1:
+        return rate, list(struct.unpack_from('<%dh' % (len(body) // 2), body, 0))
+    pred, idx = struct.unpack_from('<hB', body, 0)
+    out = []
+    for byte in body[4:]:
+        for nib in (byte & 15, byte >> 4):
+            step = STEP[idx]
+            diff = step >> 3
+            if nib & 1: diff += step >> 2
+            if nib & 2: diff += step >> 1
+            if nib & 4: diff += step
+            pred = max(-32768, min(32767, pred - diff if nib & 8 else pred + diff))
+            idx = max(0, min(88, idx + IDX[nib & 7]))
+            out.append(pred)
+    return rate, out
+
+
+def se_to_clip(d, se):
+    """(rate, samples) for one SE in any sdat `d` (fan/ours/JP, before or after this
+    module's own replacement), through the same SSAR/BANK resolution as
+    se_to_wavearc_fid. Read-only; for measuring/listening, never for writing."""
+    fid = se_to_wavearc_fid(d).get(se)
+    if fid is None:
+        return None
+    files = sdat_parts(d)[2]
+    return _decode_swav(_swar_first_swav(files[fid]))
+
+
+def jp_targets(jp_sdat_path):
+    """SE -> active RMS of the JP retail clip, read from the player's own dump/ds_jp
+    archive via the same SSAR/BANK resolution as se_to_wavearc_fid; {} (stage off) if
+    that archive is not present. No measured numbers from these clips are written
+    anywhere; this is recomputed at build time every time."""
+    if not jp_sdat_path or not os.path.exists(jp_sdat_path):
+        return {}
+    d = open(jp_sdat_path, 'rb').read()
+    fid_by_se = se_to_wavearc_fid(d)
+    files = sdat_parts(d)[2]
+    out = {}
+    for se, fid in fid_by_se.items():
+        try:
+            _, samples = _decode_swav(_swar_first_swav(files[fid]))
+            out[se] = active_rms(samples)
+        except Exception:
+            pass
+    return out
+
+
+def build(dumpdir, log=None, loudness=False, stats=None):
+    """-> (new sdat bytes, report lines).
+
+    loudness=True turns on the optional stage-1 gain-toward-JP-target + limiter, applied
+    between normalise and fade_out (see jp_targets/loudness_stage above); off by default,
+    so voices.apply's normal build path is unaffected. If given, `stats` is filled in
+    place with {se: (gain_db, max_reduction_db)} for slots the stage actually touched.
+    """
     log = log if log is not None else []
     sdat = open(os.path.join(dumpdir, 'ds_fan', *SDAT_PATH.split('/')), 'rb').read()
     se_fid = se_to_wavearc_fid(sdat)
     name_by_fid = {v: k for k, v in wavearc_files(sdat).items()}
+    targets = jp_targets(os.path.join(dumpdir, 'ds_jp', *SDAT_PATH.split('/'))) if loudness else {}
     repl = {}
     for n, (rate, enc, suf) in sorted(SLOTS.items()):
         fid = se_fid.get(n)
         if fid is None:
             raise SystemExit('sdat has no wave archive for SE %d' % n)
         mono, src = read_wav_mono(os.path.join(voice_dir(dumpdir), 'SE_%d%s.wav' % (n, suf)))
-        pcm = fade_out(normalise(resample(mono, src, rate)), rate)
+        pcm = normalise(resample(mono, src, rate))
+        if loudness and targets.get(n, 0) > 0:
+            pcm, gain_db, red_db = loudness_stage(pcm, rate, targets[n])
+            if stats is not None:
+                stats[n] = (gain_db, red_db)
+        pcm = fade_out(pcm, rate)
         repl[fid] = swar([swav(pcm, rate, enc)])
         log.append('SE %3d -> %-10s %s %5d Hz %6d samples %.2fs  %6d B' % (
             n, name_by_fid.get(fid, '?'), 'pcm16' if enc == 1 else 'adpcm', rate, len(pcm),
