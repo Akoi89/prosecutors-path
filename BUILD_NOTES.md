@@ -33,7 +33,7 @@ The Menus & UI and total figures move from the 89.3%/98.9% quoted earlier in thi
 because the Mind Chess font-measurement fix below reverts some rows to the fan's wording
 where Capcom's does not fit the bar (723 character units), partly offset by more official
 text elsewhere. sha256 of the release build is
-`b92d69fa0f91b049071fed7337f4031cce0ed884c0b15b366cae4ee92f512446` (VERSION and
+`d6f3891ab53609cfff938adb2c79d4bc3f26a6d86697b5167db8f864da0a4a51` (VERSION and
 REFERENCE_ROM_SHA256, commit 50d11fa), 50,627,184 bytes; two identical builds and a
 clean-clone executable doing a full extraction reproduce it.
 

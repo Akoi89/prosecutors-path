@@ -102,8 +102,8 @@ gk2port-windows-x64.exe --verify "GK2 (Official English, DS port).nds"
 ```
 
 A correct output ROM is 50,627,184 bytes, sha256
-`b92d69fa0f91b049071fed7337f4031cce0ed884c0b15b366cae4ee92f512446`. The patch itself is
-3,922,382 bytes, sha256 `521a11aa848efd67f07fa1c57b8adb7fcd62c780546fee7c6170e14686741358`.
+`d6f3891ab53609cfff938adb2c79d4bc3f26a6d86697b5167db8f864da0a4a51`. The patch itself is
+3,923,588 bytes, sha256 `5c7d4986647b003103f608a16d22dd6d4db5c2b84881f7cceeb608320a40d785`.
 
 **Or build it yourself** from your own copy of the Collection, if you'd rather the
 localization came out of your files than out of one someone uploaded. Full steps are in

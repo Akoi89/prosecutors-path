@@ -54,8 +54,8 @@ Version 1.10.0 fixes a Case 2 rebuttal freeze and the same fault in Case 4, seve
 
 ## Files
 
-- `gk2port-windows-x64.exe` and `gk2port-linux-x64`: the build tool, with `SHA256SUMS` alongside them. `gk2port --verify` checks a finished ROM against this version's published reference, `b92d69fa0f91b049071fed7337f4031cce0ed884c0b15b366cae4ee92f512446`.
-- `Prosecutors-Path-1.10.0-fan-base.xdelta` (3,922,382 bytes, sha256 `521a11aa848efd67f07fa1c57b8adb7fcd62c780546fee7c6170e14686741358`): the patch, uploaded separately and deliberately left out of `SHA256SUMS`, since it carries Capcom's script rather than just tool code.
+- `gk2port-windows-x64.exe` and `gk2port-linux-x64`: the build tool, with `SHA256SUMS` alongside them. `gk2port --verify` checks a finished ROM against this version's published reference, `d6f3891ab53609cfff938adb2c79d4bc3f26a6d86697b5167db8f864da0a4a51`.
+- `Prosecutors-Path-1.10.0-fan-base.xdelta` (3,923,588 bytes, sha256 `5c7d4986647b003103f608a16d22dd6d4db5c2b84881f7cceeb608320a40d785`): the patch, uploaded separately and deliberately left out of `SHA256SUMS`, since it carries Capcom's script rather than just tool code.
 - `GK2-v1.10.0.zip`: the same patch bundled with `xdelta3.exe` and a short README, for anyone who would rather not install a separate tool.
 - Full apply steps, source and output sizes and hashes, and troubleshooting are in [README.md](README.md).
 
