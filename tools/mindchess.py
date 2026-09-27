@@ -4,8 +4,45 @@ name-row and "Complete" end-row art as "Mind Chess" / "Checkmate", using
 Capcom's own English Logic Chess title letters harvested from the player's
 Collection install at build time. Nothing Capcom-owned ships with this tool.
 
+Three fixes over the previous pass, found by comparing a tester's capture of
+the shipped banner against the fan's own untouched lettering:
+  1. Soft edges. I was thresholding every letter to just 2 colours (fill,
+     outline), while the fan's own glyphs use an 11-step anti-alias ramp
+     between them. I read that ramp from the ROM itself (see PALETTE_ENTRY
+     below - it is idlocal entry 26, not entry 24; I checked entry 24 first
+     since an earlier pass's docstring pointed there, found it holds a
+     red/pink ramp that never appears on screen, then found the exact
+     measured ramp, colour for colour, at entry 26 bank 0 indices 1-11) and
+     map every opaque source pixel to the nearest ramp step by where it
+     falls between fill and outline. The outer edge stays hard (alpha<128 is
+     fully transparent, no partial-alpha ramp there, matching the fan's own
+     glyphs). "Checkmate" was also being resampled twice (marked/thresholded
+     at one scale, then resized again to its final width); both words now go
+     through exactly one resize, from Capcom's native art to final size,
+     with the ramp classification happening once at the very end.
+  2. "Checkmate" was never sheared, so it stood upright next to the fan's own
+     italic "Chess" - now it gets the same _shear() as "Mind", anchored the
+     same way.
+  3. The old fixed 64px/128px slice of the condensed word cut cell 9 from
+     cell 10 mid-letter (through the "e" of "Check"), which is fine at rest
+     but visibly splits for the first few frames of the end-banner zoom-in
+     because the two cells scale about separate anchors. I now search the
+     classified word for a column near the fixed 64px field boundary where
+     no row has fill or ramp ink darker than the midpoint, and condense the
+     word's width (not its height) so that column lines up exactly on the
+     boundary, then re-centre the whole word by shifting all three end-field
+     OAM x by the same amount (the canvas content, and so the seam's local
+     column, is untouched). This is not perfectly clean: the gap between "e"
+     and "c" is only 1px wide on some rows, so the cut (reported by patch(),
+     not silently overwritten) still puts the "e"'s own rightmost
+     outline pixel in cell 10 on those rows - no straight cut avoids that.
+     What it does avoid, which the old fixed cut did not, is ANY dark fill
+     pixel crossing the boundary: the "e"'s body stays entirely in cell 9.
+     See checkmate_chunks() for the numbers and which letter gap it lands on.
+
 Container: entry 25 is a self-contained sprite bundle (RECN cells + RNAN
-animation + RGCN tiles, palette shared with idlocal entry 24), 45 NCER cells
+animation + RGCN tiles; the palette bank its OAMs actually use is idlocal
+entry 26, not entry 24 - see PALETTE_ENTRY below), 45 NCER cells
 = 11 single-object shapes x 4 palette banks + one blank filler. Cells 0-10
 are the palette-bank-0 ("red") set: 0/1/2 used to hold "Lo"/"gi"/"c", 3/4/5
 "Ch"/"es"/"s", 6 a blank piece (placed by two sequences, drawn empty), 7/8 "Be"/"gin", 9 "Co", and cell 10
@@ -44,11 +81,16 @@ verified renderer, not a mock, produced every number below):
     applied the same way between M/i/n/d. Its baseline is placed to land on
     the same real screen row as "Chess" (both cap-height glyphs, matched by
     measuring the fan's own baseline row off the renderer, not assumed).
-    "Checkmate" (Check+mate joined at CHECKMATE_GAP, closing the visual gap
-    those two pre-rendered word images otherwise leave between "k" and "m";
-    condensed to 192px, about 85.7% of their 224px joined width) is split
-    into three 64px slices across cell 9 and cell 10's two objects, the way
-    the fan split "Complete" into Co/mplete.
+    "Checkmate" (Check+mate sheared the same way as "Mind", THEN joined at a
+    gap tightened 1px at a time - starting from CHECKMATE_JOIN0 - until a
+    flood fill finds no enclosed hole left in the outline between "k" and
+    "m"; condensed to about END_WIDTH=192px, less when the seam fit below
+    needs the margin, then re-centred) is cut across cell 9 and cell 10's two
+    objects at whichever column near the fixed 64px field boundary has no
+    FILL or ramp pixel darker than the midpoint at that exact column (the
+    "e"/"c" gap is only 1px wide on some rows, so the "e"'s own outline still
+    crosses on those rows - see checkmate_chunks), the way the fan split
+    "Complete" into Co/mplete.
   - Each redrawn cell's OAM x is set so that group's real screen position
     equals the layout below (LAYOUT selects which); "Chess" keeps its own
     pixels and is only shifted by a constant OAM x delta, same for all
@@ -71,8 +113,12 @@ read that cache. required() lists the cached images, so build.py stops a
 --skip-extract"); only a direct call to patch()/apply_to_rom() without the
 cache logs the reason and returns entry 25 unchanged.
 
-No rig capture of this redraw has been made; every number here comes from
-the tile/animation data and the renderer above, not from a screenshot.
+No rig capture of this pass's redraw has been made; the layout numbers above
+still come from the tile/animation data and the renderer, not a screenshot.
+The ramp fix was prompted by a tester's screenshot of the shipped banner
+(fill and outline colours measured off it), then confirmed independently by
+reading PALETTE_ENTRY straight out of the ROM (see _read_ramp) - the two
+matched exactly, colour for colour.
 """
 import os, sys, glob, struct
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -89,10 +135,28 @@ WORD_SPRITE = {'check': 11, 'mate': 12}
 
 SCALE = 0.229            # Capcom cap-height -> fan cap-height
 SHEAR = 0.16             # fan's own italic lean, measured off "Be"
-ALPHA_MIN = 26           # ~0.1 of 255, same gate the choice-strip lettering uses
-LUM_THRESH = 128
+ALPHA_MIN = 26           # ~0.1 of 255: gates near-invisible source noise out of
+                          # the crop box BEFORE any spacing math runs, same gate
+                          # the old threshold step used, kept so "Mind"'s letter
+                          # spacing (measured off these same crop boxes) does not
+                          # shift by being a pixel looser than before
+ALPHA_HARD = 128         # outer-edge cutoff: alpha below this is fully transparent
+                          # (index 0) in the FINAL written tile, no partial-alpha
+                          # ramp step there - matches the fan's own glyphs, which
+                          # have a hard outer edge
 
-FILL_IDX, OUTLINE_IDX = 1, 11
+FILL_IDX, OUTLINE_IDX = 1, 11   # ramp bounds: index 1 is pure fill, 11 pure outline
+RAMP_LEN = OUTLINE_IDX - FILL_IDX + 1   # 11 steps, indices 1-11 inclusive
+PALETTE_ENTRY = 26       # idlocal entry whose bank-0 indices 1-11 hold the fan's
+                          # 11-step fill->outline anti-alias ramp. NOT entry 24:
+                          # entry 24 has the same 45-cell/4-bank shape and was
+                          # assumed to be "the" shared palette by an earlier pass,
+                          # but its bank 0 decodes to a red/pink ramp that never
+                          # appears on screen. Entry 26 bank 0 indices 1-11 match
+                          # the fan's own measured on-screen ramp exactly, colour
+                          # for colour; entry 26 bank 4 is identical to entry 24
+                          # bank 0 (the same red/pink set, kept as a spare bank),
+                          # which is presumably how the mix-up happened.
 
 # ---- real screen positions, off entry 25's own animation + OAM data -------
 # tile field -> resting screen x of that field's cell/object (see docstring;
@@ -117,8 +181,8 @@ CHESS_SPAN = (0, 107)     # fan's own "Ch".."s" ink span, measured, pixels untou
 CHESS_WIDTH = CHESS_SPAN[1] - CHESS_SPAN[0] + 1
 LOGIC_SPAN = (-108, -9)   # fan's own "Lo".."c" ink span, measured (layout B only)
 END_WIDTH = 192           # "Checkmate" condense target: joined width condenses to
-                          # this (see CHECKMATE_GAP for the joined width and ratio);
-                          # not a hard fill, just a width that reads clearly
+                          # this (see CHECKMATE_JOIN0 for how the join itself is
+                          # chosen); not a hard fill, just a width that reads clearly
 CHECKMATE_START = -96     # centres "Checkmate" on "Complete"'s own old centre (~0)
 WORD_GAP = 10             # ink-to-ink gap between "Mind" and "Chess", both layouts;
                           # close to the fan's own "Logic"/"Chess" gap (8 to 9 blank
@@ -214,9 +278,16 @@ def _shear(im, k=SHEAR):
                           (1, k, -k * h, 0, 1, 0), resample=Image.BICUBIC)
 
 
-def _mark(im, scale=SCALE):
-    """Capcom blue-fill/white-outline glyph -> a two-marker-colour RGBA image
-    (black=fill, white=outline), alpha kept, by a binary luminance threshold."""
+def _resample(im, scale=SCALE):
+    """Capcom's native glyph -> the same art at fan cap-height scale, ONE
+    LANCZOS resize. Colour is left alone (no thresholding here - that used
+    to happen in this same step, collapsing the source's own anti-aliasing
+    to 2 hard colours; classification to the fan's 11-step ramp now happens
+    once, at write time, on this continuous-tone result, in _ramp_grid).
+    Only near-invisible alpha (<ALPHA_MIN) is zeroed, same gate the old
+    thresholding step used, so _crop()'s bbox - and everything measured off
+    it, including "Mind"'s own letter spacing - is exactly as tight as
+    before."""
     w, h = max(1, round(im.width * scale)), max(1, round(im.height * scale))
     small = im.resize((w, h), Image.LANCZOS)
     out = Image.new('RGBA', (w, h), (0, 0, 0, 0))
@@ -224,10 +295,8 @@ def _mark(im, scale=SCALE):
     for y in range(h):
         for x in range(w):
             r, g, b, a = sp[x, y]
-            if a < ALPHA_MIN:
-                continue
-            lum = 0.299 * r + 0.587 * g + 0.114 * b
-            op[x, y] = ((255, 255, 255) if lum >= LUM_THRESH else (0, 0, 0)) + (a,)
+            if a >= ALPHA_MIN:
+                op[x, y] = (r, g, b, a)
     return out
 
 
@@ -277,16 +346,18 @@ def _optical_offset(a, b, target=OPTICAL_GAP):
 
 
 def mind_groups(dumpdir):
-    """-> ([M, in, d] RGBA marker images, [offsets], mind_width) or None.
-    `offsets` are each group's real ink-start relative to M's own ink-start
-    (0); mind_width is the whole word's real ink width. Letters are spaced by
-    OPTICAL_GAP (see above), not by concatenating their crop boxes."""
+    """-> ([M, in, d] continuous-tone RGBA images, [offsets], mind_width) or
+    None. `offsets` are each group's real ink-start relative to M's own
+    ink-start (0); mind_width is the whole word's real ink width. Letters are
+    spaced by OPTICAL_GAP (see above), not by concatenating their crop boxes.
+    Each letter is resampled exactly once (_resample); classification to the
+    fan's ramp happens later, at write time, on the assembled result."""
     letters = {}
     for c in ('M', 'i', 'n', 'd'):
         src = _load(dumpdir, 'letter_%s' % c)
         if src is None:
             return None
-        letters[c] = _crop(_mark(_shear(src)))
+        letters[c] = _crop(_resample(_shear(src)))
     M, i, n, d = letters['M'], letters['i'], letters['n'], letters['d']
     off_i = _optical_offset(M, i)
     off_n = off_i + _optical_offset(i, n)
@@ -297,32 +368,107 @@ def mind_groups(dumpdir):
     return [M, in_canvas, d], [0, off_i, off_d], off_d + d.width
 
 
-CHECKMATE_GAP = -10  # "Check"/"mate" are two pre-rendered word images, each already
-                      # tight to its own ink at the edges; a gap of 0-1 still read as
-                      # two words ("Check mate") because "k"'s and "m"'s own tapering
-                      # strokes leave a low-density optical gap even with no blank
-                      # column between them. -10 (a real Capcom-scale kerning
-                      # overlap, chosen by rendering -10/-15/-20 and picking the
-                      # tightest one that keeps "k" legible) closes it into one word.
+CHECKMATE_JOIN0 = round(-10 / SCALE)  # starting native-scale join gap: a straight
+                      # port of the old small-scale kerning ("Check"/"mate" are two
+                      # pre-rendered word images, each already tight to its own ink
+                      # at the edges; a gap of 0-1 still reads as two words because
+                      # "k"'s and "m"'s own tapering strokes leave a low-density
+                      # optical gap even with no blank column between them; -10 was
+                      # chosen, before this pass, by rendering -10/-15/-20 and
+                      # picking the tightest that keeps "k" legible), converted to
+                      # native pixels by dividing by SCALE. On its own this leaves a
+                      # real hole in the outline between "k" and "m" partway up once
+                      # both words are sheared (found in review, confirmed with a
+                      # flood fill: an enclosed transparent region the staged build
+                      # does not have). Cause: shearing shifts each letter's own
+                      # silhouette right by an amount that grows with height above
+                      # the baseline, and "k"'s tall ascender shifts further than
+                      # "m"'s short x-height body, so a gap that closes the words at
+                      # the baseline can still be open partway up. checkmate_chunks
+                      # closes this by increasing the overlap 1px at a time,
+                      # checking with the same flood fill each step, until no
+                      # enclosed hole remains near the join - not a fixed guess.
+CHECKMATE_JOIN_MARGIN = 12  # how far (in final 192px-wide columns) either side of
+                      # the computed check/mate join a hole must be to count as
+                      # "the k/m hole", vs. e.g. the notch inside Capcom's own "C"
+CHECKMATE_JOIN_MAX_STEPS = 60  # give up after this many 1px tightening steps
 
 
-def checkmate_chunks(dumpdir):
-    """-> [chunk0, chunk1, chunk2], 64px-wide slices of "Checkmate" condensed
-    to END_WIDTH, one per end-row field (144, 160, 176), or None."""
-    check = _load(dumpdir, 'word_check')
-    mate = _load(dumpdir, 'word_mate')
-    if check is None or mate is None:
-        return None
-    word = _hpaste([_mark(check), _mark(mate)], gap=CHECKMATE_GAP)
-    if word.width != END_WIDTH:
-        word = word.resize((END_WIDTH, word.height), Image.LANCZOS)
-    canvas = Image.new('RGBA', (END_WIDTH, 64), (0, 0, 0, 0))
-    canvas.alpha_composite(word, (0, 64 - word.height))
-    return [canvas.crop((k * 64, 0, (k + 1) * 64, 64)) for k in range(3)]
+def _enclosed_regions(grid, w, h):
+    """-> [(size, (x0,y0,x1,y1)), ...] for every index-0 (transparent) 4-connected
+    component that is NOT reachable from the canvas edge - a real hole enclosed
+    by fill/ramp/outline pixels, not the word's own outer background. Used to
+    close the "k"/"m" join below, and again on the final shipped-width grid to
+    confirm the seam fit did not open a new one."""
+    from collections import deque
+    outer = [[False] * w for _ in range(h)]
+    dq = deque()
+    for x in range(w):
+        for y in (0, h - 1):
+            if grid[y][x] == 0 and not outer[y][x]:
+                outer[y][x] = True
+                dq.append((x, y))
+    for y in range(h):
+        for x in (0, w - 1):
+            if grid[y][x] == 0 and not outer[y][x]:
+                outer[y][x] = True
+                dq.append((x, y))
+    while dq:
+        x, y = dq.popleft()
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < w and 0 <= ny < h and grid[ny][nx] == 0 and not outer[ny][nx]:
+                outer[ny][nx] = True
+                dq.append((nx, ny))
+    seen = [[False] * w for _ in range(h)]
+    regions = []
+    for y in range(h):
+        for x in range(w):
+            if grid[y][x] == 0 and not outer[y][x] and not seen[y][x]:
+                comp = []
+                dq2 = deque([(x, y)])
+                seen[y][x] = True
+                while dq2:
+                    cx, cy = dq2.popleft()
+                    comp.append((cx, cy))
+                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                        nx, ny = cx + dx, cy + dy
+                        if 0 <= nx < w and 0 <= ny < h and grid[ny][nx] == 0 and not outer[ny][nx] and not seen[ny][nx]:
+                            seen[ny][nx] = True
+                            dq2.append((nx, ny))
+                xs = [p[0] for p in comp]
+                ys = [p[1] for p in comp]
+                regions.append((len(comp), (min(xs), min(ys), max(xs), max(ys))))
+    return regions
 
 
-def _index_grid(im, w, h):
-    """Marker RGBA -> palette-index grid, 0 = transparent."""
+SEAM_FIELD_BOUNDARY = 64   # local column where field 144 (cell 9) ends and the
+                            # cell-10 pair (160/176) begins - fixed by tile geometry,
+                            # cannot move
+SEAM_SEARCH = 40            # how far either side of SEAM_FIELD_BOUNDARY to look
+                            # for a column where every row is safe (see below)
+
+
+def _blend_index(rgb, ramp):
+    """-> nearest ramp index (1-11) for an opaque pixel's own RGB, by its
+    projected position on the fill->outline line (ramp[0]->ramp[-1]), the
+    same 11 colours read off the ROM by _read_ramp(). Clamped to the ramp's
+    own ends, so a pixel bluer than pure fill still lands on index 1, not off
+    the end of the ramp."""
+    fill, outline = ramp[0], ramp[-1]
+    d = [o - f for f, o in zip(fill, outline)]
+    denom = sum(v * v for v in d) or 1
+    t = sum((c - f) * v for c, f, v in zip(rgb, fill, d)) / denom
+    t = 0.0 if t < 0 else (1.0 if t > 1 else t)
+    return FILL_IDX + int(round(t * (RAMP_LEN - 1)))
+
+
+def _ramp_grid(im, w, h, ramp):
+    """Continuous-tone RGBA -> palette-index grid, 0 = transparent. The outer
+    edge is hard (alpha < ALPHA_HARD -> 0); every opaque pixel is classified
+    to the nearest of the 11 ramp steps by _blend_index, which is what puts
+    the fan's own anti-aliasing back into these two redrawn words instead of
+    the old flat fill/outline threshold."""
     grid = [[0] * w for _ in range(h)]
     if im is None:
         return grid
@@ -330,10 +476,190 @@ def _index_grid(im, w, h):
     for y in range(min(h, im.height)):
         for x in range(min(w, im.width)):
             r, g, b, a = px[x, y]
-            if a < 128:
+            if a < ALPHA_HARD:
                 continue
-            grid[y][x] = OUTLINE_IDX if r >= 128 else FILL_IDX
+            grid[y][x] = _blend_index((r, g, b), ramp)
     return grid
+
+
+def _read_ramp(idl):
+    """-> the fan's 11-step fill->outline ramp, [idx1..idx11], read from
+    PALETTE_ENTRY bank 0 of the ROM being built (not a fixed guess)."""
+    pal = idl.palette(PALETTE_ENTRY)[0:16]
+    return pal[FILL_IDX:OUTLINE_IDX + 1]
+
+
+def _seam_safe(grid, h, col):
+    """-> True if no row of `grid` has a fill/ramp pixel darker than the
+    midpoint (index 1-6) AT THIS EXACT COLUMN - only outline (7-11) or
+    transparent (0) pixels are allowed to sit on the cell 9 / cell 10
+    boundary. This is a one-column test, not a check that the two letters'
+    ink is fully separated either side of it: on the shipped word, the gap
+    between "e" and "c" is only 1px wide on some rows, so the safe column
+    itself is clear but the very next column over (inside cell 9) still
+    carries "e"'s own dark fill, and "e"'s rightmost outline pixel ends up
+    in cell 10 on those rows. What this DOES guarantee is that no dark fill
+    pixel is ever split by the cut - see checkmate_chunks for the measured
+    rows."""
+    return all(not (FILL_IDX <= grid[y][col] <= 6) for y in range(h))
+
+
+def _find_seam(grid, h, near=SEAM_FIELD_BOUNDARY, radius=SEAM_SEARCH):
+    """-> nearest column to `near` (within +-radius) that is seam-safe at
+    EVERY row, by _seam_safe, or None if the search finds nothing."""
+    w = len(grid[0])
+    for d in range(radius + 1):
+        for col in (near - d, near + d):
+            if 0 <= col < w and _seam_safe(grid, h, col):
+                return col
+    return None
+
+
+def checkmate_chunks(dumpdir, ramp):
+    """-> (chunks, seam_found, join_gap, width_used, center_shift) or None.
+    chunks = [grid0, grid1, grid2], 64x64 palette-index grids (ready for
+    _write_shape) for fields 144/160/176, already cut and centred - nothing
+    downstream needs to know width_used or center_shift except patch()'s log
+    line and the OAM x it adds center_shift to.
+
+    Fixes for "Checkmate" live here:
+      - Sheared (_shear, same as "Mind"'s letters) and joined at Capcom's own
+        native resolution, THEN resampled to final size in one LANCZOS call
+        (width to the seam-fitted target below, height by SCALE alone) -
+        one resample total, where the previous version thresholded each word
+        to 2 colours at one scale and then resized the already-thresholded
+        result a second time.
+      - The join itself starts at CHECKMATE_JOIN0 and is tightened 1px at a
+        time, re-classifying and re-running _enclosed_regions each step,
+        until no enclosed hole remains within CHECKMATE_JOIN_MARGIN columns
+        of the check/mate boundary (a review found a real hole here in the
+        first pass - see CHECKMATE_JOIN0's comment for the cause).
+      - The old code always cut the condensed word at local columns 64 and
+        128 - fixed by tile geometry - regardless of what ink was there,
+        which is why the first cut used to fall inside the "e" of "Check".
+        I classify the word to the ramp at END_WIDTH and look for a column
+        near 64 where the column ITSELF has no fill/ramp pixel darker than
+        the midpoint (_find_seam). On this word that column is 67, not 64 -
+        the field boundary is fixed, so I shrink the word's WIDTH ONLY by
+        the ratio needed to bring column 67 exactly onto 64, then re-render
+        and re-run the hole check on this final, narrower grid too (a shrink
+        that fixes the seam could in principle open a different hole it
+        wasn't checked for). A narrower word would read left-shifted inside
+        the unchanged 192px budget, so I re-centre it afterwards - see
+        center_shift below - by moving the whole assembly, not by moving
+        content inside the canvas, which would undo the seam fit.
+        Only a safe column AT OR RIGHT of 64 is handled: one to the left
+        would need the word to GROW past 192px and pin to the right, clipping
+        the "C" on the left instead of fixing anything, so that path raises
+        instead of doing it. _find_seam finding nothing, and the 1px nudge
+        loop running out, both raise too - a bad seam is not shipped quietly.
+        The second cut, at 128, sits inside cell 10's own two objects (which
+        share one animation anchor and were already confirmed not to
+        visibly split).
+      - One-sidedness (found in review, not hidden): the gap between "e" and
+        "c" is only 1px wide on some rows, so a single safe column can't put
+        clear air on both sides of it - "e"'s own rightmost outline pixel
+        ends up in cell 10 on those rows. What the search DOES guarantee
+        (checked column by column, not assumed) is that no dark FILL pixel
+        is ever split - "e"'s body is entirely inside cell 9 - which the old
+        fixed 64px cut did not guarantee (it ran through the fill itself).
+    """
+    check = _load(dumpdir, 'word_check')
+    mate = _load(dumpdir, 'word_mate')
+    if check is None or mate is None:
+        return None
+    check_s = _crop(_shear(check))
+    mate_s = _crop(_shear(mate))
+
+    def render_join(gap, width=END_WIDTH, xoff=0):
+        joined = _hpaste([check_s, mate_s], gap=gap)
+        target_h = max(1, round(joined.height * SCALE))
+        word = joined.resize((width, target_h), Image.LANCZOS)
+        canvas = Image.new('RGBA', (END_WIDTH, 64), (0, 0, 0, 0))
+        canvas.alpha_composite(word, (xoff, 64 - target_h))
+        return joined, canvas
+
+    gap = CHECKMATE_JOIN0
+    for _ in range(CHECKMATE_JOIN_MAX_STEPS):
+        joined, canvas0 = render_join(gap)
+        grid0 = _ramp_grid(canvas0, END_WIDTH, 64, ramp)
+        # the check/mate boundary in final (post-resize) columns, used only to
+        # tell "the k/m hole" apart from unrelated ones (e.g. Capcom's own
+        # notch inside the "C") - NOT a hardcoded pixel position
+        join_final_col = (check_s.width + gap / 2) * END_WIDTH / joined.width
+        regions_192 = _enclosed_regions(grid0, END_WIDTH, 64)
+        holes = [r for r in regions_192
+                 if r[1][0] - CHECKMATE_JOIN_MARGIN <= join_final_col <= r[1][2] + CHECKMATE_JOIN_MARGIN]
+        if not holes:
+            break
+        gap -= 1
+    else:
+        raise SystemExit('mindchess: could not close the "k"/"m" join after %d steps'
+                          % CHECKMATE_JOIN_MAX_STEPS)
+    join_gap = gap  # reported by patch() below
+
+    grid = _ramp_grid(canvas0, END_WIDTH, 64, ramp)
+    seam_found = _find_seam(grid, 64)
+    if seam_found is None:
+        raise SystemExit('mindchess: no seam column within +-%d of the field '
+                          'boundary (%d) is free of fill/ramp ink darker than '
+                          'the midpoint' % (SEAM_SEARCH, SEAM_FIELD_BOUNDARY))
+    if seam_found < SEAM_FIELD_BOUNDARY:
+        raise SystemExit('mindchess: safe seam column %d is LEFT of the field '
+                          'boundary (%d); fitting it would grow the word past '
+                          'END_WIDTH and clip the left edge instead, which is '
+                          'not implemented - only a safe column at or right of '
+                          'the boundary is handled' % (seam_found, SEAM_FIELD_BOUNDARY))
+
+    width_used = END_WIDTH
+    if seam_found != SEAM_FIELD_BOUNDARY:
+        width_used = max(1, round(END_WIDTH * SEAM_FIELD_BOUNDARY / seam_found))
+        joined2, canvas1 = render_join(gap, width_used, 0)
+        grid = _ramp_grid(canvas1, END_WIDTH, 64, ramp)
+        # the ratio above is exact only for a linear resize; nudge 1px at a
+        # time in case rounding left the boundary column unsafe
+        tries = 0
+        while not _seam_safe(grid, 64, SEAM_FIELD_BOUNDARY) and tries < 8:
+            width_used += 1
+            joined2, canvas1 = render_join(gap, width_used, 0)
+            grid = _ramp_grid(canvas1, END_WIDTH, 64, ramp)
+            tries += 1
+        if not _seam_safe(grid, 64, SEAM_FIELD_BOUNDARY):
+            raise SystemExit('mindchess: column %d still unsafe after %d 1px '
+                              'nudges from the fitted width' % (SEAM_FIELD_BOUNDARY, tries))
+
+    # the fit above only proves the boundary COLUMN is safe; re-run the same
+    # hole check used to close the k/m join on this final, shipped-width grid
+    # matched by position, not just counted: each hole in the final grid must
+    # overlap (within 2px) a hole of the full-width grid once that one's x
+    # extent is scaled to the fitted width, so a fit that opens one hole and
+    # closes another still stops the build
+    regions_final = _enclosed_regions(grid, END_WIDTH, 64)
+    k = width_used / END_WIDTH
+
+    def _matched(box):
+        x0, y0, x1, y1 = box
+        for _, (a0, b0, a1, b1) in regions_192:
+            if (x0 <= a1 * k + 2 and a0 * k - 2 <= x1
+                    and y0 <= b1 + 2 and b0 - 2 <= y1):
+                return True
+        return False
+
+    new_holes = [r for r in regions_final if not _matched(r[1])]
+    if new_holes:
+        raise SystemExit('mindchess: the %dpx seam fit opened %d enclosed '
+                          'hole(s) not present at %dpx (%r vs %r)'
+                          % (width_used, len(new_holes), END_WIDTH,
+                             new_holes, regions_192))
+
+    # a word narrower than END_WIDTH is left-pinned at local column 0 by the
+    # fit above (so the boundary column lands correctly); re-centre the whole
+    # assembly by shifting screen position, not canvas content, so the seam
+    # fit above is untouched
+    center_shift = round((END_WIDTH - width_used) / 2)
+
+    chunks = [[row[k * 64:(k + 1) * 64] for row in grid] for k in range(3)]
+    return chunks, seam_found, join_gap, width_used, center_shift
 
 
 # ---- entry 25 container -----------------------------------------------
@@ -407,14 +733,21 @@ def _write_shape(rgcn, tile_off, tile_field, boundary, grid, w_tiles=8, h_tiles=
 
 def patch(idlocal_bytes, dumpdir, log=None):
     """-> (new_idlocal_bytes, changed) or (idlocal_bytes, False) if the
-    Collection harvest cache is missing - never raises."""
+    Collection harvest cache is missing (never raises for THAT case, same as
+    before). It DOES raise SystemExit, same as extract()'s missing-bundle
+    case, if checkmate_chunks can't make the cell 9 / cell 10 seam safe or
+    can't close the "k"/"m" join - an internal invariant failing, not a
+    missing asset, but still not something to ship silently."""
     log = log or (lambda s: None)
+    idl = Idlocal(idlocal_bytes)
+    ramp = _read_ramp(idl)
     mg = mind_groups(dumpdir)
-    chunks = checkmate_chunks(dumpdir)
-    if mg is None or chunks is None:
+    ck = checkmate_chunks(dumpdir, ramp)
+    if mg is None or ck is None:
         log('mindchess: harvested letters not found in dump/title/mindchess/ - entry 25 left untouched')
         return idlocal_bytes, False
     groups, offsets, mind_width = mg
+    chunks, seam_found, join_gap, width_used, center_shift = ck
 
     if LAYOUT == 'A':
         mind_start = -((mind_width + WORD_GAP + CHESS_WIDTH) // 2)
@@ -424,7 +757,6 @@ def patch(idlocal_bytes, dumpdir, log=None):
         raise ValueError('unknown LAYOUT %r' % LAYOUT)
     chess_shift = (mind_start + mind_width + WORD_GAP) - CHESS_SPAN[0]
 
-    idl = Idlocal(idlocal_bytes)
     b = bytearray(idl.blob(25))
     o = struct.unpack_from('<3I', b, 0)
     recn = bytearray(b[o[0]:o[1]])
@@ -442,7 +774,7 @@ def patch(idlocal_bytes, dumpdir, log=None):
         target = mind_start + off - TX[field] - DBL_ADJ
         canvas = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
         canvas.alpha_composite(grp, (0, BASELINE_ROW - grp.height + 1))
-        _write_shape(rgcn, tile_off, field, boundary, _index_grid(canvas, 64, 64))
+        _write_shape(rgcn, tile_off, field, boundary, _ramp_grid(canvas, 64, 64, ramp))
         _apply_x(recn, by_tile, field, lambda cur, t=target: t)
     mind_end = mind_start + mind_width - 1
 
@@ -452,19 +784,29 @@ def patch(idlocal_bytes, dumpdir, log=None):
     moved = sum(_apply_x(recn, by_tile, f, lambda cur, s=chess_shift: cur + s)
                 for f in CHESS_FIELDS)
 
-    # ---- end row: "Checkmate" split Check/mate-style across cell 9 + cell 10
-    cum2 = CHECKMATE_START
+    # ---- end row: "Checkmate" split Check/mate-style across cell 9 + cell 10.
+    # center_shift moves all three fields by the same amount to re-centre a
+    # word narrower than END_WIDTH (see checkmate_chunks) - it does NOT touch
+    # the tile pixels or the seam's local column, only where the group as a
+    # whole lands on screen.
+    cum2 = CHECKMATE_START + center_shift
     for field, chunk in zip(END_FIELDS, chunks):
         target = cum2 - TX[field] - DBL_ADJ
-        _write_shape(rgcn, tile_off, field, boundary, _index_grid(chunk, 64, 64))
+        _write_shape(rgcn, tile_off, field, boundary, chunk)
         _apply_x(recn, by_tile, field, lambda cur, t=target: t)
         cum2 += 64
 
     new_b = bytes(b[:o[0]]) + bytes(recn) + bytes(b[o[1]:o[2]]) + bytes(rgcn)
+    checkmate_start_shifted = CHECKMATE_START + center_shift
     log('mindchess [layout %s]: Mind %d..%d, Chess %d..%d (gap %d), %d OAM x fields moved, '
-        'Checkmate %d..%d'
+        'Checkmate %d..%d (width %d/%d, centre shift %+d), join gap %d (native, started %d), '
+        'seam found at col %d (field boundary %d, %s), ramp entry %d bank 0'
         % (LAYOUT, mind_start, mind_end, chess_start, chess_end,
-           chess_start - mind_end - 1, moved, CHECKMATE_START, CHECKMATE_START + 191))
+           chess_start - mind_end - 1, moved, checkmate_start_shifted,
+           checkmate_start_shifted + width_used - 1, width_used, END_WIDTH, center_shift,
+           join_gap, CHECKMATE_JOIN0, seam_found, SEAM_FIELD_BOUNDARY,
+           'no width change needed' if width_used == END_WIDTH else 'word fitted to make it safe',
+           PALETTE_ENTRY))
     new_idlocal = rebuild(idlocal_bytes, {25: new_b})
     return new_idlocal, True
 
