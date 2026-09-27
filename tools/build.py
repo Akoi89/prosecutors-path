@@ -198,7 +198,8 @@ def selftest():
     # missing them looks perfectly healthy until someone points it at the game.
     for mod in ('UnityPy', 'UnityPy.UnityPyBoost', 'lz4.block', 'brotli', 'PIL.Image', 'numpy',
                 'spt', 'dstext', 'inject', 'locate', 'ndsx', 'names', 'plates', 'buttons',
-                'lz11', 'nitro', 'txtcut', 'cg_names', 'cg_art', 'loc_dump', 'title_assets', 'voices'):
+                'lz11', 'nitro', 'txtcut', 'cg_names', 'cg_art', 'loc_dump', 'title_assets', 'voices',
+                'compact', 'mindchess', 'linefix'):
         try:
             __import__(mod)
             print('  import %-29s ok' % mod)

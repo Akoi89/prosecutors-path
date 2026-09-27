@@ -33,10 +33,10 @@ def title_dir(dumpdir):
 
 def required(dumpdir):
     """Files apply() needs; build.py checks these under --skip-extract."""
-    import cg_art
+    import cg_art, mindchess
     t = title_dir(dumpdir)
     return ([os.path.join(t, LOGO_PNG)] + [os.path.join(t, 'fonts', n + '.otf') for n in FONTS]
-            + cg_art.required(dumpdir))
+            + cg_art.required(dumpdir) + mindchess.required(dumpdir))
 
 
 def extract(bdir, dumpdir):
@@ -51,6 +51,8 @@ def extract(bdir, dumpdir):
             g.write(f.read())
     import cg_art
     cg_art.extract(bdir, dumpdir)
+    import mindchess
+    mindchess.extract(bdir, dumpdir)
     return t
 
 
@@ -125,6 +127,16 @@ def apply(dumpdir, rom_path, log=print, version=None):
     rom, st = choice_strips.apply_to_rom(rom, loc_en, fonts['FOT-UDKAKUGO_SMALLPR6-M'], log)
     log('choice strips redrawn with official text: %d (%d condensed, %d at a smaller size, %d without English)'
         % (st['drawn'], st['condensed'], st['stepped'], st['skipped']))
+
+    # 4b) the Mind (Logic) Chess banner: "Mind"/"Checkmate" in Capcom's own
+    #     letters over the fan's cell/animation, the name row re-centred with
+    #     "Chess" moved a few px so the two words sit like the fan's (idlocal
+    #     entry 25; required() makes a --skip-extract build stop if the
+    #     harvested letters are missing)
+    import mindchess
+    rom, changed = mindchess.apply_to_rom(rom, dumpdir, log)
+    if not changed:
+        log('Mind Chess banner: not redrawn (see reason above)')
 
     # 5) close-up text screens (reports, letters, notes): Capcom's rows rendered
     #    in the fan's own pixel face into the full-screen images. Stored as
