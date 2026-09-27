@@ -2,10 +2,10 @@
 """Does every {E187} choice-menu argument resolve on the DS?
 
 {E187} builds one button of an answer menu: {E187} <strip id> <target string>.
-Our spt.bin copies both arguments verbatim from the official Collection script
+The built spt.bin copies both arguments verbatim from the official Collection script
 (tools/dstext.py:454-457 appends argument units unchanged - there is no remap
 anywhere in the toolchain). Two different faults share that one root cause
-(ROOTCAUSE.md, G:\\Claude\\GK2\\sweep\\e187_rootcause_20260917):
+(root cause notes kept in the private work repo):
 
   * the strip id is sometimes a Collection-only value past the DS's own block -
     argument 170 lands on idlocal 533, a 192-byte RLCN palette, not a sprite,
@@ -72,7 +72,7 @@ from choice_strips import Idlocal, PALETTE_ENTRY
 #     checked here - the generalised table was left for a future audit
 #     (ROOTCAUSE.md section 4).
 #   * Check 3 only fires where the fan string carries the SAME number of
-#     {E187}s as ours; a string whose count differs is left to checks 1-2 only.
+#     {E187}s as the build's; a string whose count differs is left to checks 1-2 only.
 #   * The idlocal classifier tells a sprite bundle from a palette by its first
 #     u32 (12, measured) and the RLCN tag - it does not verify the bundle
 #     actually draws a real strip.

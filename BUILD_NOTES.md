@@ -7,15 +7,15 @@ used to live there is kept here in full.
 
 Port Capcom's official English localization of *Gyakuten Kenji 2* into the Nintendo DS ROM.
 
-**98.9% of the script's text is Capcom's writing** (measured by `tools/coverage.py`;
+**98.8% of the script's text is Capcom's writing** (measured by `tools/coverage.py`;
 the exact unit count is in the README). 1.5.2 said 93.9%, 1.5.1 said 94.3%: four tutorial
 lines went back to the fan text in 1.5.2 and twelve description rows in 1.6.0, see below. Earlier notes said 96.5% and, before that,
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
 
-## v1.10.0: the Case 2 rebuttal freeze and its Case 4 twin, four box-boundary defects, and the DS-only gate lifted
+## v1.10.0: the Case 2 rebuttal freeze and its Case 4 twin, four box-boundary defects, the DS-only gate lifted, restored DS staging, Mind Chess fixes, accents, louder shouts and ROM compaction
 
-This release closes out the `fix-string-index-args` branch (commits 180ddaff through 225b325
+This release closes out the `fix-string-index-args` branch (commits 180ddaff through 50d11fa
 on `port`, ahead of the v1.9.1 tag) plus the earlier button-glyph work. Coverage is
 character units of official text over total; the counting method itself has not changed
 since it was corrected in 1.5.0 (see that entry above), only the amount of text that
@@ -26,12 +26,16 @@ qualifies. Measured today with `python tools/coverage.py "out/GK2 (Official Engl
     Episode 3       100.0%  377,751 / 377,751
     Episode 4        98.4%  292,970 / 297,663
     Episode 5       100.0%  497,811 / 497,811
-    Menus & UI       89.3%  99,617 / 111,588
-    TOTAL            98.9%  1,811,935 / 1,832,983
+    Menus & UI       88.0%  98,157 / 111,588
+    TOTAL            98.8%  1,810,475 / 1,832,983
 
-sha256 of that build is `52ca3e4e10ca83ca37a552dcd48aa6b8b441033558d6d6515abaafa2920977f9`
-(`out/check_idxargs_d7b.nds`; not the release build, VERSION and REFERENCE_ROM_SHA256 are
-still 1.9.1's). This is the same output as the local commit 225b325.
+The Menus & UI and total figures move from the 89.3%/98.9% quoted earlier in this branch
+because the Mind Chess font-measurement fix below reverts some rows to the fan's wording
+where Capcom's does not fit the bar (723 character units), partly offset by more official
+text elsewhere. sha256 of the release build is
+`b92d69fa0f91b049071fed7337f4031cce0ed884c0b15b366cae4ee92f512446` (VERSION and
+REFERENCE_ROM_SHA256, commit 50d11fa), 50,627,184 bytes; two identical builds and a
+clean-clone executable doing a full extraction reproduce it.
 
 ### The Case 2 and Case 4 rebuttal freezes (entries 92 and 248)
 
@@ -221,9 +225,89 @@ clips stop at about 1.3% of full scale rather than at silence, where every retai
 zero, so every clip now gets an 8 ms half-cosine fade at its end; all 20 decode to a final sample of
 exactly 0.
 
-The release ROM (sha256 `cf361075...`) boots on melonDS to a title screen reading v1.10.0 and plays
-from a chapter save. The rig's emulator runs without an audio device, so the shouts were checked by
-decoding them, not by ear on the rig.
+A pre-compaction candidate (sha256 `cf361075...`, superseded, sent to a tester before the fixes
+below landed) booted on melonDS to a title screen reading v1.10.0 and played from a chapter save.
+The rig's emulator runs without an audio device, so the shouts were checked by decoding them, not
+by ear on the rig; I approved the loudness stage below by ear from the decoded clips before
+turning it on.
+
+### The DS camera, character positions and poses restored (commit 149a0db)
+
+The Collection re-tuned camera framing, character positions and poses for its own wider screen,
+and dropped some poses outright. On the DS that showed up as the camera stopping short of its
+mark, an officer or Edgeworth left out of frame, or a character standing in the wrong pose for
+the line. Each string's sequence of position, camera and pose commands now matches the fan ROM's,
+placed in the same box and on the same side of the text, the same copy-from-the-fan approach used
+for the string-index arguments above. `audits/audit_staging.py` (new) checks this, with three
+fixtures: the Case 2 camera argument that motivated the fix, a staging command moved into the
+wrong box in a string whose box-end count still matches the fan's, and a staging command moved
+from after some text to before any text in the same box. The same commit prices the two accent
+slots below like a plain "e" in the sparse-bank width check, so an accented row is priced
+normally instead of being forced wide as unpriceable.
+
+### Mind Chess measured in the font it is actually drawn in (commit 90fe921)
+
+A text-box sweep found Mind Chess banks had been measured against the dialogue font's widths,
+although the game draws Mind Chess topic banners and option rows in its own smaller face. That
+mismatch was losing the second line of a topic banner and the last letter of an option row
+("hopping ma."). Those banks are now measured in the small font against limits taken from what
+the game actually shows on screen; a row that still does not fit keeps the fan's own wording
+rather than being cut, and the accented "e" below, which that small font does not have, falls
+back to a plain "e" only in this font. The wrap now counts a closing parenthesis added at a box
+break, one fan line gets a guarded line-break move, and `audits/audit_widgets.py` and
+`audits/measure_linewidth.py` both fail on any Mind Chess overflow left after the fix.
+
+### Accented letters in dialogue, and which fan font slot is which (commits 1b41147, c363ee6)
+
+The fan font already draws e-grave and e-acute, in two slots the fan translation never used;
+dialogue now uses them instead of the plain letter, so "Gavèlle" and "attaché" show their
+accents. The smaller description and Logic card face's accent slots are unverified, so it
+keeps the plain letter there. Trim tables (`stmt_trim.py`
+and `txtcut_trim.py`) hash accent-insensitively, so an accent does not break a trim keyed to
+the unaccented text.
+
+The first reading of the font data had the two slots backwards: the glyph rows are stored least
+significant bit first, and reading them most-significant-bit first mirrors and swaps the pair, so
+the judge's surname rendered with an acute accent instead of a grave one. Corrected: e-grave is
+the fan font's U+30A7 slot, e-acute is U+0415. Seen on the rig as "Judge Gavèlle!", the accent
+correct. Mind Chess banks carry no accents (see above).
+
+### Two-line titles break at a natural phrase (commit 1b41147)
+
+A testimony or rebuttal title too long for one line used to break wherever the wrap fell, which
+could strand a single word alone on the second line. The title composer now looks for a
+preposition to break before when one is available, and keeps a title's closing dashes together on
+the second line rather than splitting them from the word before.
+
+### The Mind Chess banner reads "Mind Chess" (commit 040d68f)
+
+The animated Mind Chess banner still read "Logic Chess", the older working name, where
+Capcom's script calls it "Mind Chess" and ends its win screen on "Checkmate" rather than the
+fan's wording. Both are now drawn from the player's own Collection install into the fan's
+existing banner pieces: only tile pixels and each piece's horizontal offset change, the animation
+itself is untouched. Rendered from the ROM with the game's own animation positions; not yet
+captured on the rig, since the banner shows at each bout, at its start and its end.
+
+### Louder shouts (commits e688f39, f0c37be)
+
+The shouts imported from the Collection peak-normalise quieter than the DS mix expects, so
+Capcom's English sat several dB under the Japanese level and under the music once played. Each
+of the 20 imported clips is now gained toward its Japanese counterpart's loudness for
+that slot and peak-limited afterward, closing most of that gap; a few shouts are still 1 to 4 dB
+under the Japanese level on purpose, to avoid squashing them against the music bed. The 20 gain
+targets are stored as plain numbers in the tool, so every player's build applies the same values
+without needing a copy of the Japanese ROM to measure them from. The stage was optional and off
+by default in the first commit; the second turns it on for every build. I approved the loudness
+by ear from the decoded clips before turning it on.
+
+### The output ROM packs smaller (commit 5750653)
+
+Earlier builds left the old copy of a file behind inside the ROM's filesystem whenever a later
+pass replaced it, since nothing ever reclaimed that space. The build now packs the output so a
+replaced file's old copy is not carried along; every file that ships is byte-identical to before,
+but the file offsets, the FAT, the header's size and capacity fields, its CRC, and the padding
+between files all change to match the tighter layout. The ROM drops from about 72.7 MB to
+50.6 MB, and the patch built against it from about 4.3 MB to 3.9 MB.
 
 ### Also in this release
 
@@ -316,9 +400,9 @@ model, so those are pinned to the old model on purpose rather than quietly re-me
 against numbers nothing has verified. The 73 rows that take Capcom's name and the 1 that
 keeps the fan's are exactly what 1.8.6 shipped.
 
-One warning worth reading. This moves every line in the game, and no episode of this port
-has ever been played through to the end. If you find a line broken in a strange place, or
-text sitting oddly in a box, please open an issue and say where.
+One warning worth reading. This moves every line in the game, and only one episode of this
+port has been played through to the end, on an older build. If you find a line broken in a
+strange place, or text sitting oddly in a box, please open an issue and say where.
 
 ## v1.8.6: the answer menus that froze the game
 
@@ -1026,16 +1110,21 @@ was built against, verified mechanically at build time.
 ## Testing status: read this if you play deep into the game
 
 Every release is verified structurally (every string audited against the fan layout,
-seven audits covering the defect classes that have shipped before) and exercised in
+13 audits covering the defect classes that have shipped before) and exercised in
 melonDS by a scripted rig. What that rig has actually executed, measured: all 25 chapter
 saves boot, load and advance; about 5,100 of the game's 41,706 message boxes have been
 displayed, weighted toward chapter openings and finales; and on the 1.5.0 candidate an
 Episode 1 run from a cold-boot New Game, following a walkthrough, has covered the opening,
 the first investigation, the first Logic connections, the first Mind Chess to checkmate
-and the second investigation area with zero defects. **Nobody has finished an episode
-yet**, on any release. Both hangs this project ever shipped were found by playing, not by
-audits, and both were in interactive scenes rather than dialogue, so that is where a
-report helps most.
+and the second investigation area with zero defects. **The rig itself has finished
+nothing.** Episodes 1 and 3, and the second half of Episode 2, have been finished by a
+tester, across several builds: Episode 1 on v1.8.5, Episode 2's second half (from
+Gavèlle's rebuttal to the end) on the 1.10.0 candidate, and Episode 3 on v1.9.0 or v1.9.1
+(the tester isn't sure which). Episodes 4 and 5 haven't been reported finished, and most
+optional dialogue everywhere has never been run. Every hang a player actually hit was
+found by playing, not by audits. The one hang found another way is the Case 4 freeze
+fixed in 1.10.0, found by searching every scene for the cause of one a tester hit in
+Case 2, not by anyone hitting it.
 
 On hardware, 1.4.4 booted and reached gameplay from a DSPico flashcart on a 3DS; nothing
 deeper has been tried on real hardware, and no original DS has been tried at all.

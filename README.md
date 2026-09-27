@@ -12,7 +12,7 @@ This toolchain takes Capcom's own script, art and voice recordings and injects t
 the DS game, so you can play the official localization on original hardware, on a
 flashcart, or in an emulator.
 
-**98.9% of the script's text is Capcom's writing**, measured by `tools/coverage.py`, so you
+**98.8% of the script's text is Capcom's writing**, measured by `tools/coverage.py`, so you
 can recompute it yourself. Earlier releases said 96.5%; that counted fan-written rows as
 official once Capcom's names had been swapped in, which isn't the same thing.
 
@@ -22,16 +22,18 @@ and the title screen are all redrawn at build time.
 
 > ### Playtesters wanted
 >
-> **Nobody has finished an episode, and only one rebuttal has ever been solved by a
-> tester** (Episode 3's first, against Badd, on 1.8.2, with no errors). Of the game's
-> ~41,700 message boxes, about 5,100 have been run by a script
+> **Episode 1 has been finished, on an older build (v1.8.5).** The second half of Episode 2,
+> from Gavèlle's rebuttal to the end, has been finished on the 1.10.0 candidate, and
+> Episode 3 was finished on v1.9.0 or v1.9.1 (the tester isn't sure which). Episodes 4 and
+> 5 haven't been reported finished, and the automated rig hasn't finished any of them. Of
+> the game's ~41,700 message boxes, about 5,100 have been run by a script
 > that can only press A and tap, and several hundred more by hand: Episode 1 chapter 1 end
 > to end, Episode 2 chapters 1 and 2, part of chapter 3 and chapter 4's opening, and
 > Episode 5 chapter 4's opening. Episode 3's fourth chapter went through the rig instead,
 > about 1,000 boxes with no hangs, which is where the accented nameplate was first
 > confirmed in-game. Episode 1's complete Organizer and Episode 4's complete evidence list
-> were read card by card on the shipped build. Every bug this project has had was found by
-> a person playing, and none by an offline check.
+> were read card by card on the shipped build. Every hang a player actually hit was found
+> by playing, not by an offline check.
 >
 > **[Report anything wrong in issue #1](../../issues/1)**, not just things that stop.
 > Wrong or odd wording, text that runs past its box, a name that changes between screens,
@@ -55,14 +57,18 @@ and the title screen are all redrawn at build time.
 Context, not a filter. If you're looking at something and can't tell which side of this
 list it falls on, send it anyway.
 
-- **Some of the script is still the fan translation.** About one line in ninety. Capcom
-  never localised this game officially on the DS, so where their Chronicles text has no
-  counterpart here the AAI2 fan translation stays. Those lines are not wrong, they are
-  just not Capcom's, and they can read slightly differently in tone.
-- **Most of this game has never been run.** Nobody has finished an episode and only one
-  rebuttal has ever been solved by a tester. That is the single biggest thing wrong with
-  this release, and it is why the invitation above is so broad. [TESTING.md](TESTING.md)
-  has the detail.
+- **Some of the script is still the fan translation.** About one character in eighty.
+  Capcom never localised this game officially on the DS, so where their Collection text
+  has no counterpart here the AAI2 fan translation stays. Those lines are not wrong, they
+  are just not Capcom's, and they can read slightly differently in tone.
+- **Most of this game has never been run.** Episodes 1 and 3, and the second half of
+  Episode 2, have now been finished by a tester, across several builds (the Playtesters
+  box above has the detail), but Episodes 4 and 5, and most optional dialogue everywhere,
+  haven't been. That is the single biggest thing wrong with this release, and it is why the invitation
+  above is so broad. [TESTING.md](TESTING.md) has the detail.
+- **Some Mind Chess rows still show the fan's own wording.** Capcom's text is measured
+  against the game's own font now, but a few rows still don't fit the bar even at the
+  right size, and those keep the fan's wording rather than being cut off.
 - **Bugs fixed in an earlier version can come back.** Several problems listed as fixed in
   the release notes, a hang in Episode 1, a mouth moving on a silent line, quotation marks
   drawing wrong, were each found by one person playing. If you see one of them now, that
@@ -95,12 +101,19 @@ else either fails to decode or boots to a black screen. Check the result:
 gk2port-windows-x64.exe --verify "GK2 (Official English, DS port).nds"
 ```
 
+A correct output ROM is 50,627,184 bytes, sha256
+`b92d69fa0f91b049071fed7337f4031cce0ed884c0b15b366cae4ee92f512446`. The patch itself is
+3,922,382 bytes, sha256 `521a11aa848efd67f07fa1c57b8adb7fcd62c780546fee7c6170e14686741358`.
+
 **Or build it yourself** from your own copy of the Collection, if you'd rather the
 localization came out of your files than out of one someone uploaded. Full steps are in
 [DETAILS.md](DETAILS.md), along with how coverage is counted, how the names and episode
 titles are redrawn, what doesn't port and why, and the tool inventory.
 
 ## Credits
+
+**JPScaravino** has done the most playtesting of any tester so far, finishing Episodes 1
+and 3 and the second half of Episode 2, across several builds.
 
 The **AAI2 fan translation team** did the hard part:
 **[Gyakuten Kenji 2: AAI2 Final v2](https://www.romhacking.net/translations/2260/)**.
@@ -132,18 +145,18 @@ above, the ~41,700 total and the ~5,100 run by script. Those came from counts ma
 the work and no shipped tool reproduces them, which is why they carry a tilde. Read the
 coverage figure as measured and the box figures as estimates.
 
-The nine audits in [`audits/`](audits) guard the structural failure classes, and every one
+The 13 audits in [`audits/`](audits) guard the structural failure classes, and every one
 is tested against a deliberately corrupted input. An audit that has never failed hasn't
 been tested, it's only been run.
 
 The tooling was written with **LLM assistance**: Claude, driven through Claude Code, over a
 series of sessions. That's stated plainly rather than buried. What ships is Capcom's own
 script, art and recordings plus the fan team's assets; nothing in the ROM is generated
-text. The code is about 8,300 lines across 45 modules, plus ten audit scripts, MIT licensed, and it ships as source
+text. The code is about 12,730 lines across 52 modules, plus 14 audit scripts, MIT licensed, and it ships as source
 precisely so you don't have to take any of that on faith.
 
-Because every hang this project has ever had was found by **playing the game**, and none by
-any offline check, including checks written specifically to catch the previous one. Three
+Because every hang but one was found by **playing the game**, not by an offline check (the
+Case 4 freeze fixed in 1.10.0 was found by searching for the cause of the Case 2 one). Three
 examples, and what they say about the guards, are in [DETAILS.md](DETAILS.md).
 
 So treat the guards as a record of what has actually gone wrong rather than proof that
@@ -168,7 +181,7 @@ of their fonts and twenty of their audio clips, alongside the fan translation's
 assets.
 
 The releases also carry an `.xdelta` from the fan ROM to the built one, and that delta *is*
-Capcom's script, which is what makes it over 4 MB. The trade is written down rather than
+Capcom's script, which is what makes it nearly 4 MB. The trade is written down rather than
 left implied, in [DETAILS.md](DETAILS.md).
 
 **If you want Capcom's translation, buy the Collection.** It's very good, and it's the

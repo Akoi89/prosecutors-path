@@ -169,8 +169,8 @@ Measured on v1.10.0 with `tools/coverage.py`:
 | 3. *Turnabout Legacy* | 100.0% | 377,751 / 377,751 |
 | 4. *A Turnabout Forsaken* | 98.4% | 292,970 / 297,663 |
 | 5. *Turnabout for the Ages* | 100.0% | 497,811 / 497,811 |
-| Menus & UI | 89.3% | 99,617 / 111,588 |
-| **Total** | **98.9%** | 1,811,935 / 1,832,983 |
+| Menus & UI | 88.0% | 98,157 / 111,588 |
+| **Total** | **98.8%** | 1,810,475 / 1,832,983 |
 
 **The counting changed in 1.5.0.** Every release from v1.4.0 to v1.4.4 quoted 96.5%, and the
 ROM did not get worse when that figure dropped; the counting got stricter. `tools/coverage.py` used to call a string official
@@ -508,7 +508,10 @@ python audits/audit_fixtures.py         # prove the audits can actually fail
 | `audits/audit_hint.py` | Any SPT buffer hint too small for its own data |
 | `audits/audit_tails.py` | A command argument the fan ROM stores past a string's declared end, zeroed by the rebuild (the 1.8.4 Episode 3 talk fix) |
 | `audits/audit_choicearg.py` | A choice-menu {E187} argument that cannot resolve on the DS: a strip id past the DS's own block, or a target string index skewed against the fan (the Ep2 DS[58] frozen-prompt defect) |
-| `audits/audit_fixtures.py` | Breaks a copy of your build ten ways across the nine audits (audit_choicearg gets two, one per fault class), and checks each one notices |
+| `audits/audit_indexargs.py` | Any string-index argument, other than {E187}/{E081}, that no longer points at the fan's string (the Case 2 and Case 4 rebuttal freezes) |
+| `audits/audit_staging.py` | A string's camera, character-position or pose command sequence that no longer matches the fan's, in the same message box (the Case 2 camera fault) |
+| `audits/audit_zeros.py` | A 0x0000 unit in text position that the fan ROM didn't already ship there, which ends the DS engine's string read early |
+| `audits/audit_fixtures.py` | Breaks a copy of your build sixteen ways across twelve of the audits (audit_choicearg gets two, one per fault class; audit_staging gets three; audit_widgets gets two), and checks each one notices |
 | `audits/audit_typography.py` | Not a width check, a SHAPE check: a spurious space, a line opening with a comma, empty brackets, a stray blank line. None of those make a line too wide, which is how the v1.9.0 development build put a space after 144 re-opened brackets and survived a full review. Comparative against an older ROM, since several of these quirks predate this port; `--selftest` proves it can fail against eight broken fixtures |
 | `audits/measure_linewidth.py` | Not an audit, a measurement: how many dialogue lines are wider than the 240px box, using the font's real advances. Its scope is pinned in its docstring because four differently scoped walkers gave four different line totals while agreeing exactly on the over-budget count, so any figure taken from it is quoted with its command |
 | `spt.py` | SPT container parser, both variants, with offset-scale detection |
@@ -552,7 +555,7 @@ grounded in measurements over the real files rather than in anyone's recollectio
 be trusted without trusting whoever built it, and the published binary has been confirmed
 to reproduce that hash byte-for-byte.
 
-The nine audits in [`audits/`](audits) guard the structural failure classes, and **each one
+The 13 audits in [`audits/`](audits) guard the structural failure classes, and **each one
 is meant to be tested against a deliberately corrupted input**. `audits/audit_fixtures.py`
 breaks a copy of your build (or, for the title audit, of the fan artwork it reads) in exactly
 the way each one claims to detect and checks it notices, reporting the line that changed.
@@ -578,8 +581,8 @@ The tooling was written with **LLM assistance**: Claude, driven through Claude C
 a series of sessions. That is stated plainly rather than buried, and so is the rest of the
 record, including the parts that do not flatter it.
 
-Because every hang this project has ever had was found by **playing the game**, and none
-by any offline check, including checks written specifically to catch the previous one.
+Because every hang but one was found by **playing the game**, not by an offline check (the
+Case 4 freeze fixed in 1.10.0 was found by searching for the cause of the Case 2 one).
 Three of them:
 
 - a mode launcher whose argument had been converted into a letter, because the
@@ -600,13 +603,14 @@ only works if someone reads the wall.
 
 So treat the guards as a record of what has actually gone wrong rather than proof that
 nothing else will, and treat the code as reviewable rather than authoritative. It is about
-8,300 lines across 45 modules, plus ten audit scripts, MIT licensed, and it ships as source precisely so you do
+12,730 lines across 52 modules, plus 14 audit scripts, MIT licensed, and it ships as source precisely so you do
 not have to take any of the above on faith. Read it before you trust it with a ROM you
 care about, and recompute anything here that matters to you.
 
 That is also why this is offered as a **test build** rather than a finished one, and why
-[issue #1](../../issues/1) asks for players rather than for approval. Nobody has finished
-an episode yet.
+[issue #1](../../issues/1) asks for players rather than for approval. Episodes 1 and 3,
+and the second half of Episode 2, have been finished by a tester, across several builds;
+the automated rig has finished none of them.
 
 ---
 
@@ -614,7 +618,7 @@ an episode yet.
 
 Releases carry `Prosecutors-Path-X.Y.Z-fan-base.xdelta`, a delta from the AAI2 Final v2
 fan ROM to the built one. It deserves a plain description rather than a quiet link: that
-delta *is* Capcom's script. The localization is its payload, which is what makes it over 4 MB
+delta *is* Capcom's script. The localization is its payload, which is what makes it nearly 4 MB
 and what lets it produce the ported ROM without the Collection ever being installed.
 Earlier versions of this page argued against shipping one for exactly that reason. It
 ships anyway, so the trade is written down here instead of left implied.

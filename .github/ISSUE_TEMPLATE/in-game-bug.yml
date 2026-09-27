@@ -7,10 +7,11 @@ body:
       value: |
         Freezes, missing or clipped text, wrong speaker, a scene that repeats itself.
         These are the bugs that matter most and the ones least likely to be found any
-        other way - every one so far came from somebody playing, not from the tools.
+        other way - every freeze a player hit so far was found by playing, not by the tools.
 
-        Text that is still in the fan translation is usually **not** a bug: 14.3% of
-        the script stays fan-translated on purpose. The README explains which parts.
+        Some lines are still the fan translation on purpose, about one character in
+        eighty. The README's "Already known" list says which parts. Send it anyway if
+        you are not sure; a fan-translated line that looks wrong is still worth reporting.
 
   - type: input
     id: where

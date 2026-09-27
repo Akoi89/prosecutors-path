@@ -1,19 +1,19 @@
-Version 1.10.0 fixes a game freeze at the start of a Case 2 rebuttal and a possible one in Case 4, along with several lines and testimony questions that were only showing half their text. It also lets a lot more of the script through as Capcom's own writing, since a safety check that had been holding back dozens of unrelated lines turned out to be guarding against a different, already-fixed bug.
+Version 1.10.0 fixes a Case 2 rebuttal freeze and the same fault in Case 4, several lines and testimony that were cutting off partway through, and staging the newer game had re-tuned. It also adds accents, gives Mind Chess its real name, and moves more of the script to Capcom's writing in a smaller ROM.
 
 ## What this build fixes
 
-- **A freeze in Case 2, when Gavelle's rebuttal starts.** The rebuttal opened with no statement on screen, and no button did anything from then on.
-- **A possible freeze in a Case 4 rebuttal.** It had the same error as the Case 2 freeze. I found it by checking every scene for that cause, and nobody has reported hitting it.
-- **Questions cut in half while you choose.** When the game asks you to present evidence, the question stays on screen while you pick. Winner's question about the murder weapon leaving the prison, and several others like it, used to show only their second half.
-- **Several testimony statements only showed half their text too.** The game gives each one a single box to work with, and some ran long enough that the rest of the statement never appeared.
-- **Lines that carried on after a pause stopped cutting off mid-word.** A line of Eddie Fender's, for one, used to run straight into the next sentence and chop off partway through a word.
-- **Tutorial lines that mention a controller button now use Capcom's own wording.** They used to fall back to the fan translation entirely, because the DS doesn't understand the picture of a button that Capcom's script points at instead.
-- **The last fan-recorded shouts are Capcom's now.** Five voice shouts that were still the fan team's recordings switch to Capcom's English, and two sound effects to Capcom's own, so every shout the fan patch re-recorded now comes from the official release.
-- **More of the script is Capcom's own writing than before.** A safety check meant to stop a different, already-fixed freeze was holding back dozens of unrelated lines; narrowed to the actual danger, coverage climbs from the mid-90s to 98.9%, and two of the five episodes are now entirely Capcom's wording.
+- **A freeze in Case 2, right when Gavèlle's rebuttal starts.** No statement showed up and no button did anything from there.
+- **A possible freeze in a Case 4 rebuttal.** The exact same cause as Case 2's, found by checking every scene rather than waiting for a report; nobody has hit it.
+- **Lines, prompts and testimony that used to cut off partway through.** A line after a pause ran into the next sentence and stopped mid-word, a question during evidence choice showed only half, and testimony statements lost their ending. All now show in full.
+- **The camera, character positions and poses are back to how the DS always showed them**, instead of the newer game's re-tuned staging: a camera stopping short, someone left out of frame, or a character in the wrong pose, all fixed scene by scene.
+- **Logic cards and Mind Chess text fit their space, and the Mind Chess banner has its real name.** Card descriptions ran into the frame, and Mind Chess banners and option rows lost text; all now measured in the right font, and the banner reads "Mind Chess", ending on "Checkmate".
+- **Accented letters, and two-line titles that break in a better place.** Words like Gavèlle's name and "attaché" now show their accents in dialogue, and a too-long title breaks before a natural word instead of stranding one alone.
+- **Every shout the fan patch had re-recorded is Capcom's audio now, and louder.** They had been quieter than the music since the swap; a few stay slightly under the Japanese level on purpose, so they aren't squashed flat to get there.
+- **More of the script is Capcom's writing, and the files are smaller.** Tutorial lines naming a DS button now use Capcom's wording, and the ROM drops from about 72.7 MB to 50.6 MB, the patch from about 4.3 MB to 3.9 MB.
 
 ## Version history
 
-- **v1.10.0** - two game freezes fixed in Case 2 and Case 4, cut-off testimony lines and questions repaired, tutorial button wording restored, coverage up to 98.9%.
+- **v1.10.0** - two rebuttal freezes fixed, cut-off lines and testimony repaired, DS staging restored, Mind Chess fixed and renamed, accents added, coverage up to 98.8%.
 - **v1.9.1** - menu buttons lettered like the fan game's own lettering.
 - **v1.9.0** - every line re-measured against the game's own font.
 - **v1.8.6** - the answer menus that froze the game.
@@ -47,19 +47,18 @@ Version 1.10.0 fixes a game freeze at the start of a Case 2 rebuttal and a possi
 
 ## Known problems
 
-- One tester finished Episode 1 on an older build (v1.8.5), and testers have got through a few rebuttals in later cases, but none of that was on this build, and most of the game has never been run. Testing happens scene by scene, mostly through a rig that can only press confirm and tap, with some scenes played by hand.
-- The Case 2 fix was checked by replaying the tester's own save: the rebuttal now opens with all five statements and the game keeps responding. Nobody has played that rebuttal through yet. The Case 4 fix is the identical mistake in a different rebuttal, but no save has reached that scene yet, so it has only been checked against the game's own data, not watched running.
-- The Winner's testimony fix has not been rephotographed since the last merge. The same underlying code change was proven on a different line in the same episode, and the new wording was reviewed before use, but nobody has watched that exact line on screen yet.
-- About one line in ninety is still the fan translation rather than Capcom's, in spots where Capcom's Collection has no matching text at all. That is not a defect, just a gap Capcom's own script does not cover.
+- Most of the game still hasn't been run by anyone; see the Credits below for what has been finished. The Case 2 fix was checked by replaying the tester's own save: the rebuttal opens with all five statements, the game keeps responding, and he played it through to the end. The Case 4 fix is the identical mistake in a different rebuttal, but no save has reached that scene yet, so it has only been checked against the game's own data, not watched running.
+- The camera and pose fixes were checked by measurement and by rendering the scenes, not by watching them run on the rig. The Mind Chess banner hasn't been seen on screen yet either; it's rendered from the ROM using the game's own animation positions.
+- About one character in eighty is still the fan translation rather than Capcom's, in spots where Capcom's Collection has no matching text at all, or where its wording does not fit a Mind Chess row's bar.
 - Bugs listed as fixed in an earlier version have come back before. If something here shows up again, say so. That matters more than this note saying it is handled.
 
 ## Files
 
-- `gk2port-windows-x64.exe` and `gk2port-linux-x64`: the build tool, with `SHA256SUMS` alongside them. `gk2port --verify` checks a finished ROM against this version's published reference, `cf36107565d60d24b3147c100b93415bec2c872f2c61477bd835b5ed94cce96c`.
-- `Prosecutors-Path-1.10.0-fan-base.xdelta` (4,521,656 bytes): the patch, uploaded separately and deliberately left out of `SHA256SUMS`, since it carries Capcom's script rather than just tool code.
+- `gk2port-windows-x64.exe` and `gk2port-linux-x64`: the build tool, with `SHA256SUMS` alongside them. `gk2port --verify` checks a finished ROM against this version's published reference, `b92d69fa0f91b049071fed7337f4031cce0ed884c0b15b366cae4ee92f512446`.
+- `Prosecutors-Path-1.10.0-fan-base.xdelta` (3,922,382 bytes, sha256 `521a11aa848efd67f07fa1c57b8adb7fcd62c780546fee7c6170e14686741358`): the patch, uploaded separately and deliberately left out of `SHA256SUMS`, since it carries Capcom's script rather than just tool code.
 - `GK2-v1.10.0.zip`: the same patch bundled with `xdelta3.exe` and a short README, for anyone who would rather not install a separate tool.
 - Full apply steps, source and output sizes and hashes, and troubleshooting are in [README.md](README.md).
 
 ## Credits
 
-The AAI2 Final v2 fan translation team did the hard part: without their patch there is nothing to inject into and no font to render the result. This project is built entirely on top of their work and leaves their ATTENTION notice intact in every build. The tooling was written with LLM assistance, Claude, driven through Claude Code, over a series of sessions; what ships in the ROM is Capcom's own script, art and recordings plus the fan team's assets, nothing generated.
+Thanks to **JPScaravino** for the playtesting: Episodes 1 and 3, and the second half of Episode 2, across several builds. The AAI2 Final v2 fan translation team did the hard part: without their patch there is nothing to inject into and no font to render the result. This project is built entirely on top of their work and leaves their ATTENTION notice intact in every build. The tooling was written with LLM assistance, Claude, driven through Claude Code, over a series of sessions; what ships in the ROM is Capcom's own script, art and recordings plus the fan team's assets, nothing generated.
