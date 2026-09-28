@@ -70,7 +70,6 @@ import title_logo                             # noqa: E402
 
 _BOXEND = (0xE102, 0xE104, 0xE185, 0xE081)
 
-REAL = _default_built()
 RIG = _os.path.dirname(_os.path.abspath(__file__))
 WORK = os.path.join(tempfile.gettempdir(), 'claude', 'fixtures')
 XOR = 0x55AA
@@ -897,12 +896,13 @@ def _first_diff(clean, dirty):
 
 def main():
     os.makedirs(WORK, exist_ok=True)
-    # DELTA 1: optional ROM path argument, default unchanged (REAL, the
-    # currently-built ROM out/ points at). REAL is the PRE-fix build for the
-    # index-args audit until a build carrying the fix is passed here - see
-    # the audit_indexargs.py entry below, which checks exit codes rather than
-    # a text diff for exactly this reason.
-    clean_path = sys.argv[1] if len(sys.argv) > 1 else REAL
+    # Optional ROM path argument; without one, the built ROM out/ points at
+    # (_default_built). The argument is read FIRST, so passing a ROM works
+    # even when out/ holds several ROMs or none. The default can be the
+    # PRE-fix build for the index-args audit until a build carrying the fix
+    # is passed here - see the audit_indexargs.py entry below, which checks
+    # exit codes rather than a text diff for exactly this reason.
+    clean_path = sys.argv[1] if len(sys.argv) > 1 else _default_built()
     rom = open(clean_path, 'rb').read()
     results = []
     for script, what, make, kind in FIXTURES:
