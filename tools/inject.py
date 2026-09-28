@@ -30,6 +30,7 @@ from paths import work, data
 import stmt_trim
 import linefix
 import last_rows
+import rewrite
 import relaid_rows
 import condense_rows
 import skipguard
@@ -2067,6 +2068,19 @@ def main(base=None, out=None):
             if c: entries[_ent_i] = nd; lastrows += c
             lastrows_fallback += fb
     print('last-rows hand ports applied: %d  (fallback: %d)' % (lastrows, lastrows_fallback))
+
+    # Rows Capcom never wrote (their Collection slot is empty/hollow), so the
+    # fan's old wording still shows there: replace just the words with new
+    # text in Capcom's style - hand-drafted, reviewed and hash-guarded, same
+    # discipline as linefix.py/last_rows.py above. See tools/rewrite.py.
+    rewritten = rewrite_fallback = 0
+    for _ent_i in {ei for ei, _si in rewrite.REWRITE}:
+        d = entries.get(_ent_i)
+        if d:
+            nd, c, fb = rewrite.patch_entry(_ent_i, d)
+            if c: entries[_ent_i] = nd; rewritten += c
+            rewrite_fallback += fb
+    print('rows rewritten in Capcom\'s style: %d  (fallback: %d)' % (rewritten, rewrite_fallback))
 
     # 33 animated {E111} entrances in the game (identical set in the fan ROM
     # and ours - Capcom's own script) ship with no {E112 <char>} wait before

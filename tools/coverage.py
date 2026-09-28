@@ -108,7 +108,7 @@ def main(argv=None):
     # raw fan row and the harmonize_entry-simulated `hu` here, which inflated
     # this figure by that row's own char count for exactly the same reason
     # the rename check exists).
-    import names as _names, episode_titles as _titles, linefix as _linefix
+    import names as _names, episode_titles as _titles, linefix as _linefix, rewrite as _rewrite
     # PART C (2026-09-27/28): a fan row that already reads exactly what Capcom
     # wrote - Mind Chess press-button lines like "Objection!"/"Hold it!", where
     # the fan translated the same short exclamation Capcom later shipped - is
@@ -173,6 +173,8 @@ def main(argv=None):
     identical_rows = 0
     identical_units = 0
     identical_list = []
+    rewrite_rows = 0
+    rewrite_units = 0
     for i, fent in fan.items():
         b = built.get(i)
         if b is None or fent[:4] != b' TPS':
@@ -196,8 +198,15 @@ def main(argv=None):
                 continue
             k = bucket(i)
             off, tot = tab.get(k, (0, 0))
+            # A row Capcom never wrote (tools/rewrite.py): the new wording is
+            # in Capcom's STYLE, not Capcom's own text, so it must not be
+            # counted as official either - counted separately below instead.
+            is_rewrite = (i, fa) in _rewrite.REWRITE and tuple(bu) == tuple(_rewrite.REWRITE[(i, fa)]['units'])
             is_fan = (list(fu) == list(bu) or tuple(bu) == hu
-                      or (i, fa) in _linefix.LINEFIX)
+                      or (i, fa) in _linefix.LINEFIX or is_rewrite)
+            if is_rewrite:
+                rewrite_rows += 1
+                rewrite_units += n
             # PART C: this row is FAN by the byte-equality test above, but
             # Capcom's OWN independently-recomputed candidate for this exact
             # position is the same wording (name-harmonised) - the row is
@@ -225,6 +234,8 @@ def main(argv=None):
           % (identical_rows, format(identical_units, ',')))
     for (bi, bs_, bn) in sorted(identical_list):
         print('  DS[%d] str %d  (%d char units)' % (bi, bs_, bn))
+    print('rows rewritten in Capcom\'s style: %d rows, replacing %s fan units'
+          % (rewrite_rows, format(rewrite_units, ',')))
     shutil.rmtree(tmp)
     return 0
 
