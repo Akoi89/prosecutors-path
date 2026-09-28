@@ -73,6 +73,10 @@ list it falls on, send it anyway.
   the release notes, a hang in Episode 1, a mouth moving on a silent line, quotation marks
   drawing wrong, were each found by one person playing. If you see one of them now, that
   matters more than the release note saying it was handled, so please say so.
+- **On real hardware, dialogue that turns into strings of accented letters is the game's
+  anti-piracy check.** Current versions of TWiLight Menu++ and the DSpico's Pico Loader
+  handle it for this patch, and I tested both. If you see it, update your loader or switch
+  to one of those.
 
 ## What you need
 
