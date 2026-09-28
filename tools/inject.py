@@ -29,6 +29,7 @@ from map_ids import ds_entries
 from paths import work, data
 import stmt_trim
 import linefix
+import relaid_rows
 
 # Codes that end a message box (the box-count fingerprint used for alignment checks).
 BOXEND = {0xE102, 0xE104, 0xE106, 0xE185, 0xE081}
@@ -1463,6 +1464,8 @@ def main(base=None, out=None):
     staging_moved_box = staging_moved_coarse = 0
     staging_box_mismatches = []
     stmttrim = stmttrim_fallback = 0
+    relaidrows = relaidrows_fallback = 0
+    relaidrows_notes = []
     foreign = 0
     zerounit = 0
     zerounit_rows = []
@@ -1577,7 +1580,28 @@ def main(base=None, out=None):
                     block = []
                 block.append(j2)
         conv = []
+        # relaid_rows.py: exactly three (entry, string) rows the ordinary swap
+        # path cannot reach - the fan moved boxes across a string boundary or
+        # dropped a dead tail, which trips the `relaid`/JP-profile check below
+        # and would otherwise keep the fan's own text verbatim. Checked BEFORE
+        # that ordinary `relaid` gate so it can override it; every other
+        # entry's `relaid` handling is untouched. The relayed result still has
+        # to clear the same foreign-code / zero-in-text gates any other
+        # converted string does (_has_foreign/_has_zero_in_text, defined
+        # above) - a hash match only proves the INPUT is what this table
+        # expects, not that dstext.convert() produced a shippable output.
+        en_by_idx = {n2: eu for n2, (_, _, _, eu) in enumerate(en)}
         for n_, (_, _, _, u) in enumerate(en):
+            if (i, n_) in relaid_rows.RELAID:
+                rowu, rowstat, rownotes = relaid_rows.apply(
+                    i, n_, ds[n_][3], en_by_idx, _has_foreign, _has_zero_in_text)
+                if rowstat is True:
+                    conv.append(rowu); relaidrows += 1
+                    relaidrows_notes += ['entry %d str %d: %s' % (i, n_, nt) for nt in rownotes]
+                    continue
+                relaidrows_fallback += 1
+                relaidrows_notes.append('entry %d str %d: FALLBACK - %s'
+                                         % (i, n_, '; '.join(rownotes) or 'hash mismatch'))
             if n_ in relaid:
                 conv.append(list(ds[n_][3])); relaidn += 1; continue
             asc = ''.join(chr(v) for v in u if v < 0x80)
@@ -1711,7 +1735,8 @@ def main(base=None, out=None):
             a = collections.Counter({int(k, 16): v for k, v in prof['ctrl'].items()})
             b = collections.Counter(v for c2 in conv for v in c2 if 0xE000 <= v <= 0xF8FF)
             overlap_low = bool(a) and sum((a & b).values()) / sum(a.values()) < 0.35
-            if overlap_low or i in FORCE_WIDGET_GATE:
+            if ((overlap_low or i in FORCE_WIDGET_GATE)
+                    and not relaid_rows.skip_widget_gate(i, 0, ds[0][3])):
                 # A near-zero profile overlap usually means a WRONG file match -
                 # reject. But the exam/exam_ask confrontation banks fail this test
                 # for a different reason: only the trial bundle carries them, and
@@ -2034,6 +2059,10 @@ def main(base=None, out=None):
     print('button glyphs replaced with DS button names: %d in %d records' % (iconsub, iconrows))
     print('statements and prompt questions trimmed to one box: %d  (fallback: %d)'
           % (stmttrim, stmttrim_fallback))
+    print("Capcom's words relaid into the fan's box skeleton: %d  (fallback: %d)"
+          % (relaidrows, relaidrows_fallback))
+    for _nt in relaidrows_notes:
+        print('  ' + _nt)
     print('box-open arguments corrected 2 -> 3 (see dstext.BOX_OPEN_FIX): %d' % dstext._STATS['boxopen'])
     print('kept fan text - no/weak mapping:        %d' % skipped)
     print('spt.bin: fan %.2f MB -> new %.2f MB' % (len(raw)/1e6, len(newspt)/1e6))
