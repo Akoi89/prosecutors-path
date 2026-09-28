@@ -185,6 +185,28 @@ INDEX_ARGS = {          # code: argument positions (0-based) that are string ind
     0xE1E9: (0,),       # arity 1 (DELTA 1: entry 248 str 18)
     0xE11B: (1,),       # arity 2 (DELTA 1: entry 248 str 22, points at itself)
     0xE160: (0,),       # arity 1 (DELTA 1: entry 247 str 4)
+    # The six string-selecting codes VERIFY2 (Gap 2) found outside this table,
+    # added 2026-09-27 as a GUARD: measured over the whole script on the
+    # 1.10.0 release, the pre-fix 1.9.1 build and the merged next-release
+    # tree, all 1,114 occurrences carry the fan's arguments already (0
+    # differing, 0 count-mismatched strings), because none of the 48 entries
+    # that hold them was ever re-cut - the 1.9.1 skew set was entries 92, 95,
+    # 234, 245, 247, 248, 250, 253, 256, 267, 307, 314, 326 (and 411 for
+    # {E131}), none of which carries any of the six. Listing them costs
+    # nothing now (0 rewrites, measured by a dry run of this function) and stops a
+    # future re-cut of a Mind Chess or talk-hub entry from skewing them
+    # silently. Semantics (playtest/INDEXARGS6_FINDINGS.md): position 1 of
+    # {E200} is a 1-based row of bank 453 (the Mind Chess option text) and
+    # of {E1FD}/{E20A} a 1-based row of bank 454 (the question text);
+    # position 2 of all three is the string in THIS entry the pick jumps to.
+    # {E17E}/{E17F} position 1 and {E180} position 0 are the string in this
+    # entry a talk topic / presented item / default response dispatches to.
+    0xE200: (1, 2),     # arity 4: (?, bank-453 row 1-based, target string, ?)
+    0xE1FD: (1, 2),     # arity 4: (?, bank-454 row 1-based, target string, ?)
+    0xE20A: (1, 2),     # arity 4: (?, bank-454 row 1-based, target string, ?)
+    0xE17E: (1,),       # arity 4: (topic id, target string, ?, ?)
+    0xE17F: (1,),       # arity 2: (item id, target string)
+    0xE180: (0,),       # arity 1: (target string)
 }
 for _code, _positions in INDEX_ARGS.items():
     assert all(p < ARGS[_code] for p in _positions), _code

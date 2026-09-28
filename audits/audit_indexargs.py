@@ -6,7 +6,13 @@ Several engine commands carry arguments that are STRING INDICES within the
 same spt entry: a rebuttal's statement pointers ({E11F}/{E120}), a choice
 menu's target ({E187}, covered by audit_choicearg.py instead), and several
 narrower codes ({E080}, {E0B0}, {E1C1}, {E164}, {E161}, {E162}, {E1A6},
-{E1E9}, {E11B}, {E160}). Both value
+{E1E9}, {E11B}, {E160}), and since 2026-09-27 the six string-selecting codes
+VERIFY2 found outside the table: {E200} (Mind Chess option: bank-453 row and
+target string), {E1FD}/{E20A} (question: bank-454 row and target string),
+{E17E}/{E17F}/{E180} (talk topic / presented item / default response: target
+string). Those six were identical to the fan in every build measured (1.9.1,
+1.10.0, merged next), so they are a guard, not a fix; the fixture in
+audit_fixtures.py (break_indexarg_e200) proves this audit sees them. Both value
 spaces are DS-specific and neither is remapped anywhere in the toolchain -
 tools/dstext.py appends the Collection's own argument units unchanged, so any
 re-cut (region_align / RECUT_SHIFTED) that skews an entry's string layout

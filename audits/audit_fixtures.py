@@ -526,6 +526,30 @@ def break_indexarg_e11f(rom):
     return bytes(out), 1
 
 
+def break_indexarg_e200(rom):
+    """Decrement DS[11] str 3's first {E200}'s argument position 1 by one -
+    the Mind Chess option pick. On the fan (and every build measured) it is
+    62, i.e. bank 453 row 61 "You look suspicious to me!"; 61 selects row 60,
+    the dev placeholder かり きつもん13 ("temp. cross-exam 13"), which is the
+    exact shape the 2026-09-27 guard (the six codes VERIFY2 found outside
+    INDEX_ARGS: {E200}, {E1FD}, {E20A}, {E17E}, {E17F}, {E180}) exists to
+    catch. Applied, one unit, to whichever ROM the harness is given; proves
+    audit_indexargs.py sees the six added codes rather than reproducing a
+    fault (there was none: all 1,114 occurrences matched the fan already)."""
+    a, b = spt_span(rom)
+    cont = bytes(rom[a:b])
+    o, s = struct.unpack_from('<II', cont, 11 * 8)
+    off = _find_code_offset(cont[o:o + s], a + o, 3, 0xE200, 1) if s else None
+    if off is None:
+        return bytes(rom), 0
+    cur = struct.unpack_from('<H', rom, off)[0] ^ XOR
+    if cur != 62:
+        return bytes(rom), 0
+    out = bytearray(rom)
+    out[off:off + 2] = enc(cur - 1)
+    return bytes(out), 1
+
+
 def break_staging(rom):
     """Set DS[99] str 5's SECOND {E15B}'s x argument back to 192 - the real
     Case 2 camera fault a tester reported: a scene
@@ -864,6 +888,7 @@ FIXTURES = [
     ('audit_choicearg.py', 'point DS[58] str 2 {E187} strip-arg at 170 - 363+170 = idlocal 533, a palette, not a sprite', break_choicearg_strip, 'rom'),
     ('audit_choicearg.py', "drop DS[92] str 18's {E187} target-string index by one (the region_align skew)", break_choicearg_target, 'rom'),
     ('audit_indexargs.py', "decrement DS[92] str 1's first {E11F} argument position 1 by one (the rebuttal statement-index fault)", break_indexarg_e11f, 'rom'),
+    ('audit_indexargs.py', "decrement DS[11] str 3's first {E200} argument position 1 by one (62 -> 61: the Mind Chess option would read a dev placeholder)", break_indexarg_e200, 'rom'),
     ('audit_staging.py', "set DS[99] str 5's second {E15B} x argument back to 192 (the Case 2 camera fault)", break_staging, 'rom'),
     ('audit_staging.py', "move one staging command into the wrong box in a string whose box-end count still matches the fan", break_staging_placement, 'rom'),
     ('audit_staging.py', "move one staging command from after some text to before any text in its own box (same subsequence, same box)", break_staging_point, 'rom'),
