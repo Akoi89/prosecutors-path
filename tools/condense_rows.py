@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Ship 85 approved condensed Capcom lines where the port today falls back to
+"""Ship 89 approved condensed Capcom lines where the port today falls back to
 the fan row because Capcom's own wording does not fit: Mind Chess press
 statements/objectives (banks 453, 454, 455 - inject.py's small-font widget
 gate) and Logic cards / evidence-profile description cards (banks 395, 432 -
@@ -45,11 +45,11 @@ post-condense, before word-wrap) - not a script-file unit stream - so the
 Collection's own ~35-char soft wrap for its card) folded to a single space,
 matching the reviewed wording list's recorded source text for each row.
 Hashing the *pre*-condense.apply string instead (skipping that existing step)
-disagrees with the reviewed source text for 17 of the 31 loc rows -
+disagrees with the reviewed source text for 17 of the first 31 loc rows -
 condense.apply() already shortens several of these descriptions before this
 table ever sees them, and the review was done against ITS output, not the
 raw localization string. Hashing after condense.apply(), as loc_patch.py's
-own pipeline does, reproduces the reviewed source text exactly for all 31
+own pipeline does, reproduces the reviewed source text exactly for all 35
 rows (verified against a real build: 0 fallbacks from a hash mismatch on
 this domain). All 54 Mind Chess rows (453/454/455, no condense.py step in
 their path) also matched with zero drift.
@@ -73,16 +73,20 @@ CONDENSE_ROWS = {
     (395, 107): {'hash': '3f9c33101a9d87f7', 'text': "The body was hidden so departing participants wouldn't spot it."},
     (395, 127): {'hash': '33094beb2037d50b', 'text': "Signs indicate Aldown's body was moved from elsewhere."},
     (432, 7): {'hash': 'e9135288f2d003b4', 'text': 'A photograph of the president at the moment the incident occurred.'},
+    (432, 62): {'hash': '0b0f7bc5f1feb20d', 'text': "Photo of the tunnel between the prison and detention center. It seems to depict a dog's paw prints."},
     (432, 77): {'hash': '1bdc5bcdb7865ed4', 'text': "Used during the show to send Saint flying. The weights were replaced with the victim's body."},
     (432, 116): {'hash': '11db4a3c1f81da0f', 'text': 'Cloth that glows when linked to a full-spectrum light-emitting device.'},
     (432, 171): {'hash': 'b4a1f4399a6c757c', 'text': "A three-armed candle holder that may be the murder weapon, judging by the victim's chest wounds."},
     (432, 173): {'hash': '3ac3ea50486da535', 'text': 'A book of promises Kay made to her father as a child. What was it doing in the Committee chamber?'},
     (432, 180): {'hash': 'eb61d0c5c7002178', 'text': 'Ringleader: white jacket, white gloves, magenta flower, mask. A facial tattoo showed past the mask.'},
     (432, 207): {'hash': 'b5f2c5b18168a407', 'text': "The combination lock on the front gate was untouched, while the side gate's chain was cut last night."},
+    (432, 228): {'hash': '9599c785b4632589', 'text': "A bouquet of lion lilies from Judge Gavèlle to President Wang. Recovered from on top of his body by Shaun."},
+    (432, 237): {'hash': '5408a4cf0950db73', 'text': "Not actually Aldown's shoes. They appear to have been placed on his feet by the culprit after the murder."},
     (432, 260): {'hash': '7dab8c0bf921b6bc', 'text': "President's security second-in-command. A firearms specialist."},
     (432, 292): {'hash': 'ab530807196dc005', 'text': "Tangaroa's former assistant; owns Zodiac Hall. Loves to sing and dance."},
     (432, 295): {'hash': 'a33a343d9138f3dc', 'text': 'Confectioner of indeterminate age. Known in the U.K. as Ms. Delicious.'},
     (432, 298): {'hash': '9cd1f8abea9e3320', 'text': 'Confectioner collapsed outside the Autumn Wing after inhaling poison gas.'},
+    (432, 302): {'hash': '6840e3033cc60690', 'text': 'Hertz Hospital nurse. Offers unnecessary treatments to everyone she meets.'},
     (432, 303): {'hash': '05b68ef667f3c697', 'text': 'A nurse at Hertz Hospital. Serves as assistant to the coroner, Dr. Hertz.'},
     (432, 304): {'hash': '6cbdffaf47a7fe5f', 'text': 'Mysterious woman brought by Florence Niedler. Seems to have amnesia, but...'},
     (432, 305): {'hash': 'a1e9221ef70ca894', 'text': 'Self-styled Great Thief, the second Yatagarasu. Suffering from memory loss.'},
