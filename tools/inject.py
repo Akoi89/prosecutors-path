@@ -29,6 +29,7 @@ from map_ids import ds_entries
 from paths import work, data
 import stmt_trim
 import linefix
+import last_rows
 import relaid_rows
 import condense_rows
 import skipguard
@@ -2031,6 +2032,19 @@ def main(base=None, out=None):
             linefix_fallback += fb
     print('dialogue lines re-broken to fit the proven budget: %d  (fallback: %d)'
           % (linefixed, linefix_fallback))
+
+    # One row Capcom's own matcher mapped to the wrong Collection file entirely
+    # - hand-ported and hash-guarded, same discipline as linefix.py above. Runs
+    # before skipguard (which wants to see the final built bytes last). See
+    # tools/last_rows.py.
+    lastrows = lastrows_fallback = 0
+    for _ent_i in {ei for ei, _si in last_rows.LAST_ROWS}:
+        d = entries.get(_ent_i)
+        if d:
+            nd, c, fb = last_rows.patch_entry(_ent_i, d)
+            if c: entries[_ent_i] = nd; lastrows += c
+            lastrows_fallback += fb
+    print('last-rows hand ports applied: %d  (fallback: %d)' % (lastrows, lastrows_fallback))
 
     # 33 animated {E111} entrances in the game (identical set in the fan ROM
     # and ours - Capcom's own script) ship with no {E112 <char>} wait before

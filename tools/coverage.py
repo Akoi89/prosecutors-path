@@ -109,7 +109,70 @@ def main(argv=None):
     # this figure by that row's own char count for exactly the same reason
     # the rename check exists).
     import names as _names, episode_titles as _titles, linefix as _linefix
+    # PART C (2026-09-27/28): a fan row that already reads exactly what Capcom
+    # wrote - Mind Chess press-button lines like "Objection!"/"Hold it!", where
+    # the fan translated the same short exclamation Capcom later shipped - is
+    # still officially worded, even though the byte-equality test above cannot
+    # tell it apart from a row Capcom never touched: both end up byte-identical
+    # to the fan ROM. Confirmed for real by tools/inject.py's own end-of-loop
+    # catch-all (`GUARD_OTHER:IDENTICAL_TO_CAPCOM_TEXT` in the 2026-09-27
+    # fan-row-inventory instrumentation): Capcom's own converted text landed
+    # byte-identical to the fan's row without ever passing through an explicit
+    # keep-fan site. Every row found this way sits in inject.SMALL_WIDGET_BANKS
+    # (453-455, Mind Chess press statements/topic banners), the ONE-LINE,
+    # un-wrapped widget path inject.py itself uses for these banks
+    # (`convert(u, wrap=False, page=False, hard_nl=False)`, SMALL-font accents
+    # off - see inject.py's widget-gate comments), not the ordinary
+    # dialogue-box convert() the per-string loop uses everywhere else. This
+    # recomputes exactly that same call, independently, for every still-fan row
+    # in those three banks, and compares it (after the same name-harmonisation
+    # as the rename check above) to the fan's row. Bounded to ~1,264 strings
+    # across 453-455, not the whole 1.8M-unit script, so this stays cheap and
+    # does not try to re-derive a figure the injector could equally have
+    # produced for every entry. Re-checked 2026-09-28 against the rebased tree
+    # (condensed 453-455 wording): the figure is recomputed fresh from
+    # whatever text is actually in dump/ and the built ROM, not cached, so a
+    # condensed row that no longer matches Capcom's own wording drops out on
+    # its own, and any row that newly matches is picked up the same way.
+    import inject as _inject
+    import dstext as _dstext
+
+    def _capcom_candidates(i, ds_strings):
+        """{string_index: candidate_units} for entry i, Mind Chess widget banks
+        only. Empty when the Collection file is missing or its string count does
+        not match the fan's (never observed for 453-455, but never assumed)."""
+        info = m.get(str(i))
+        if not info:
+            return {}
+        p = _inject.eng_path(info['name'], info['src'])
+        if not p or not os.path.exists(p):
+            return {}
+        en = list(all_strings(open(p, 'rb').read(), False))
+        if len(en) != len(ds_strings):
+            return {}
+        out = {}
+        saved = _dstext.ACCENT_SLOTS_ON
+        _dstext.ACCENT_SLOTS_ON = False
+        try:
+            for n_, (_, _, _, u) in enumerate(en):
+                asc = ''.join(chr(v) for v in u if v < 0x80)
+                cj = sum(1 for v in u if 0x3040 <= v <= 0x30FF or 0x4E00 <= v <= 0x9FFF)
+                la = sum(1 for v in u if 0x41 <= v <= 0x5A or 0x61 <= v <= 0x7A)
+                if 'DEMO TEXT' in asc or cj > max(4, la * 0.25):
+                    continue      # untranslated/placeholder - never equals a real fan row
+                try:
+                    d, _unmapped = _dstext.convert(list(u), wrap=False, page=False, hard_nl=False)
+                except Exception:
+                    continue
+                out[n_] = d
+        finally:
+            _dstext.ACCENT_SLOTS_ON = saved
+        return out
+
     tab = {}
+    identical_rows = 0
+    identical_units = 0
+    identical_list = []
     for i, fent in fan.items():
         b = built.get(i)
         if b is None or fent[:4] != b' TPS':
@@ -126,7 +189,8 @@ def main(argv=None):
             hs = [tuple(u) for _, _, _, u in fs]
         if len(hs) != len(fs):
             hs = [tuple(u) for _, _, _, u in fs]
-        for (fa, fb, fc, fu), (_, _, _, bu), hu in zip(fs, bs, hs):
+        cap = _capcom_candidates(i, fs) if i in _inject.SMALL_WIDGET_BANKS else {}
+        for n_, ((fa, fb, fc, fu), (_, _, _, bu), hu) in enumerate(zip(fs, bs, hs)):
             n = charunits(fu)
             if not n:
                 continue
@@ -134,7 +198,17 @@ def main(argv=None):
             off, tot = tab.get(k, (0, 0))
             is_fan = (list(fu) == list(bu) or tuple(bu) == hu
                       or (i, fa) in _linefix.LINEFIX)
-            tab[k] = (off + (0 if is_fan else n), tot + n)
+            # PART C: this row is FAN by the byte-equality test above, but
+            # Capcom's OWN independently-recomputed candidate for this exact
+            # position is the same wording (name-harmonised) - the row is
+            # officially worded by coincidence, not merely kept because
+            # nothing else was available.
+            identical = is_fan and n_ in cap and tuple(cap[n_]) == hu
+            if identical:
+                identical_rows += 1
+                identical_units += n
+                identical_list.append((i, fa, n))
+            tab[k] = (off + (0 if (is_fan and not identical) else n), tot + n)
 
     print('%-12s %9s %12s' % ('', 'official', 'char units'))
     to = tt = 0
@@ -143,6 +217,14 @@ def main(argv=None):
         to += off; tt += tot
         print('%-12s %8.1f%%  %s / %s' % (k, 100.0 * off / tot, format(off, ','), format(tot, ',')))
     print('%-12s %8.1f%%  %s / %s' % ('TOTAL', 100.0 * to / tt, format(to, ','), format(tt, ',')))
+    to_before = to - identical_units
+    print('TOTAL (without the identical-wording counter fix): %5.1f%%  %s / %s'
+          % (100.0 * to_before / tt, format(to_before, ','), format(tt, ',')))
+    print('identical-wording counter fix adds: %d rows / %s char units (fan text that already '
+          'reads Capcom\'s own wording, e.g. Mind Chess "Objection!"/"Hold it!")'
+          % (identical_rows, format(identical_units, ',')))
+    for (bi, bs_, bn) in sorted(identical_list):
+        print('  DS[%d] str %d  (%d char units)' % (bi, bs_, bn))
     shutil.rmtree(tmp)
     return 0
 
