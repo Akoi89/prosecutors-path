@@ -41,6 +41,7 @@ def _default_fan():
 import sys, struct
 
 import spt
+import rowfold
 from inject import file_id
 
 # SCOPE - what this does NOT look at:
@@ -67,7 +68,7 @@ def entry(c, i):
     return c[o:o + s] if s else b''
 
 
-OURS = rs(OURS_ROM)
+OURS = rowfold.fold_spt(rs(OURS_ROM), OURS_ROM)
 FAN = rs((sys.argv[2] if len(sys.argv) > 2 else _default_fan()))
 
 n = struct.unpack_from('<I', FAN, 0)[0] // 8

@@ -54,6 +54,7 @@ import sys
 
 
 import spt                                    # noqa: E402
+import rowfold                                 # noqa: E402
 from dstext import ARGS                       # noqa: E402
 from inject import file_id                    # noqa: E402
 
@@ -91,7 +92,7 @@ def boxes(u):
     return n
 
 
-O, F = rs(OURS_ROM), rs(FAN_ROM)
+O, F = rowfold.fold_spt(rs(OURS_ROM), OURS_ROM), rs(FAN_ROM)
 n = struct.unpack_from('<I', O, 0)[0] // 8
 
 compared = 0

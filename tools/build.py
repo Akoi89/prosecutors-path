@@ -200,7 +200,7 @@ def selftest():
                 'spt', 'dstext', 'inject', 'locate', 'ndsx', 'names', 'plates', 'buttons',
                 'lz11', 'nitro', 'txtcut', 'cg_names', 'cg_art', 'loc_dump', 'title_assets', 'voices',
                 'compact', 'mindchess', 'mindchess_recn', 'rnan25', 'linefix', 'last_rows', 'rewrite', 'relaid_rows',
-                'condense_rows', 'skipguard', 'sentence_breaks', 'cutdata_hotfix'):
+                'condense_rows', 'skipguard', 'sentence_breaks', 'rowsplit', 'rowfold', 'cutdata_hotfix'):
         try:
             __import__(mod)
             print('  import %-29s ok' % mod)

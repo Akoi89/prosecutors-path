@@ -35,6 +35,7 @@ import relaid_rows
 import condense_rows
 import skipguard
 import sentence_breaks
+import rowsplit
 
 # Codes that end a message box (the box-count fingerprint used for alignment checks).
 BOXEND = {0xE102, 0xE104, 0xE106, 0xE185, 0xE081}
@@ -2126,6 +2127,23 @@ def main(base=None, out=None):
             sb_fallback += sum(len(v['boxes']) for (ei, _si), v in
                                sentence_breaks.SENTENCE_BREAKS.items() if ei == _ent_i)
     print('box breaks moved to sentence ends: %d (fallback: %d)' % (sbmoved, sb_fallback))
+
+    # The field engine loads a script entry into a fixed 0x2000-byte buffer
+    # sized 0xC + ncnt*8 + 2*(longest row + 1) with no clamp; an entry that
+    # needs more overruns the next block (entry 230's Lotta talk froze the
+    # Logic and Save menus that way). Split each over-long row of every
+    # field-slot entry in two chained rows, {E081:new} at the end of the first
+    # and the rest appended as a new row. Runs LAST, after every per-index
+    # pass above: those walk min(len(fan), len(ours)) rows or need equal row
+    # counts, so an appended row must not exist until they are done. Capcom's
+    # words are not touched. See tools/rowsplit.py; the manifest lets audits
+    # map the appended rows (indices at or past the fan's row count).
+    rs_rows, rs_entries, rs_manifest = rowsplit.split_all(entries, m, INDEX_ARGS)
+    print('rows split to fit the slot buffer: %d rows in %d entries' % (rs_rows, rs_entries))
+    os.makedirs(os.path.dirname(os.path.abspath(OUT)), exist_ok=True)
+    with open(os.path.splitext(OUT)[0] + '.split_manifest.json', 'w', newline='\n') as _mf:
+        json.dump({str(k): v for k, v in sorted(rs_manifest.items())}, _mf, indent=1, sort_keys=True)
+        _mf.write('\n')
 
     newspt = build_archive(entries)
     print('entries replaced with official English: %d' % swapped)

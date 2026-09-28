@@ -51,6 +51,7 @@ import struct, json
 
 from inject import file_id
 from spt import all_strings
+import rowfold
 import fontwidths
 
 BOX = 240
@@ -153,7 +154,7 @@ def spt_of(rom_path):
     fid = file_id(rom, 'jpn/spt.bin')
     fat = struct.unpack_from('<I', rom, 0x48)[0]
     s, e = struct.unpack_from('<II', rom, fat + fid * 8)
-    return rom[s:e]
+    return rowfold.fold_spt(rom[s:e], rom_path)
 
 
 def entries(blob, exclude=EXCLUDE_BANKS):

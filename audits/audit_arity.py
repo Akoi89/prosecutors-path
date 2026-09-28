@@ -37,6 +37,7 @@ def _default_fan():
 import sys, struct, collections, json
 
 import spt
+import rowfold
 from dstext import ARGS
 from inject import file_id
 
@@ -74,7 +75,7 @@ def strings(cont):
         except Exception:
             continue
 
-OUR = rs(OURS_ROM)
+OUR = rowfold.fold_spt(rs(OURS_ROM), OURS_ROM)
 FAN = rs((sys.argv[2] if len(sys.argv) > 2 else _default_fan()))
 
 # ---- A: corrupted arguments in our ROM -------------------------------------

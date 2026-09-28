@@ -56,6 +56,7 @@ def _default_fan():
     return rom
 
 import os
+import shutil
 import struct
 import subprocess
 import sys
@@ -63,6 +64,7 @@ import tempfile
 
 
 import spt                                    # noqa: E402
+import rowfold                                # noqa: E402
 from dstext import ARGS                       # noqa: E402
 from inject import file_id, STAGING_CODES     # noqa: E402
 import txtcut                                 # noqa: E402
@@ -942,6 +944,12 @@ def main():
         path = os.path.join(WORK, script.replace('.py', '.nds' if kind == 'rom' else '.bin'))
         open(path, 'wb').write(broken)
         clean_arg = clean_path if kind == 'rom' else None
+        # a broken copy of a split ROM needs the split manifest beside it, or
+        # the audits (tools/rowfold.py) refuse it
+        _mf = None
+        if kind == 'rom' and _os.path.exists(rowfold.manifest_path(clean_path)):
+            _mf = rowfold.manifest_path(path)
+            shutil.copyfile(rowfold.manifest_path(clean_path), _mf)
         if script in ('audit_indexargs.py', 'audit_zeros.py', 'audit_staging.py',
                       'audit_widgets.py', 'measure_linewidth.py', 'audit_tails.py',
                       'audit_hotspots.py'):
@@ -983,6 +991,8 @@ def main():
                 print('  >>> identical output on an input it should object to')
         results.append((script, 'DETECTED' if ok else 'MISSED'))
         os.remove(path)
+        if _mf:
+            os.remove(_mf)
 
     print('\n=== summary ===')
     for s, r in results:

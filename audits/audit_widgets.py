@@ -37,6 +37,7 @@ def _default_fan():
 import sys, struct
 
 import spt, dstext
+import rowfold
 from inject import file_id
 
 # SCOPE - what this does NOT look at:
@@ -117,7 +118,7 @@ def small_lines_of(u, small_adv):
         out.pop()
     return out
 
-OURS = rom_spt(OURS_ROM)
+OURS = rowfold.fold_spt(rom_spt(OURS_ROM), OURS_ROM)
 _FAN_ROM = sys.argv[2] if len(sys.argv) > 2 else _default_fan()
 FAN  = rom_spt(_FAN_ROM)
 

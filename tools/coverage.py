@@ -85,7 +85,16 @@ def main(argv=None):
     if os.path.isdir(tmp):
         shutil.rmtree(tmp)
     ndsx.extract(rom, tmp)
-    built = entries(os.path.join(tmp, 'jpn', 'spt.bin'))
+    # rowsplit.py appends continuation rows to entries whose longest row would
+    # overrun the engine's script buffer; fold them back (the build's split
+    # manifest drives it) so rows still map to the fan's by index.
+    import rowfold
+    _sp = os.path.join(tmp, 'jpn', 'spt.bin')
+    _sb = open(_sp, 'rb').read()
+    _sf = rowfold.fold_spt(_sb, rom)
+    if _sf is not _sb:
+        open(_sp, 'wb').write(_sf)
+    built = entries(_sp)
     fan = entries('dump/ds_fan/jpn/spt.bin')
     m = json.load(open(data('ds_to_collection_final.json')))
 

@@ -34,6 +34,7 @@ def _default_fan():
 import sys, struct
 
 import spt
+import rowfold
 from dstext import ARGS
 from inject import file_id
 
@@ -82,7 +83,7 @@ def boxes(u):
         i += 1
     return n
 
-O = rs(OURS_ROM)
+O = rowfold.fold_spt(rs(OURS_ROM), OURS_ROM)
 F = rs((sys.argv[2] if len(sys.argv) > 2 else _default_fan()))
 n = struct.unpack_from('<I', O, 0)[0] // 8
 

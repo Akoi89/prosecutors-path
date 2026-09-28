@@ -63,6 +63,7 @@ def _default_fan_spt():
 import struct
 
 import spt
+import rowfold
 from dstext import ARGS
 from inject import file_id
 from choice_strips import Idlocal, PALETTE_ENTRY
@@ -137,7 +138,7 @@ def strip_kind(idl, idx):
 
 
 ROM = open(OURS_ROM, 'rb').read()
-SPT = rs(ROM, 'jpn/spt.bin')
+SPT = rowfold.fold_spt(rs(ROM, 'jpn/spt.bin'), OURS_ROM)
 IDL = Idlocal(rs(ROM, 'jpn/idlocal.bin'))
 FAN_SPT = open(FAN_SPT_PATH, 'rb').read()
 

@@ -29,6 +29,7 @@ import struct, json, collections
 
 from inject import file_id
 from spt import all_strings
+import rowfold
 from dstext import RESET, e106_clears
 
 CTRL = lambda v: 0xE000 <= v <= 0xF8FF
@@ -104,7 +105,7 @@ def scan(path):
     rom = open(path, 'rb').read()
     fat = struct.unpack_from('<I', rom, 0x48)[0]
     s, e = struct.unpack_from('<II', rom, fat + file_id(rom, 'jpn/spt.bin') * 8)
-    blob = rom[s:e]
+    blob = rowfold.fold_spt(rom[s:e], path)
     n = struct.unpack_from('<I', blob, 0)[0] // 8
     c = collections.Counter()
     where = collections.defaultdict(list)

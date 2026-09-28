@@ -97,6 +97,7 @@ def _default_fan_spt():
 import struct
 
 import spt
+import rowfold
 from dstext import ARGS
 from inject import file_id
 
@@ -142,7 +143,7 @@ def preceding(u, k):
 
 
 ROM = open(OURS_ROM, 'rb').read()
-SPT = rs(ROM, 'jpn/spt.bin')
+SPT = rowfold.fold_spt(rs(ROM, 'jpn/spt.bin'), OURS_ROM)
 FAN_SPT = open(FAN_SPT_PATH, 'rb').read()
 
 n = struct.unpack_from('<I', SPT, 0)[0] // 8
