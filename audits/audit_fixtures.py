@@ -860,7 +860,7 @@ def main():
         open(path, 'wb').write(broken)
         clean_arg = clean_path if kind == 'rom' else None
         if script in ('audit_indexargs.py', 'audit_zeros.py', 'audit_staging.py',
-                      'audit_widgets.py', 'measure_linewidth.py'):
+                      'audit_widgets.py', 'measure_linewidth.py', 'audit_tails.py'):
             # should-fix 2: an audit that already fails on the clean ROM would
             # make the ordinary text-diff test trivially pass. Require the
             # clean ROM to exit 0 (nothing wrong) and the broken copy to
@@ -876,6 +876,10 @@ def main():
             # to measure narration (strings with no {E101}) as well as
             # dialogue - see break_narration_width above, which this entry
             # exercises.
+            # audit_tails.py gained its own exit code in the skip-guard round 2
+            # fix (it previously only ever printed a LOST count) - break_tails
+            # below (zeroing every kept fan tail) is the same fixture that used
+            # to only be provable by a text diff.
             clean_out, clean_rc = run_full(script, clean_arg)
             dirty_out, dirty_rc = run_full(script, path)
             ok = clean_rc == 0 and dirty_rc == 1

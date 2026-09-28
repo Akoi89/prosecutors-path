@@ -104,3 +104,5 @@ print('LOST - unchanged string, fan slot zeroed or altered: %d' % len(lost))
 for i, k, t, got in lost[:30]:
     print('  DS[%d] str %d  fan %s  ours %s' % (i, k, ' '.join('%04X' % u for u in t),
                                               ' '.join('%04X' % u for u in got)))
+if lost:
+    sys.exit(1)

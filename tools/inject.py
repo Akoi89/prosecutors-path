@@ -31,6 +31,7 @@ import stmt_trim
 import linefix
 import relaid_rows
 import condense_rows
+import skipguard
 
 # Codes that end a message box (the box-count fingerprint used for alignment checks).
 BOXEND = {0xE102, 0xE104, 0xE106, 0xE185, 0xE081}
@@ -2030,6 +2031,30 @@ def main(base=None, out=None):
             linefix_fallback += fb
     print('dialogue lines re-broken to fit the proven budget: %d  (fallback: %d)'
           % (linefixed, linefix_fallback))
+
+    # 33 animated {E111} entrances in the game (identical set in the fan ROM
+    # and ours - Capcom's own script) ship with no {E112 <char>} wait before
+    # the next box. Every actor-positioning command writes that character's
+    # single task slot unconditionally, so a held B can flush the box before
+    # the entrance animation finishes, and the next command for that actor
+    # overwrites its task slot mid-move, freezing it (entry 119 string 3 box
+    # 1: Edgeworth left at x ~ -100). This runs last, after every other text
+    # and staging step, so it sees the final built bytes - see
+    # tools/skipguard.py for the 13 guarded sites (9 slide-ins, 4 fade-ins
+    # whose killer command shares the entrance's own box) and why the other
+    # 20 unguarded fade-ins are left alone.
+    guarded = 0
+    guard_fallback_sites = []
+    for _ent_i in {ei for ei, _si in skipguard.SKIPGUARD}:
+        d = entries.get(_ent_i)
+        if d:
+            nd, c, fb_sites = skipguard.patch_entry(_ent_i, d)
+            if c: entries[_ent_i] = nd; guarded += c
+            guard_fallback_sites += fb_sites
+    print('animated entrances guarded against a B-skip freeze: %d  (fallback: %d%s)'
+          % (guarded, len(guard_fallback_sites),
+             ': ' + ', '.join('DS[%d] str %d' % s for s in guard_fallback_sites)
+             if guard_fallback_sites else ''))
 
     newspt = build_archive(entries)
     print('entries replaced with official English: %d' % swapped)

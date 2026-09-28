@@ -40,7 +40,7 @@ import os
 import struct
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from spt import all_strings, parse
+from spt import all_strings, parse, tails as _spt_tails
 from build_spt import build_ds
 
 LINEFIX = {
@@ -90,6 +90,7 @@ def patch_entry(entry_id, entry_bytes):
     if not rows or not entry_bytes or entry_bytes[:4] != b' TPS':
         return entry_bytes, 0, 0
     h = parse(entry_bytes, True)[0]
+    keep = _spt_tails(entry_bytes, True)
     S = list(all_strings(entry_bytes, True))
     changed = fallback = 0
     new = []
@@ -102,4 +103,5 @@ def patch_entry(entry_id, entry_bytes):
             fallback += 1
     if not changed:
         return entry_bytes, 0, fallback
-    return build_ds(new[0][1], new[1:], h['term'], h['scale'], h['last']), changed, fallback
+    return (build_ds(new[0][1], new[1:], h['term'], h['scale'], h['last'], keep),
+            changed, fallback)
