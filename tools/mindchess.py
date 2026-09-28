@@ -945,7 +945,8 @@ def _ncgr_tile_offset(rgcn_bytes):
 
 def _kbec(recn_bytes):
     """-> (body, base) where base is body's absolute offset inside recn_bytes."""
-    assert recn_bytes[16:20] == b'KBEC', 'entry 25 RECN layout changed (expected KBEC first)'
+    if recn_bytes[16:20] != b'KBEC':
+        raise ValueError('entry 25 RECN layout changed (expected KBEC first)')
     return recn_bytes[24:], 24
 
 
