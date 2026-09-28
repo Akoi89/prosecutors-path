@@ -21,8 +21,9 @@ the shipped banner against the fan's own untouched lettering:
      through exactly one resize, from Capcom's native art to final size,
      with the ramp classification happening once at the very end.
   2. "Checkmate" was never sheared, so it stood upright next to the fan's own
-     italic "Chess" - now it gets the same _shear() as "Mind", anchored the
-     same way.
+     italic "Chess" - now it gets its own shear (see CHECKMATE_SHEAR; the
+     global SHEAR that used to cover this is 0 as of the final lettering pass
+     below, so Checkmate needs a shear of its own, unlike every other word).
   3. The old fixed 64px/128px slice of the condensed word cut cell 9 from
      cell 10 mid-letter (through the "e" of "Check"), which is fine at rest
      but visibly splits for the first few frames of the end-banner zoom-in
@@ -39,6 +40,27 @@ the shipped banner against the fan's own untouched lettering:
      What it does avoid, which the old fixed cut did not, is ANY dark fill
      pixel crossing the boundary: the "e"'s body stays entirely in cell 9.
      See checkmate_chunks() for the numbers and which letter gap it lands on.
+
+Final lettering pass:
+  4. "Chess" is now ALSO redrawn from Capcom's own Logic Chess letters
+     (CHESS_LETTER_SPRITE, chess_groups()), the same way "Mind" already was -
+     it no longer keeps the fan's own pixels. This was needed because Capcom's
+     letterforms are ALREADY italic (native lean ~-0.15 to -0.19, measured),
+     so shearing them by another SHEAR=0.16 (as this module used to do for
+     every Capcom-lettered word) doubled the lean to ~-0.33, visibly more
+     slanted than the fan's own ~-0.16 "Chess" it used to sit next to. With
+     "Chess" now Capcom-lettered too, SHEAR is 0 (see its own comment): every
+     Capcom word ships at its own native slant, matching every other Capcom
+     word instead of the fan's old italic.
+  5. With every word at its own native slant (no extra shear), "Checkmate"
+     still read visibly LESS slanted than "Mind Chess" above it - not because
+     of a shear difference this time (both get none), but because Checkmate's
+     own final resize condenses its width (natural render to a seam-fitted
+     183px, see checkmate_chunks) without condensing its height the same
+     amount, which shallows its lean on its own. CHECKMATE_SHEAR gives
+     Checkmate alone a small extra shear (measured to bring its own condensed
+     lean back in line with Mind/Chess/Commence's ~-0.17) to compensate -
+     see CHECKMATE_SHEAR's own comment for the numbers.
 
 Container: entry 25 is a self-contained sprite bundle (RECN cells + RNAN
 animation + RGCN tiles; the palette bank its OAMs actually use is idlocal
@@ -68,19 +90,21 @@ change, per cell.
 
 Design (all measured against entry 25's own real screen positions - a
 verified renderer, not a mock, produced every number below):
-  - The fan's shipped "Logic" ink spans screen x -108 to -9 (100px); "Chess"
-    (cells 3/4/5, untouched pixels) spans 0 to 107 (108px); the two words
-    sit only 9px apart. "Complete" (cell 9 + cell 10's two objects) spans
+  - The fan's shipped "Logic" ink spans screen x -108 to -9 (100px); the fan's
+    OWN "Chess" (before this pass redrew it) spanned 0 to 107 (108px), 9px
+    from "Logic"'s ink. "Complete" (cell 9 + cell 10's two objects) spans
     -77 to 75 (153px) - NOT a clean 192px fill; there is no hard budget.
-  - "Mind" (Capcom letters M/i/n/d, sheared to the fan's own italic lean) is
-    about 109px of real ink, split M / in / d into cells 0/1/2 the way the
-    fan split "Logic" into Lo/gi/c. Letters are spaced by ink, not by their
-    (wider, because sheared) crop boxes: OPTICAL_GAP is the fan's own
-    tightest row-wise approach between adjacent letter groups in "Chess"
-    (measured off the renderer, about -3 to -5px, i.e. already overlapping),
-    applied the same way between M/i/n/d. Its baseline is placed to land on
-    the same real screen row as "Chess" (both cap-height glyphs, matched by
-    measuring the fan's own baseline row off the renderer, not assumed).
+  - "Mind" (Capcom letters M/i/n/d) and "Chess" (Capcom letters C/h/e/s/s,
+    split Ch/es/s the same way the fan split its own "Chess") are both built
+    by the same recipe: one resample at SCALE, spaced by ink not by crop box
+    (OPTICAL_GAP is the fan's own tightest row-wise letter approach, measured
+    off the renderer, about -3 to -5px, i.e. already overlapping - applied
+    between M/i/n/d and between C/h/e/s/s alike). "Mind" measures about
+    109px of real ink; each is split into 3 cells (0/1/2 for Mind, 3/4/5 for
+    Chess) the way the fan split "Logic"/"Chess" into Lo/gi/c and Ch/es/s.
+    Both words' baseline is placed to land on the SAME real screen row
+    (BASELINE_ROW, matched by measuring the fan's own baseline row off the
+    renderer, not assumed) so they read as one line of text.
     "Checkmate" (Check+mate sheared the same way as "Mind", THEN joined at a
     gap tightened 1px at a time - starting from CHECKMATE_JOIN0 - until a
     flood fill finds no enclosed hole left in the outline between "k" and
@@ -92,9 +116,9 @@ verified renderer, not a mock, produced every number below):
     crosses on those rows - see checkmate_chunks), the way the fan split
     "Complete" into Co/mplete.
   - Each redrawn cell's OAM x is set so that group's real screen position
-    equals the layout below (LAYOUT selects which); "Chess" keeps its own
-    pixels and is only shifted by a constant OAM x delta, same for all
-    three of its cells (preserves the fan's own internal Ch/es/s kerning).
+    equals the layout below (LAYOUT selects which); "Chess" is placed the
+    same way "Mind" is (per-group ink offsets from chess_groups(), not a
+    fan-pixel constant), since it is Capcom's own redrawn art now too.
   - Two layouts are implemented, picked by the LAYOUT constant below:
     (A) "Mind Chess" centred on the same centre as the fan's "Logic Chess"
         (about x=0), WORD_GAP between the two words' ink.
@@ -125,16 +149,65 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from PIL import Image
 from choice_strips import Idlocal, rebuild, rom_file
 from nitro import _sections as nitro_sections
+import mindchess_recn
 
 BUNDLE_PREFIX = 'gk2_logicchess_trial_assets_all_'
 ATLAS_NAME = 'logicchess_title_eng'
 CACHE_DIRNAME = 'mindchess'
 
 LETTER_SPRITE = {'M': 0, 'i': 1, 'n': 2, 'd': 3}
-WORD_SPRITE = {'check': 11, 'mate': 12}
+WORD_SPRITE = {'check': 11, 'mate': 12, 'comm': 9, 'ence': 10}
+CHESS_LETTER_SPRITE = {'C': 4, 'h': 5, 'e': 6, 's1': 7, 's2': 8}
+# atlas parts 04-08 of logicchess_title_eng: Capcom's own "Chess" (the atlas
+# holds two separate "s" sprites - "Chess" has two esses - back to back with
+# 00-03/09-10 already used above). Harvested and cached the same way as
+# LETTER_SPRITE/WORD_SPRITE so "Chess" is redrawn from Capcom's own letters
+# too, at the same native slant as Mind/Checkmate/Commence (option C, the
+# lettering pass this dict was added for) - see chess_groups() below, built
+# the same way mind_groups() builds "Mind".
+# 'comm'/'ence' (atlas parts 09/10 of logicchess_title_eng): Capcom's own
+# "Commence" verb, harvested and cached the same way as check/mate so a
+# player's own build pulls it from their own Collection install - see
+# commence_chunks() below for how it's assembled into the Capcom-layout
+# START banner's verb row.
 
 SCALE = 0.229            # Capcom cap-height -> fan cap-height
-SHEAR = 0.16             # fan's own italic lean, measured off "Be"
+SHEAR = 0.0              # no extra shear: Capcom's own Logic Chess letterforms
+                          # are ALREADY italic (measured native lean ~-0.15 to
+                          # -0.19, Theil-Sen median slope of leftmost-ink-column
+                          # vs row on individual clean-stem letters), and the
+                          # previous 0.16 here was stacking a SECOND lean on
+                          # top of that, doubling every Capcom-lettered word's
+                          # slant to ~-0.33 against the fan's own ~-0.16
+                          # "Chess" (now also Capcom-lettered - see
+                          # CHESS_LETTER_SPRITE below - so there is no longer
+                          # a mixed-lean word to match against). Option C from
+                          # the render prototype: every Capcom word at its own
+                          # native slant, no shear applied by this tool.
+CHECKMATE_SHEAR = 0.035  # "Checkmate" alone gets its own small extra shear, on
+                          # top of its own native lean - Mind/Chess/Commence get
+                          # none (SHEAR=0 above). Cause: unlike those three
+                          # words, Checkmate's own final resize is NOT uniform -
+                          # its width is condensed from a natural ~224px render
+                          # (the joined check/mate art is 980px wide before
+                          # this shear, x SCALE) down to a seam-fitted 183px,
+                          # about 81.5% (see checkmate_chunks)
+                          # while its height keeps the same SCALE factor as
+                          # everything else, so the extra horizontal squeeze
+                          # measurably shallows its own lean (measured: native
+                          # "mate" stem -0.176, condensed with no extra shear
+                          # -0.144 - visibly less slanted than Mind/Chess/
+                          # Commence sitting at -0.15 to -0.19 next to it).
+                          # 0.035 was picked by measuring the actual condensed
+                          # result at several trial values and choosing the
+                          # one whose measured stem lean lands back in that
+                          # -0.167 to -0.176 range (measured -0.171) while
+                          # keeping a safety margin from 0.04, where the
+                          # seam/hole checks below start failing (shearing
+                          # more changes the joined shape enough to reopen a
+                          # hole near the "k"/"m" join). See checkmate_chunks'
+                          # own `shear` parameter (applied to check/mate only,
+                          # before the join) for where this is used.
 ALPHA_MIN = 26           # ~0.1 of 255: gates near-invisible source noise out of
                           # the crop box BEFORE any spacing math runs, same gate
                           # the old threshold step used, kept so "Mind"'s letter
@@ -162,7 +235,20 @@ PALETTE_ENTRY = 26       # idlocal entry whose bank-0 indices 1-11 hold the fan'
 # tile field -> resting screen x of that field's cell/object (see docstring;
 # start-row and end-row differ by at most 1px for the name-row cells, which
 # is folded in here rather than kept as two near-identical tables).
-TX = {0: -81, 16: -54, 32: -26, 48: 0, 64: 24, 80: 48, 144: -40, 160: 26, 176: 26}
+TX = {0: -81, 16: -54, 32: -26, 48: 0, 64: 24, 80: 48, 144: 4, 160: 4, 176: 4,
+      112: -25, 192: -25, 128: 25, 208: 25}
+# 144/160/176 all read 4, not the fan's old -40/26/26: the one-cell RECN/RNAN
+# edit (mindchess_recn.py) moves all three "Checkmate" tile fields onto cell
+# 9 and moves that cell's own RNAN pivot to px=4 (see mindchess_recn.py's
+# docstring), so this table's job - the cell's own resting screen px, used
+# below only as a baseline to solve for OAM x - must track that pivot, not
+# the pre-edit structure. The formula below is unchanged; only the input is.
+# 112/192 read -25, 128/208 read 25: cell 7's and cell 8's own RNAN px are
+# UNCHANGED by the Capcom-layout edit (measured: both keep px -25/25) - unlike
+# Checkmate's pivot, "Commence" never scales (sx stays 1.0 through the whole
+# start-banner timeline), so there is no second pivot to remove and no
+# legacy-vs-new split is needed for cell 7/8's own bank copies either (see
+# VERB_BANK_CELLS below and mindchess_recn.py's capcom_recn docstring).
 DBL_ADJ = 32              # every one of entry 25's OAM objects sets the double-size
                           # affine flag, which adds this to the real screen position
                           # on top of (cell px) + (OAM x); confirmed on all fields
@@ -177,9 +263,13 @@ NAME_FIELDS = (0, 16, 32)
 CHESS_FIELDS = (48, 64, 80)
 END_FIELDS = (144, 160, 176)
 
-CHESS_SPAN = (0, 107)     # fan's own "Ch".."s" ink span, measured, pixels untouched
-CHESS_WIDTH = CHESS_SPAN[1] - CHESS_SPAN[0] + 1
 LOGIC_SPAN = (-108, -9)   # fan's own "Lo".."c" ink span, measured (layout B only)
+# CHESS_SPAN/CHESS_WIDTH (the fan's own untouched "Ch".."s" ink span, 108px)
+# are gone: "Chess" is now Capcom's own redrawn letters (chess_groups(),
+# CHESS_LETTER_SPRITE), so its real ink width is measured off the harvest at
+# build time, the same way mind_width already is - see patch()'s LAYOUT A/B
+# math below, which now uses chess_groups()'s own returned width instead of
+# this old fan-pixel constant.
 END_WIDTH = 192           # "Checkmate" condense target: joined width condenses to
                           # this (see CHECKMATE_JOIN0 for how the join itself is
                           # chosen); not a hard fill, just a width that reads clearly
@@ -187,6 +277,42 @@ CHECKMATE_START = -96     # centres "Checkmate" on "Complete"'s own old centre (
 WORD_GAP = 10             # ink-to-ink gap between "Mind" and "Chess", both layouts;
                           # close to the fan's own "Logic"/"Chess" gap (8 to 9 blank
                           # columns between the words' ink)
+
+# ---- Capcom layout: START banner verb row, "Commence" --
+VERB_FIELDS = (112, 192, 128, 208)   # left-to-right screen order, 64px each
+VERB_BANK_CELLS = {112: (33, 34, 35), 192: (33, 34, 35),
+                   128: (36, 37, 38), 208: (36, 37, 38)}
+COMMENCE_ROOM_W = 256     # 4 fields x 64px - the whole room "Commence" is cut
+                          # into; unlike END_WIDTH's 192px budget for
+                          # Checkmate, this is a plain room, not a fitted width
+COMMENCE_START = -128     # left edge of the 256px room (-COMMENCE_ROOM_W/2);
+                          # "Commence" is centred inside its own join/resize
+                          # step (see commence_chunks), so the room itself does
+                          # not need re-centring the way Checkmate's narrower-
+                          # than-budget word does
+COMMENCE_SCALE = 1.0      # size parameter for the START banner's "Commence":
+                          # 1.0 is Capcom's native art at SCALE (226px ink at
+                          # the chosen join below, "as built"). 100% scale
+                          # with the join opened (see COMMENCE_JOIN_OPEN) is
+                          # the size that shipped; 1.0 stays the default.
+COMMENCE_JOIN_OPEN = 7    # extra separation (final on-screen px) added to the
+                          # "Comm"/"ence" join AFTER the hole-closing search
+                          # below has already found a safe gap (which by
+                          # itself leaves "m" and "e" overlapping by about
+                          # 7.8px). Measured the row-wise nearest-approach
+                          # INSIDE "Comm" (C/o/m/m) and INSIDE "ence" (e/n/c/e)
+                          # at their own internal letter junctions - Capcom's
+                          # own art touches at 0px there (no overlap, no gap)
+                          # at every junction checked. +8 is the closest match
+                          # to that 0px value (+0.2px); +7 (-0.7px, "m" and
+                          # "e" still very slightly overlapping) is the value
+                          # that shipped after comparing +5/+6/+7/+8 side by
+                          # side against a real in-game capture of the banner
+                          # and picking the one that reads best - a judgment
+                          # call on the rendered look, not a re-measurement.
+                          # Letter spacing inside "Comm" and inside "ence" is
+                          # baked into Capcom's own art either way; this
+                          # constant only widens the gap BETWEEN the two words.
 
 # name-row layout: pick 'A' or 'B' and rebuild; both are fully computed at
 # build time from the ACTUAL harvested letter widths (not a fixed guess), so
@@ -203,15 +329,18 @@ def cache_dir(dumpdir):
 
 def required(dumpdir):
     """The harvested letter images apply_to_rom() needs."""
-    names = ['letter_%s' % c for c in LETTER_SPRITE] + ['word_%s' % w for w in WORD_SPRITE]
+    names = (['letter_%s' % c for c in LETTER_SPRITE]
+             + ['chessletter_%s' % c for c in CHESS_LETTER_SPRITE]
+             + ['word_%s' % w for w in WORD_SPRITE])
     return [os.path.join(cache_dir(dumpdir), n + '.png') for n in names]
 
 
 def extract(bdir, dumpdir):
-    """Pull M/i/n/d and Check/mate out of the Collection's Logic Chess bundle
-    into dump/title/mindchess/. Raises SystemExit if the bundle or any needed
-    sprite is missing, same convention as the other title-asset extractors -
-    a real extract should never silently ship without this banner."""
+    """Pull M/i/n/d, Chess's C/h/e/s/s and Check/mate/Comm/ence out of the
+    Collection's Logic Chess bundle into dump/title/mindchess/. Raises
+    SystemExit if the bundle or any needed sprite is missing, same convention
+    as the other title-asset extractors - a real extract should never
+    silently ship without this banner."""
     hits = [p for p in glob.glob(os.path.join(bdir, '*.bundle'))
             if os.path.basename(p).lower().startswith(BUNDLE_PREFIX)]
     if not hits:
@@ -233,6 +362,8 @@ def extract(bdir, dumpdir):
         if atlas and atlas.lower() == ATLAS_NAME:
             found[name] = d
     need = {'letter_%s' % c: 'LogicChess_Title_R_%02d' % i for c, i in LETTER_SPRITE.items()}
+    need.update({'chessletter_%s' % c: 'LogicChess_Title_R_%02d' % i
+                  for c, i in CHESS_LETTER_SPRITE.items()})
     need.update({'word_%s' % w: 'LogicChess_Title_R_%02d' % i for w, i in WORD_SPRITE.items()})
     missing = [srcname for srcname in need.values() if srcname not in found]
     if missing:
@@ -368,6 +499,47 @@ def mind_groups(dumpdir):
     return [M, in_canvas, d], [0, off_i, off_d], off_d + d.width
 
 
+def chess_groups(dumpdir):
+    """-> ([Ch, es, s] continuous-tone RGBA images, [offsets], chess_width) or
+    None, same contract as mind_groups() above (built the same way: shear,
+    one resample, optical-gap spacing, no thresholding). Split C+h into one
+    group, e+s1 into a second, s2 alone as the third - mirrors the fan's own
+    "Ch"/"es"/"s" cut of "Chess" into cells 3/4/5 (fields 48/64/80), the way
+    mind_groups splits "Mind" into M/in/d for cells 0/1/2. Each group is
+    placed at local column 0 of its own 64px cell by patch() below, same as
+    the name row - unlike checkmate_chunks/commence_chunks, no cell-boundary
+    splice is needed here because every group's ink (measured: Ch ~61px,
+    es ~52px, s ~30px at native/unsheared scale) fits inside one 64px cell on
+    its own."""
+    letters = {}
+    for c in ('C', 'h', 'e', 's1', 's2'):
+        src = _load(dumpdir, 'chessletter_%s' % c)
+        if src is None:
+            return None
+        letters[c] = _crop(_resample(_shear(src)))
+    C, h, e, s1, s2 = letters['C'], letters['h'], letters['e'], letters['s1'], letters['s2']
+    off_h = _optical_offset(C, h)
+    off_e = off_h + _optical_offset(h, e)
+    off_s1 = off_e + _optical_offset(e, s1)
+    off_s2 = off_s1 + _optical_offset(s1, s2)
+
+    ch_canvas = Image.new('RGBA', (off_h + h.width, max(C.height, h.height)), (0, 0, 0, 0))
+    ch_canvas.alpha_composite(C, (0, ch_canvas.height - C.height))
+    ch_canvas.alpha_composite(h, (off_h, ch_canvas.height - h.height))
+
+    es_canvas = Image.new('RGBA', (off_s1 - off_e + s1.width, max(e.height, s1.height)), (0, 0, 0, 0))
+    es_canvas.alpha_composite(e, (0, es_canvas.height - e.height))
+    es_canvas.alpha_composite(s1, (off_s1 - off_e, es_canvas.height - s1.height))
+
+    groups = [ch_canvas, es_canvas, s2]
+    for g, field in zip(groups, CHESS_FIELDS):
+        if g.width > 64:
+            raise SystemExit('mindchess: Chess group for field %d is %dpx wide, '
+                              'wider than one 64px cell - would be cut, unlike the '
+                              'harvested art this was written against' % (field, g.width))
+    return groups, [0, off_e, off_s2], off_s2 + s2.width
+
+
 CHECKMATE_JOIN0 = round(-10 / SCALE)  # starting native-scale join gap: a straight
                       # port of the old small-scale kerning ("Check"/"mate" are two
                       # pre-rendered word images, each already tight to its own ink
@@ -378,9 +550,9 @@ CHECKMATE_JOIN0 = round(-10 / SCALE)  # starting native-scale join gap: a straig
                       # picking the tightest that keeps "k" legible), converted to
                       # native pixels by dividing by SCALE. On its own this leaves a
                       # real hole in the outline between "k" and "m" partway up once
-                      # both words are sheared (found in review, confirmed with a
-                      # flood fill: an enclosed transparent region the staged build
-                      # does not have). Cause: shearing shifts each letter's own
+                      # both words are sheared (confirmed with a flood fill: an
+                      # enclosed transparent region the staged build does not have).
+                      # Cause: shearing shifts each letter's own
                       # silhouette right by an amount that grows with height above
                       # the baseline, and "k"'s tall ascender shifts further than
                       # "m"'s short x-height body, so a gap that closes the words at
@@ -515,7 +687,7 @@ def _find_seam(grid, h, near=SEAM_FIELD_BOUNDARY, radius=SEAM_SEARCH):
     return None
 
 
-def checkmate_chunks(dumpdir, ramp):
+def checkmate_chunks(dumpdir, ramp, shear=CHECKMATE_SHEAR):
     """-> (chunks, seam_found, join_gap, width_used, center_shift) or None.
     chunks = [grid0, grid1, grid2], 64x64 palette-index grids (ready for
     _write_shape) for fields 144/160/176, already cut and centred - nothing
@@ -556,7 +728,7 @@ def checkmate_chunks(dumpdir, ramp):
         The second cut, at 128, sits inside cell 10's own two objects (which
         share one animation anchor and were already confirmed not to
         visibly split).
-      - One-sidedness (found in review, not hidden): the gap between "e" and
+      - One-sidedness (measured, not hidden): the gap between "e" and
         "c" is only 1px wide on some rows, so a single safe column can't put
         clear air on both sides of it - "e"'s own rightmost outline pixel
         ends up in cell 10 on those rows. What the search DOES guarantee
@@ -568,8 +740,8 @@ def checkmate_chunks(dumpdir, ramp):
     mate = _load(dumpdir, 'word_mate')
     if check is None or mate is None:
         return None
-    check_s = _crop(_shear(check))
-    mate_s = _crop(_shear(mate))
+    check_s = _crop(_shear(check, k=shear))
+    mate_s = _crop(_shear(mate, k=shear))
 
     def render_join(gap, width=END_WIDTH, xoff=0):
         joined = _hpaste([check_s, mate_s], gap=gap)
@@ -662,6 +834,106 @@ def checkmate_chunks(dumpdir, ramp):
     return chunks, seam_found, join_gap, width_used, center_shift
 
 
+def commence_chunks(dumpdir, ramp, scale=COMMENCE_SCALE, join_open_px=COMMENCE_JOIN_OPEN):
+    """-> (chunks, join_gap, ink_span) or None. chunks maps each of
+    VERB_FIELDS (112, 192, 128, 208) to a 64x64 palette-index grid, ready for
+    _write_shape - Capcom's "Comm"/"ence" atlas parts, styled exactly like
+    checkmate_chunks styles "Checkmate" (sheared, joined, ONE resample), but
+    cut at the room's plain 64px field boundaries rather than a search-fitted
+    seam.
+
+    Why no seam search or width condensing is needed here, unlike Checkmate:
+      - Checkmate's original two-cell split broke because cell 9 and cell 10
+        scaled about two DIFFERENT pivots during the end banner's zoom, so
+        their shared edge slid apart above 1x. "Commence" never scales - sx
+        stays pinned at 1.0 through the whole start-banner timeline (checked
+        against the RNAN: fly-in is pure translation, the only shape change
+        is a vertical-only squash right before the hold) - so cell 7's own
+        two objects (fields 112, 192) and cell 8's own two (128, 208) can
+        never separate, and the one CROSS-cell
+        boundary (192|128, cell 7 meeting cell 8) is a hairline join by
+        construction (both cells' own px place their shared edge at the same
+        screen x every rest tick), not something that needs fitting.
+      - Checkmate's ink (153px joined) had to be condensed to fit a 192px
+        budget with an off-boundary natural seam. "Commence"'s ink measures
+        226px against the 256px room at the shipped join (margins 15/15px,
+        widening as join_open_px opens the "m"/"e" gap further) - it already
+        fits with room to spare, so there is nothing to condense or re-centre.
+    The join itself still uses the SAME enclosed-hole guard checkmate_chunks
+    uses (starting at CHECKMATE_JOIN0, tightened 1px at a time until no hole
+    survives near the "m"/"e" boundary) - a bad harvest (different Collection
+    art, different Unity export) still can't ship a broken join quietly, even
+    though the currently-harvested art already closes at the starting gap.
+
+    `scale` (default COMMENCE_SCALE) multiplies the SCALE factor used for the
+    final resize only - a plain size parameter, the room and every other
+    measurement stay in real screen pixels. `join_open_px` (default
+    COMMENCE_JOIN_OPEN) widens the "Comm"/"ence" join, in FINAL on-screen
+    pixels, AFTER the hole-closing search below has already found a safe
+    native gap - it never makes the search itself looser, so a build with
+    join_open_px>0 still ships a join the flood-fill has proven has no
+    enclosed hole at its tighter starting point; opening it further can only
+    remove ink overlap, never reintroduce a hole."""
+    comm = _load(dumpdir, 'word_comm')
+    ence = _load(dumpdir, 'word_ence')
+    if comm is None or ence is None:
+        return None
+    comm_s = _crop(_shear(comm))
+    ence_s = _crop(_shear(ence))
+    eff_scale = SCALE * scale
+
+    def render_join(gap):
+        joined = _hpaste([comm_s, ence_s], gap=gap)
+        target_h = max(1, round(joined.height * eff_scale))
+        tw = max(1, round(joined.width * eff_scale))
+        word = joined.resize((tw, target_h), Image.LANCZOS)
+        shift = round((COMMENCE_ROOM_W - tw) / 2)
+        canvas = Image.new('RGBA', (COMMENCE_ROOM_W, 64), (0, 0, 0, 0))
+        canvas.alpha_composite(word, (shift, 64 - target_h))
+        return joined, canvas, tw, shift
+
+    gap = CHECKMATE_JOIN0
+    grid = canvas = None
+    for _ in range(CHECKMATE_JOIN_MAX_STEPS):
+        joined, canvas, tw, shift = render_join(gap)
+        grid = _ramp_grid(canvas, COMMENCE_ROOM_W, 64, ramp)
+        join_final_col = shift + (comm_s.width + gap / 2) * tw / joined.width
+        regions = _enclosed_regions(grid, COMMENCE_ROOM_W, 64)
+        holes = [r for r in regions
+                 if r[1][0] - CHECKMATE_JOIN_MARGIN <= join_final_col <= r[1][2] + CHECKMATE_JOIN_MARGIN]
+        if not holes:
+            break
+        gap -= 1
+    else:
+        raise SystemExit('mindchess: could not close the "m"/"e" Commence join after '
+                          '%d steps' % CHECKMATE_JOIN_MAX_STEPS)
+    join_gap = gap
+
+    if join_open_px:
+        gap += round(join_open_px / eff_scale)
+        joined, canvas, tw, shift = render_join(gap)
+        grid = _ramp_grid(canvas, COMMENCE_ROOM_W, 64, ramp)
+        join_final_col = shift + (comm_s.width + gap / 2) * tw / joined.width
+
+    cols_ink = [x for x in range(COMMENCE_ROOM_W) if any(grid[y][x] for y in range(64))]
+    if not cols_ink:
+        raise SystemExit('mindchess: Commence rendered with no ink at all')
+    ink_lo, ink_hi = min(cols_ink), max(cols_ink)
+    if ink_lo < 0 or ink_hi >= COMMENCE_ROOM_W:
+        raise SystemExit('mindchess: Commence ink (%d..%d) does not fit the %dpx room'
+                          % (ink_lo, ink_hi, COMMENCE_ROOM_W))
+
+    chunks = {}
+    for i, field in enumerate(VERB_FIELDS):
+        chunks[field] = [row[i * 64:(i + 1) * 64] for row in grid]
+    # join_final_col: where the "Comm"/"ence" join itself lands in the final
+    # 256px room, AFTER join_open_px - a diagnostic only (patch() ignores it,
+    # the join column never drives any OAM/tile placement the way Checkmate's
+    # seam column does), returned so a report script can measure the join
+    # gap AT the join instead of guessing from the word's overall ink span.
+    return chunks, join_gap, (ink_lo, ink_hi), round(join_final_col)
+
+
 # ---- entry 25 container -----------------------------------------------
 def _ncgr_tile_offset(rgcn_bytes):
     """-> (absolute byte offset of the tile data inside rgcn_bytes, size)."""
@@ -677,11 +949,13 @@ def _kbec(recn_bytes):
     return recn_bytes[24:], 24
 
 
-def _cells(recn_bytes):
-    """-> (list of (tile, x_field_abs_offset) for EVERY oam of every cell,
-    absolute offsets into recn_bytes), boundary. Done locally rather than
-    with ncer.ncer() because that helper's section walk is not alignment-safe
-    past the first block, and entry 25's RECN carries three blocks."""
+def _cells_indexed(recn_bytes):
+    """-> (list of (cell_idx, tile, x_field_abs_offset) for EVERY oam of
+    every cell, absolute offsets into recn_bytes), boundary. Done locally
+    rather than with ncer.ncer() because that helper's section walk is not
+    alignment-safe past the first block, and entry 25's RECN carries three
+    blocks. Cell index is kept (not just tile) because several tile fields
+    are drawn by more than one cell - see patch()'s END_FIELDS handling."""
     body, base = _kbec(recn_bytes)
     n_cells, attr = struct.unpack_from('<HH', body, 0)
     cell_off, mapping = struct.unpack_from('<II', body, 4)
@@ -697,8 +971,19 @@ def _cells(recn_bytes):
             q = oam_base + oam_off + j * 6
             a2 = struct.unpack_from('<H', body, q + 4)[0]
             tile = a2 & 0x3FF
-            out.append((tile, base + q + 2))   # +2 = the OAM's attr1 (x) field
+            out.append((i, tile, base + q + 2))   # +2 = the OAM's attr1 (x) field
     return out, boundary
+
+
+def _cells(recn_bytes):
+    """-> (list of (tile, x_field_abs_offset) for EVERY oam of every cell,
+    absolute offsets into recn_bytes), boundary. Cell-index-blind view of
+    _cells_indexed(), kept for the NAME/CHESS fields, whose palette-bank
+    copies are all used within their OWN cell's own sequence (checked: e.g.
+    exam_sta_00 itself uses cells 12/13/14 before settling on cell 0, so one
+    shared pivot is correct there) - unlike the END fields, see patch()."""
+    indexed, boundary = _cells_indexed(recn_bytes)
+    return [(tile, xoff) for _, tile, xoff in indexed], boundary
 
 
 def _set_x(recn, abs_off, new_x):
@@ -707,7 +992,14 @@ def _set_x(recn, abs_off, new_x):
     struct.pack_into('<H', recn, abs_off, a1)
 
 
-def _apply_x(recn, by_tile, field, value_fn):
+def _apply_x(recn, by_tile, field, value_fn, expect=4):
+    """Set OAM x on every record that draws `field` (the field's own cell
+    plus its palette-bank copies). Raises unless EXACTLY `expect` records
+    move - a name/chess tile field is drawn by 4 cells in the fan's own
+    data (the cell itself + 3 bank copies, checked directly against the
+    built blob), so a count that doesn't match means entry 25's RECN layout
+    changed and this call would otherwise silently move the wrong set of
+    records."""
     n = 0
     for xoff in by_tile.get(field, []):
         cur = struct.unpack_from('<H', recn, xoff)[0] & 0x1FF
@@ -715,6 +1007,10 @@ def _apply_x(recn, by_tile, field, value_fn):
             cur -= 512
         _set_x(recn, xoff, value_fn(cur))
         n += 1
+    if expect is not None and n != expect:
+        raise ValueError('mindchess: tile field %d has %d OAM record(s) using it, '
+                          'expected exactly %d - entry 25 RECN layout changed; '
+                          'refusing to move an unexpected count silently' % (field, n, expect))
     return n
 
 
@@ -735,29 +1031,48 @@ def patch(idlocal_bytes, dumpdir, log=None):
     """-> (new_idlocal_bytes, changed) or (idlocal_bytes, False) if the
     Collection harvest cache is missing (never raises for THAT case, same as
     before). It DOES raise SystemExit, same as extract()'s missing-bundle
-    case, if checkmate_chunks can't make the cell 9 / cell 10 seam safe or
-    can't close the "k"/"m" join - an internal invariant failing, not a
-    missing asset, but still not something to ship silently."""
+    case, if checkmate_chunks/commence_chunks can't make their seams/joins
+    safe - an internal invariant failing, not a missing asset, but still not
+    something to ship silently."""
     log = log or (lambda s: None)
     idl = Idlocal(idlocal_bytes)
     ramp = _read_ramp(idl)
     mg = mind_groups(dumpdir)
+    cg = chess_groups(dumpdir)
     ck = checkmate_chunks(dumpdir, ramp)
-    if mg is None or ck is None:
+    cc = commence_chunks(dumpdir, ramp)
+    if mg is None or cg is None or ck is None or cc is None:
         log('mindchess: harvested letters not found in dump/title/mindchess/ - entry 25 left untouched')
         return idlocal_bytes, False
     groups, offsets, mind_width = mg
+    chess_groups_list, chess_offsets, chess_width = cg
     chunks, seam_found, join_gap, width_used, center_shift = ck
+    verb_chunks, commence_join_gap, commence_ink_span, _commence_join_col = cc
 
     if LAYOUT == 'A':
-        mind_start = -((mind_width + WORD_GAP + CHESS_WIDTH) // 2)
+        mind_start = -((mind_width + WORD_GAP + chess_width) // 2)
     elif LAYOUT == 'B':
         mind_start = LOGIC_SPAN[0]
     else:
         raise ValueError('unknown LAYOUT %r' % LAYOUT)
-    chess_shift = (mind_start + mind_width + WORD_GAP) - CHESS_SPAN[0]
 
-    b = bytearray(idl.blob(25))
+    # one-time structural edit: "Checkmate" moves onto one NCER cell (9) so it
+    # never splits under itself during the end banner's zoom-in. Cause: a
+    # cell's own OBJs scale about that cell's origin (screen centre = px +
+    # scale*(OAM x + 64), half-width 32*scale for a 64x64 double-size affine
+    # object - see mindchess_recn.py). At rest, cell 9 (field 144, OAM x -84)
+    # has its own animation px=-40, while cell 10 (fields 160 at OAM x -86 and
+    # 176 at -22) has px=26 - a 66px pivot gap between the two cells. Above 1x
+    # scale, cell 9's pivot (further left) makes its right edge slide under
+    # cell 10's left edge, hiding letters ("Clckmate" etc). Moving all three
+    # tile fields onto cell 9 alone removes the second pivot: only entry 25's
+    # RECN (cell 9/10 OAM table) and RNAN (cell 9's own zoom pivot) change for
+    # this part; every OTHER idlocal entry stays untouched by this call.
+    # mindchess_recn.apply() ALSO carries the Capcom-layout structural edit on
+    # top (cells 7/8/33-38 gain a second OAM object each, exam_sta_00..08's py
+    # values move to trace the verb row's own fly-in, RGCN grows by 2 new
+    # tile fields) - see mindchess_recn.py's own module docstring for that half.
+    b = bytearray(mindchess_recn.apply(idl.blob(25)))
     o = struct.unpack_from('<3I', b, 0)
     recn = bytearray(b[o[0]:o[1]])
     rgcn = bytearray(b[o[2]:])
@@ -766,6 +1081,8 @@ def patch(idlocal_bytes, dumpdir, log=None):
     by_tile = {}
     for tile, xoff in cell_list:
         by_tile.setdefault(tile, []).append(xoff)
+    cell_list_indexed, _ = _cells_indexed(bytes(recn))
+    by_cell_field = {(cell, tile): xoff for cell, tile, xoff in cell_list_indexed}
 
     # ---- name row: "Mind" split M/in/d into cells 0/1/2, each cell's OAM x
     # set so the pieces read continuously at the chosen layout's start, spaced
@@ -775,26 +1092,97 @@ def patch(idlocal_bytes, dumpdir, log=None):
         canvas = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
         canvas.alpha_composite(grp, (0, BASELINE_ROW - grp.height + 1))
         _write_shape(rgcn, tile_off, field, boundary, _ramp_grid(canvas, 64, 64, ramp))
-        _apply_x(recn, by_tile, field, lambda cur, t=target: t)
+        _apply_x(recn, by_tile, field, lambda cur, t=target: t, expect=4)
     mind_end = mind_start + mind_width - 1
 
-    # ---- Ch/es/s: pixels untouched, all three OAM x moved by the same delta
-    chess_start = CHESS_SPAN[0] + chess_shift
-    chess_end = CHESS_SPAN[1] + chess_shift
-    moved = sum(_apply_x(recn, by_tile, f, lambda cur, s=chess_shift: cur + s)
-                for f in CHESS_FIELDS)
+    # ---- "Chess" redrawn from Capcom's own letters (chess_groups), split
+    # Ch/es/s into cells 3/4/5 exactly the way "Mind" is split above - each
+    # group at local column 0 of its own cell, OAM x set from real ink
+    # offsets, not the fan's old untouched pixels/constant-shift approach
+    # (Chess no longer keeps the fan's own pixels at all).
+    chess_start = mind_start + mind_width + WORD_GAP
+    moved = 0
+    for field, grp, off in zip(CHESS_FIELDS, chess_groups_list, chess_offsets):
+        target = chess_start + off - TX[field] - DBL_ADJ
+        canvas = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
+        canvas.alpha_composite(grp, (0, BASELINE_ROW - grp.height + 1))
+        _write_shape(rgcn, tile_off, field, boundary, _ramp_grid(canvas, 64, 64, ramp))
+        moved += _apply_x(recn, by_tile, field, lambda cur, t=target: t, expect=4)
+    chess_end = chess_start + chess_width - 1
 
     # ---- end row: "Checkmate" split Check/mate-style across cell 9 + cell 10.
     # center_shift moves all three fields by the same amount to re-centre a
     # word narrower than END_WIDTH (see checkmate_chunks) - it does NOT touch
     # the tile pixels or the seam's local column, only where the group as a
     # whole lands on screen.
+    #
+    # Per-RECORD x, not per-field: fields 144/160/176 are each drawn by MORE
+    # than one cell - cell 9 (144/160/176, the word itself) plus its own
+    # palette-bank squash copies (cells 39/40/41 for 144; cells 42/43/44,
+    # originally cell 10's bank copies, for 160/176 - the one-cell edit gives
+    # cell 9 those fields too, but does NOT touch cells 42-44, which still
+    # belong to cell 10's own squash, played by a different RNAN sequence
+    # with its own unedited pivot). Writing ONE computed x per tile field (a
+    # by_tile-blind approach) would drag cell 9's bank copies AND cell 10's
+    # bank copies to cell 9's new x while their own sequence's per-frame px
+    # keeps its old values, so the squash-out (the ~150ms after the word
+    # settles, cells 39-41/42-44 shrinking and drifting outward) would land
+    # on the wrong screen x for its whole duration. Cell 9's own 3 records get
+    # the NEW target (TX, this cell's own new RNAN pivot); every bank copy
+    # keeps EXACTLY what it already had, by using the SAME formula with the
+    # OLD (pre-edit) pivot - this reproduces the previous build's stored
+    # bytes for cells 39-44 exactly, not just visually (checked after
+    # writing, below). Cell 10's own 2 records are left unwritten by this
+    # function (blank field 96 is never drawn, so their x no longer matters);
+    # they keep whatever mindchess_recn.py's copy-and-retile left in them.
+    END_LEGACY_TX = {144: -40, 160: 26, 176: 26}   # cell 9/10's pivot before this edit
+    END_BANK_CELLS = {144: (39, 40, 41), 160: (42, 43, 44), 176: (42, 43, 44)}
     cum2 = CHECKMATE_START + center_shift
     for field, chunk in zip(END_FIELDS, chunks):
-        target = cum2 - TX[field] - DBL_ADJ
         _write_shape(rgcn, tile_off, field, boundary, chunk)
-        _apply_x(recn, by_tile, field, lambda cur, t=target: t)
+        target = cum2 - TX[field] - DBL_ADJ
+        _set_x(recn, by_cell_field[(9, field)], target)
+        legacy_target = cum2 - END_LEGACY_TX[field] - DBL_ADJ
+        for bank_cell in END_BANK_CELLS[field]:
+            key = (bank_cell, field)
+            if key not in by_cell_field:
+                raise SystemExit('mindchess: expected bank cell %d to draw field %d '
+                                  '(for the squash-out) but it does not - entry 25 RECN '
+                                  'layout changed; refusing to skip it silently' % key)
+            _set_x(recn, by_cell_field[key], legacy_target)
         cum2 += 64
+
+    # ---- start-row verb: "Commence" split Comm/ence-style across cell 7's
+    # own two objects (fields 112, 192) and cell 8's own two (128, 208).
+    # Per-RECORD x again (not by_tile), because fields
+    # 112/128 are each drawn by more than one cell (cell 7/8 themselves plus
+    # their own palette-bank squash copies 33-35/36-38) - but UNLIKE
+    # END_FIELDS above, no legacy/new split is needed: cell 7's and cell 8's
+    # own RNAN px never change (kept at -25/25, see TX's comment), and their
+    # bank copies are used within their OWN sequence at that SAME px
+    # (confirmed by reading the RNAN: exam_sta_07/08's own f17-21 squash
+    # frames reference cells 33-35/36-38 directly), so every one of these 8
+    # records gets the identical formula-derived x.
+    cum3 = COMMENCE_START
+    for field in VERB_FIELDS:
+        _write_shape(rgcn, tile_off, field, boundary, verb_chunks[field])
+        owner = 7 if field in (112, 192) else 8
+        target = cum3 - TX[field] - DBL_ADJ
+        key = (owner, field)
+        if key not in by_cell_field:
+            raise SystemExit('mindchess: expected cell %d to draw field %d after the '
+                              'capcom RECN edit but it does not - entry 25 RECN layout '
+                              'changed; refusing to skip it silently' % key)
+        _set_x(recn, by_cell_field[key], target)
+        for bank_cell in VERB_BANK_CELLS[field]:
+            bkey = (bank_cell, field)
+            if bkey not in by_cell_field:
+                raise SystemExit('mindchess: expected bank cell %d to draw field %d '
+                                  '(for the squash-out) but it does not - entry 25 RECN '
+                                  'layout changed; refusing to skip it silently' % bkey)
+            _set_x(recn, by_cell_field[bkey], target)
+        cum3 += 64
+    commence_start_field, commence_end_field = COMMENCE_START, COMMENCE_START + 4 * 64 - 1
 
     new_b = bytes(b[:o[0]]) + bytes(recn) + bytes(b[o[1]:o[2]]) + bytes(rgcn)
     checkmate_start_shifted = CHECKMATE_START + center_shift
@@ -807,6 +1195,11 @@ def patch(idlocal_bytes, dumpdir, log=None):
            join_gap, CHECKMATE_JOIN0, seam_found, SEAM_FIELD_BOUNDARY,
            'no width change needed' if width_used == END_WIDTH else 'word fitted to make it safe',
            PALETTE_ENTRY))
+    log('mindchess [capcom layout]: Commence room %d..%d, ink %d..%d (%dpx), join gap %d '
+        '(native, started %d), 8 OAM x records set (cells 7/8 + bank 33-38)'
+        % (commence_start_field, commence_end_field, commence_ink_span[0] + COMMENCE_START,
+           commence_ink_span[1] + COMMENCE_START, commence_ink_span[1] - commence_ink_span[0] + 1,
+           commence_join_gap, CHECKMATE_JOIN0))
     new_idlocal = rebuild(idlocal_bytes, {25: new_b})
     return new_idlocal, True
 

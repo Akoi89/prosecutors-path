@@ -199,7 +199,7 @@ def selftest():
     for mod in ('UnityPy', 'UnityPy.UnityPyBoost', 'lz4.block', 'brotli', 'PIL.Image', 'numpy',
                 'spt', 'dstext', 'inject', 'locate', 'ndsx', 'names', 'plates', 'buttons',
                 'lz11', 'nitro', 'txtcut', 'cg_names', 'cg_art', 'loc_dump', 'title_assets', 'voices',
-                'compact', 'mindchess', 'linefix'):
+                'compact', 'mindchess', 'mindchess_recn', 'rnan25', 'linefix'):
         try:
             __import__(mod)
             print('  import %-29s ok' % mod)
