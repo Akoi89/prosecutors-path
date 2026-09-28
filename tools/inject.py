@@ -30,6 +30,7 @@ from paths import work, data
 import stmt_trim
 import linefix
 import relaid_rows
+import condense_rows
 
 # Codes that end a message box (the box-count fingerprint used for alignment checks).
 BOXEND = {0xE102, 0xE104, 0xE106, 0xE185, 0xE081}
@@ -1466,6 +1467,7 @@ def main(base=None, out=None):
     stmttrim = stmttrim_fallback = 0
     relaidrows = relaidrows_fallback = 0
     relaidrows_notes = []
+    condensed_rows_applied = condensed_rows_fallback = 0
     foreign = 0
     zerounit = 0
     zerounit_rows = []
@@ -1816,6 +1818,7 @@ def main(base=None, out=None):
                         shape += 1; continue
                     budget = max(rowpx(u)[0] for u in lat)
                 kept = gained = 0
+                condensed_applied = condensed_fallback = 0
                 old_accent = dstext.ACCENT_SLOTS_ON
                 if small:
                     # SMALL1 has no U+0415 record, and its U+30A7 record is
@@ -1825,12 +1828,35 @@ def main(base=None, out=None):
                     dstext.ACCENT_SLOTS_ON = False
                 try:
                     for j2 in range(len(ds)):
+                        def _try_row(u):
+                            fl, _ = convert(u, wrap=False, page=False, hard_nl=False)
+                            la = sum(1 for v in fl if 0xFF21 <= v <= 0xFF5A or 0x41 <= v <= 0x7A)
+                            px, nl = rowpx(fl)
+                            ok = not (la == 0 or j2 in relaid or nl > 1 or px > budget
+                                      or _boxend_counts(fl) != _boxend_counts(ds[j2][3]))
+                            return fl, ok
                         u2 = en[j2][3]
-                        flat, _ = convert(u2, wrap=False, page=False, hard_nl=False)
-                        la2 = sum(1 for v in flat if 0xFF21 <= v <= 0xFF5A or 0x41 <= v <= 0x7A)
-                        px2, nl2 = rowpx(flat)
-                        if (la2 == 0 or j2 in relaid or nl2 > 1 or px2 > budget
-                                or _boxend_counts(flat) != _boxend_counts(ds[j2][3])):
+                        # Try Capcom's own row through the gate first, unchanged.
+                        # tools/condense_rows.py only substitutes its approved
+                        # wording - same control codes, fewer words - when
+                        # Capcom's row fails THIS gate, and only when its own
+                        # source hash still matches what the row was built
+                        # against; the substitute is then run through the SAME
+                        # gate again. This way a future budget increase that
+                        # lets Capcom's own line fit ships that line, not a
+                        # condensed one still sitting in the table unused.
+                        flat, fits = _try_row(u2)
+                        if not fits and small and (i, j2) in condense_rows.CONDENSE_ROWS:
+                            if condense_rows.mc_source_ok(i, j2, u2):
+                                cflat, cfits = _try_row(condense_rows.mc_units(i, j2, u2))
+                                if cfits:
+                                    flat, fits = cflat, True
+                                    condensed_applied += 1
+                                else:
+                                    condensed_fallback += 1
+                            else:
+                                condensed_fallback += 1
+                        if not fits:
                             if list(conv[j2]) != list(ds[j2][3]):
                                 conv[j2] = list(ds[j2][3]); kept += 1
                         else:
@@ -1839,6 +1865,8 @@ def main(base=None, out=None):
                                 gained += 1
                 finally:
                     dstext.ACCENT_SLOTS_ON = old_accent
+                condensed_rows_applied += condensed_applied
+                condensed_rows_fallback += condensed_fallback
                 if not gained:
                     # nothing official survived the per-row gate - keep the fan
                     # entry byte-for-byte rather than rebuilding its container
@@ -1942,8 +1970,10 @@ def main(base=None, out=None):
     for idx, src, box in ((432, 'dump/jpn_trial/detailMsg.bin', 'detailMsg'),
                           (395, 'dump/jpn/logicKW.bin', 'logicKW')):
         if entries.get(idx) and entries[idx][:4] == b' TPS':
-            nd, c = patch_entry(entries[idx], src, loc, box)
+            nd, c, (cr_a, cr_f) = patch_entry(entries[idx], src, loc, box, bank=idx)
             if c: entries[idx] = nd; locn += c
+            condensed_rows_applied += cr_a
+            condensed_rows_fallback += cr_f
     print('strings patched from localization tables:  %d' % locn)
 
     # The episode titles live in DS[460], which is kept as fan text (its Collection
@@ -2063,6 +2093,8 @@ def main(base=None, out=None):
           % (relaidrows, relaidrows_fallback))
     for _nt in relaidrows_notes:
         print('  ' + _nt)
+    print('condensed rows shipped at approved wording: %d  (fallback: %d)'
+          % (condensed_rows_applied, condensed_rows_fallback))
     print('box-open arguments corrected 2 -> 3 (see dstext.BOX_OPEN_FIX): %d' % dstext._STATS['boxopen'])
     print('kept fan text - no/weak mapping:        %d' % skipped)
     print('spt.bin: fan %.2f MB -> new %.2f MB' % (len(raw)/1e6, len(newspt)/1e6))

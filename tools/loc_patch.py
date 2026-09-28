@@ -12,6 +12,7 @@ from spt import all_strings, parse
 from build_spt import build_ds
 import dstext
 import condense
+import condense_rows
 
 CTRL = lambda v: 0xE000 <= v <= 0xF8FF
 from paths import work as _work
@@ -156,15 +157,18 @@ def _fan_age_line(u):
     s = ''.join(chr(v - 0xFF01 + 0x21) if 0xFF01 <= v <= 0xFF5E else ' ' for v in out)
     return out if s.startswith('Age') else None
 
-def patch_entry(ds_entry, jp_src, lookup, box='detailMsg'):
+def patch_entry(ds_entry, jp_src, lookup, box='detailMsg', bank=None):
     """Substitute official English into a DS entry, aligned by the JP source file.
-    Returns (bytes, replaced_count)."""
+    Returns (bytes, replaced_count, condensed_stats) - condensed_stats is
+    (applied, fallback) for tools/condense_rows.py's rows in this bank, (0, 0)
+    when bank is None or has none."""
     D = list(all_strings(ds_entry, True))
     J = list(all_strings(open(jp_src, 'rb').read(), False))
     if len(D) != len(J):
-        return ds_entry, 0
+        return ds_entry, 0, (0, 0)
     h = parse(ds_entry, True)[0]
     recs, n = [], 0
+    condensed_applied = condensed_fallback = 0
     for k, (_, a, _, u) in enumerate(D):
         t = _ds_plain(J[k][3])
         eng = suffix = None
@@ -187,38 +191,67 @@ def patch_entry(ds_entry, jp_src, lookup, box='detailMsg'):
             else: break
         age = _fan_age_line(u[len(head):])
         px, maxln = BOXES.get(box, (DESC_PX, DESC_LINES))
-        old = dstext.LINE_PX
-        old_fn = dstext.WIDTH_FN
-        old_accent = dstext.ACCENT_SLOTS_ON
-        if px is None or px == 'logic':      # measured widget font (description, Logic cards)
-            dstext.WIDTH_FN, px = box_width(px)
-        else:
-            # This widget's budget in BOXES was cut in the ESTIMATE's units. Once the
-            # dialogue font switched to real advances, measuring this box with them
-            # against that budget shrank it by 12-14% and pushed strings back to fan
-            # text: 2,163 char units of Menus & UI coverage, lost silently because
-            # the overall total went up at the same time. Keep the model its budget
-            # was cut for.
-            dstext.WIDTH_FN = dstext._estimate
-        dstext.LINE_PX = px
-        # This card's font is smaller than the dialogue face and whether its slots
-        # carry the same redrawn accents has not been checked (dstext.ACCENT_SLOTS);
-        # keep the plain letter here rather than assume they do.
-        dstext.ACCENT_SLOTS_ON = False
-        try:
-            # These tables are wrapped for the Collection's own card (~35 chars),
-            # so their newlines are soft too - fold them and re-wrap for this box.
-            # The suffix is ours, and does get a line of its own.
-            conv, _ = dstext.convert(_to_units(eng), page=False, hard_nl=False)
-            if suffix:
-                sc, _ = dstext.convert(_to_units(suffix), page=False, hard_nl=False)
-                conv = conv + [0x0A] + sc
-        finally:
-            dstext.LINE_PX = old
-            dstext.WIDTH_FN = old_fn
-            dstext.ACCENT_SLOTS_ON = old_accent
-        if age: conv = age + [0x0A] + conv
-        if 1 + sum(1 for v in conv if v == 0x0A) > maxln:
+
+        def _wrap(text):
+            """(conv units, fits) for one candidate body text in this row's
+            box - header/suffix/line-count gate all applied, called on
+            Capcom's own text first and, only if that fails, again on
+            tools/condense_rows.py's approved text (see below)."""
+            old = dstext.LINE_PX
+            old_fn = dstext.WIDTH_FN
+            old_accent = dstext.ACCENT_SLOTS_ON
+            if px is None or px == 'logic':  # measured widget font (description, Logic cards)
+                dstext.WIDTH_FN, line_px = box_width(px)
+            else:
+                # This widget's budget in BOXES was cut in the ESTIMATE's units. Once the
+                # dialogue font switched to real advances, measuring this box with them
+                # against that budget shrank it by 12-14% and pushed strings back to fan
+                # text: 2,163 char units of Menus & UI coverage, lost silently because
+                # the overall total went up at the same time. Keep the model its budget
+                # was cut for.
+                dstext.WIDTH_FN = dstext._estimate
+                line_px = px
+            dstext.LINE_PX = line_px
+            # This card's font is smaller than the dialogue face and whether its slots
+            # carry the same redrawn accents has not been checked (dstext.ACCENT_SLOTS);
+            # keep the plain letter here rather than assume they do.
+            dstext.ACCENT_SLOTS_ON = False
+            try:
+                # These tables are wrapped for the Collection's own card (~35 chars),
+                # so their newlines are soft too - fold them and re-wrap for this box.
+                # The suffix is ours, and does get a line of its own.
+                conv, _ = dstext.convert(_to_units(text), page=False, hard_nl=False)
+                if suffix:
+                    sc, _ = dstext.convert(_to_units(suffix), page=False, hard_nl=False)
+                    conv = conv + [0x0A] + sc
+            finally:
+                dstext.LINE_PX = old
+                dstext.WIDTH_FN = old_fn
+                dstext.ACCENT_SLOTS_ON = old_accent
+            if age: conv = age + [0x0A] + conv
+            return conv, 1 + sum(1 for v in conv if v == 0x0A) <= maxln
+
+        # Try Capcom's own wording through the gate first. tools/condense_rows.py
+        # only substitutes its approved text - same header/suffix logic, fewer
+        # words in the body - when Capcom's row fails THIS gate, and only when
+        # its own source hash still matches what the row was built against; the
+        # substitute is then run through the SAME gate again. This way a future
+        # budget increase that lets Capcom's own line fit ships that line, not a
+        # condensed one still sitting in the table unused.
+        conv, fits = _wrap(eng)
+        if not fits:
+            cr_text = condense_rows.loc_text(bank, k) if bank is not None else None
+            if cr_text is not None:
+                if condense_rows.loc_source_ok(bank, k, eng):
+                    cconv, cfits = _wrap(cr_text)
+                    if cfits:
+                        conv, fits = cconv, True
+                        condensed_applied += 1
+                    else:
+                        condensed_fallback += 1
+                else:
+                    condensed_fallback += 1
+        if not fits:
             # Official wording overruns the box; the fan's fits. Keep the fan's.
             fu = _fix_fan_terms(u)
             if fu != list(u): n += 1
@@ -227,5 +260,6 @@ def patch_entry(ds_entry, jp_src, lookup, box='detailMsg'):
         recs.append((a, head + conv + tail))
         n += 1
     if not n:
-        return ds_entry, 0
-    return build_ds(recs[0][1], recs[1:], h['term'], h['scale'], h['last']), n
+        return ds_entry, 0, (condensed_applied, condensed_fallback)
+    return (build_ds(recs[0][1], recs[1:], h['term'], h['scale'], h['last']), n,
+            (condensed_applied, condensed_fallback))
