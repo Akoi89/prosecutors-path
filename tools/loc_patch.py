@@ -28,10 +28,29 @@ SUFFIX_EN = 'Touch Check for details.'
 def _norm(s):
     return re.sub(r'\s+', '', s or '')
 
+# A number of description and Logic card rows carry real Capcom English, but the
+# DS Japanese differs from the Collection's loc table only by an added 、 (comma)
+# here and there, or by the DS-only SUFFIX_JA tail above (which the Collection
+# dropped entirely). Strip ONLY 、 and whitespace here - nothing else - so this
+# stays a punctuation/suffix fix, not a fuzzy match that could pull in an
+# unrelated wording.
+def _norm_tolerant(s):
+    return re.sub(r'[\s、]+', '', s or '')
+
+class _Lookup(dict):
+    """Exact-match dict (unchanged keys/values, same as before) plus a .tolerant
+    dict on the side for the comma/suffix-tolerant second pass. Callers that only
+    ever did `t in lookup` / `lookup[t]` (inject.py, desc_overflow.py) see no
+    difference; patch_entry alone also reads .tolerant."""
+    def __init__(self):
+        super().__init__()
+        self.tolerant = {}
+
 def load_lookup():
     ja = json.load(open(os.path.join(_D, 'loc_ja.json'), encoding='utf-8'))
     en = json.load(open(os.path.join(_D, 'loc_en.json'), encoding='utf-8'))
-    out = {}
+    out = _Lookup()
+    tol_src = {}   # tolerant key -> (exact key, English) of the row that claimed it
     for k in ja:
         ek = k[:-3] + '_en'
         if ek not in en:
@@ -41,6 +60,14 @@ def load_lookup():
         for i in a:
             if i in b and a[i] and b[i]:
                 out.setdefault(_norm(a[i]), b[i])
+                tk, xk = _norm_tolerant(a[i]), _norm(a[i])
+                prev = tol_src.get(tk)
+                if prev and prev[0] != xk and prev[1] != b[i]:
+                    raise ValueError('loc_patch: two different Japanese rows collapse to one '
+                                     'comma-tolerant key but have different English (%r / %r); '
+                                     'the tolerant lookup would pick one silently' % (prev[0], xk))
+                tol_src.setdefault(tk, (xk, b[i]))
+                out.tolerant.setdefault(tk, b[i])
     return out
 
 def _ds_plain(u):
@@ -169,13 +196,26 @@ def patch_entry(ds_entry, jp_src, lookup, box='detailMsg', bank=None):
     h = parse(ds_entry, True)[0]
     recs, n = [], 0
     condensed_applied = condensed_fallback = 0
+    tolerant = getattr(lookup, 'tolerant', None)
+    suf_ws = _norm(SUFFIX_JA)
+    suf_tol = _norm_tolerant(SUFFIX_JA)
     for k, (_, a, _, u) in enumerate(D):
         t = _ds_plain(J[k][3])
         eng = suffix = None
+        # Exact match first (unchanged): DS text against the loc table's JA text,
+        # whitespace differences only.
         if t and t in lookup:
             eng = lookup[t]
-        elif t.endswith(_norm(SUFFIX_JA)) and t[:-len(_norm(SUFFIX_JA))] in lookup:
-            eng = lookup[t[:-len(_norm(SUFFIX_JA))]]; suffix = SUFFIX_EN
+        elif t.endswith(suf_ws) and t[:-len(suf_ws)] in lookup:
+            eng = lookup[t[:-len(suf_ws)]]; suffix = SUFFIX_EN
+        # Tolerant second: only when the exact key misses, also strip 、 (comma)
+        # differences before comparing - see _norm_tolerant above.
+        elif tolerant:
+            tt = _norm_tolerant(t)
+            if tt and tt in tolerant:
+                eng = tolerant[tt]
+            elif tt.endswith(suf_tol) and tt[:-len(suf_tol)] in tolerant:
+                eng = tolerant[tt[:-len(suf_tol)]]; suffix = SUFFIX_EN
         if eng is None:
             fu = _fix_fan_terms(u)
             if fu != list(u): n += 1

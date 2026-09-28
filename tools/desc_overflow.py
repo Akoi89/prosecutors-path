@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Enumerate the evidence/profile descriptions and Logic cards whose OFFICIAL text
-overflows the DS box, exactly the way loc_patch.patch_entry decides it.
+overflows the DS box, using loc_patch's exact-match lookup (it does not try the
+comma-tolerant second pass that loc_patch.patch_entry falls back to).
 
     python tools/desc_overflow.py OUT.txt [OUT.json]
 
