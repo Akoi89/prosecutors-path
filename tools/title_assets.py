@@ -166,5 +166,14 @@ def apply(dumpdir, rom_path, log=print, version=None):
     log('close-up artwork with official names: %d shipped pictures, %d TV zoom frames derived'
         % (sum(1 for e in arepl if e in cg_art.FINAL), sum(1 for e in arepl if e in cg_art.TV_FRAMES)))
 
+    # 8) hotfix: the Coroner's Findings "point at the burn mark" prompt (com/cutdata.bin
+    #    slot 47, cut 208) - derive its hit-area rectangles from txtcut's own layout of
+    #    the re-wrapped document instead of the JP-retail box our lettering no longer
+    #    lines up with. Hash-guarded; see tools/cutdata_hotfix.py.
+    import cutdata_hotfix
+    rom, hotfix_applied = cutdata_hotfix.apply_to_rom(rom, dumpdir, log)
+    if not hotfix_applied:
+        log('cutdata hotfix: not applied (see reason above)')
+
     open(rom_path, 'wb').write(rom)
     return rom_path

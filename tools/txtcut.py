@@ -275,10 +275,14 @@ def blit(px, font, c, x, base, idx):
                     px[X, Y] = idx
 
 
-def draw_line(px, font, space, toks, x, base, width, justify, colours, align):
-    words = [t for t in toks if t[0] != ' ']
-    nsp = sum(1 for t in toks if t[0] == ' ')
+def line_positions(font, space, toks, x, width, justify, align):
+    """The pen math draw_line uses to place a line, without blitting: -> list
+    of (token_text, style, pen_at_first_char) in the order draw_line would
+    advance through them. A caller that needs to know where one particular
+    word landed (the hotfix's cutdata rectangles) reads this instead of
+    re-deriving the justify/align arithmetic, so the two can never disagree."""
     ink = sum(text_width(font, space, t) for t, _ in toks)
+    nsp = sum(1 for t in toks if t[0] == ' ')
     extra = 0.0
     if justify and nsp:
         # the fan's word gaps run 6..11 px on a natural 8, so a line that would
@@ -292,21 +296,32 @@ def draw_line(px, font, space, toks, x, base, width, justify, colours, align):
         x = X_RIGHT + 1 - ink
     acc = 0.0
     pen = x
+    out = []
     for tok, style in toks:
         if tok == ' ':
             acc += extra
             pen += space + int(acc)
             acc -= int(acc)
             continue
+        out.append((tok, style, pen))
+        for c in tok:
+            pen += 2 * font['"']['adv'] if c == '"' else glyph_adv(font, c, space)
+    return out, pen
+
+
+def draw_line(px, font, space, toks, x, base, width, justify, colours, align):
+    positions, pen = line_positions(font, space, toks, x, width, justify, align)
+    for tok, style, start in positions:
         idx = colours.get(style, colours[None])
+        p = start
         for c in tok:
             if c == '"':
-                blit(px, font, '"', pen, base, idx)
-                blit(px, font, '"', pen + font['"']['adv'], base, idx)
-                pen += 2 * font['"']['adv']
+                blit(px, font, '"', p, base, idx)
+                blit(px, font, '"', p + font['"']['adv'], base, idx)
+                p += 2 * font['"']['adv']
                 continue
-            blit(px, font, c, pen, base, idx)
-            pen += glyph_adv(font, c, space)
+            blit(px, font, c, p, base, idx)
+            p += glyph_adv(font, c, space)
     return pen
 
 
@@ -342,8 +357,13 @@ def total_height(lines, pitch, para_gap, title_gap):
     return h
 
 
-def render(entry, row_text, font, space, colours, log):
-    """-> 256x192 index image (list of rows) for one screen."""
+def render(entry, row_text, font, space, colours, log, capture=None):
+    """-> 256x192 index image (list of rows) for one screen.
+
+    capture, if given, is a list that gets one (line, base) pair appended per
+    drawn line - the exact layout() line dict and the baseline row draw_line
+    used for it, so a caller can locate a word's ink without re-deriving the
+    squeeze ladder or the paragraph flow itself."""
     im = Image.new('P', (W, H), colours['bg'])
     px = im.load()
     paras = paragraphs(parse_row(row_text), listy=ROWS[entry] in LIST_ROWS)
@@ -380,6 +400,8 @@ def render(entry, row_text, font, space, colours, log):
     for i, ln in enumerate(lines):
         if ln['gap']:
             base += para_gap
+        if capture is not None:
+            capture.append((ln, base))
         draw_line(px, font, space, ln['toks'], ln['x'], base, ln['width'], ln['justify'], colours, ln['align'])
         base += title_gap if ln['title'] else pitch
     # pen position minus the last glyph's 2 px bearing = last ink column + 1
@@ -440,8 +462,12 @@ def write_gfx(gfx, im):
 CONDENSED = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'txtcut_condensed.json')
 
 
-def build(outdir, only=None, verbatim=False):
-    font, space = load_font()
+def prepare_rows(verbatim=False):
+    """The gk2_txtcut_en rows exactly as build() renders them, condensed edits
+    applied: -> (rows, condensed_applied, condensed_fallback). Split out of
+    build() so anything downstream that needs the same text (the cutdata
+    hotfix's word layout) reads it from one place instead of a second copy
+    that could drift from what actually got rendered."""
     rows = [list(r) for r in json.load(open(LOC, encoding='utf-8'))['gk2_txtcut_en']]
     condensed_applied = condensed_fallback = 0
     if not verbatim and os.path.exists(CONDENSED):
@@ -460,6 +486,12 @@ def build(outdir, only=None, verbatim=False):
                 condensed_applied += 1
             elif status is False:
                 condensed_fallback += 1
+    return rows, condensed_applied, condensed_fallback
+
+
+def build(outdir, only=None, verbatim=False):
+    font, space = load_font()
+    rows, condensed_applied, condensed_fallback = prepare_rows(verbatim)
     data = open(SRC, 'rb').read()
     E = table(data)
     repl, log, previews = {}, [], []

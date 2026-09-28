@@ -65,6 +65,8 @@ import tempfile
 import spt                                    # noqa: E402
 from dstext import ARGS                       # noqa: E402
 from inject import file_id, STAGING_CODES     # noqa: E402
+import txtcut                                 # noqa: E402
+import title_logo                             # noqa: E402
 
 _BOXEND = (0xE102, 0xE104, 0xE185, 0xE081)
 
@@ -791,6 +793,61 @@ def break_titles(_rom_unused):
     return _repack_idlocal(D, repl), done
 
 
+def break_hotspot_burnmark(rom):
+    """Put com/cutdata.bin slot 47 back to the JP-retail rectangle
+    (111,131)-(187,147), area index 0 - the shape every release since 1.7.0
+    shipped, and the exact defect this hotfix addresses: it no longer covers
+    "burn" or "mark" in our re-wrapped Coroner's Findings, only "of victim's".
+    audit_hotspots.py must fail on this and pass on the real hotfixed slot
+    (two rectangles, one per word). No-ops (returns 0) if the ROM's slot 47 is
+    already this one record, so the harness never reports a byte-identical
+    write as a patch."""
+    fat = struct.unpack_from('<I', rom, 0x48)[0]
+    fid = file_id(rom, 'com/cutdata.bin')
+    a, b = struct.unpack_from('<II', rom, fat + fid * 8)
+    cutdata = rom[a:b]
+    slots = txtcut.table(cutdata)
+    old = slots[47]
+    cnt = struct.unpack_from('<H', old, 4)[0]
+    recs = [struct.unpack_from('<11i', old, 20 + 44 * k) for k in range(cnt)]
+    if cnt == 1 and tuple(v >> 12 for v in recs[0][2:6]) == (111, 131, 187, 147):
+        return bytes(rom), 0
+    hdr = bytearray(old[:20])
+    size = 20 + 44
+    struct.pack_into('<H', hdr, 4, 1)
+    struct.pack_into('<I', hdr, 8, size << 16)
+    struct.pack_into('<I', hdr, 12, size << 16)
+    struct.pack_into('<I', hdr, 16, size << 16)
+    rec = struct.pack('<11i', 0, 0, 111 << 12, 131 << 12, 187 << 12, 147 << 12, 0, 0, 0, 0, 0)
+    new_slot47 = bytes(hdr) + rec
+    lz = bytearray(b'\x11' + len(new_slot47).to_bytes(3, 'little'))
+    for p in range(0, len(new_slot47), 8):
+        lz.append(0)
+        lz += new_slot47[p:p + 8]
+
+    n = struct.unpack_from('<I', cutdata, 0)[0] // 8
+    orig_slots = [struct.unpack_from('<II', cutdata, i * 8) for i in range(n)]
+    live = sorted(o for o, s in orig_slots if o)
+    table = bytearray(n * 8)
+    body = bytearray()
+    for i in range(n):
+        o, s = orig_slots[i]
+        if not o:
+            struct.pack_into('<II', table, i * 8, 0, 0)
+            continue
+        if i == 47:
+            blob, s = bytes(lz), 0x80000000 | len(new_slot47)
+        else:
+            nxt = [q for q in live if q > o]
+            blob = cutdata[o:nxt[0] if nxt else len(cutdata)]
+        while (n * 8 + len(body)) % 4:
+            body += b'\x00'
+        struct.pack_into('<II', table, i * 8, n * 8 + len(body), s)
+        body += blob
+    new_cutdata = bytes(table) + bytes(body)
+    return title_logo.splice(rom, 'com/cutdata.bin', new_cutdata), 1
+
+
 # (script, what the fixture breaks, how, what the audit reads)
 #   'rom'     the audit takes a ROM path; the fixture is a broken copy of out/
 #   'idlocal' the audit reads the FAN idlocal.bin; the fixture is a broken copy of
@@ -813,6 +870,7 @@ FIXTURES = [
     ('audit_staging.py', "move one staging command from after some text to before any text in its own box (same subsequence, same box)", break_staging_point, 'rom'),
     ('audit_zeros.py', "zero one ordinary text unit in DS[0] str 4 (a stray literal 0x0000 in text position - the DELTA 5 zero-in-text hang)", break_zero_text, 'rom'),
     ('measure_linewidth.py', "widen DS[18] str5 (a narration line with no {E101}) past 240px - the 2026-09-27 blind-spot fix", break_narration_width, 'rom'),
+    ('audit_hotspots.py', "put com/cutdata.bin slot 47 back to the JP-retail rectangle (111,131)-(187,147) - the pre-hotfix box that misses 'burn'/'mark'", break_hotspot_burnmark, 'rom'),
 ]
 
 
@@ -860,7 +918,8 @@ def main():
         open(path, 'wb').write(broken)
         clean_arg = clean_path if kind == 'rom' else None
         if script in ('audit_indexargs.py', 'audit_zeros.py', 'audit_staging.py',
-                      'audit_widgets.py', 'measure_linewidth.py', 'audit_tails.py'):
+                      'audit_widgets.py', 'measure_linewidth.py', 'audit_tails.py',
+                      'audit_hotspots.py'):
             # should-fix 2: an audit that already fails on the clean ROM would
             # make the ordinary text-diff test trivially pass. Require the
             # clean ROM to exit 0 (nothing wrong) and the broken copy to
