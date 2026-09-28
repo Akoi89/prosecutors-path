@@ -210,7 +210,8 @@ INDEX_ARGS = {          # code: argument positions (0-based) that are string ind
     0xE180: (0,),       # arity 1: (target string)
 }
 for _code, _positions in INDEX_ARGS.items():
-    assert all(p < ARGS[_code] for p in _positions), _code
+    if not all(p < ARGS[_code] for p in _positions):
+        raise ValueError('INDEX_ARGS entry %s: position out of range' % (_code,))
 
 # DS-specific values that are not string indices but must still come from the fan,
 # same reason as {E187}/{E11F}/etc: the Collection's own value is wrong for our
@@ -224,7 +225,8 @@ DS_VALUE_ARGS = {
     0xE131: (0,),       # arity 1
 }
 for _code, _positions in DS_VALUE_ARGS.items():
-    assert all(p < ARGS[_code] for p in _positions), _code
+    if not all(p < ARGS[_code] for p in _positions):
+        raise ValueError('DS_VALUE_ARGS entry %s: position out of range' % (_code,))
 
 # The camera/character position/pose family: six commands whose ARGUMENTS are
 # DS screen coordinates or animation choices, not indices - {E13A} place

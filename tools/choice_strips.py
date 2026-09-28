@@ -126,10 +126,12 @@ def grid(b):
 def encode(b, g):
     """Write index grid g back into bundle b's RGCN tiles (inverse of grid)."""
     objs, data, bpp, cnt, boundary, goff = _parts(b)
-    assert bpp == 4
+    if not bpp == 4:
+        raise ValueError('expected 4bpp, got %r' % (bpp,))
     out = bytearray(b)
     pos = bytes(b).find(data, goff)
-    assert pos > 0
+    if not pos > 0:
+        raise ValueError('tile data not found in bundle')
     x0 = min(q['x'] for q in objs); y0 = min(q['y'] for q in objs)
     for q in objs:
         tw, th = q['w'] // 8, q['h'] // 8
@@ -424,7 +426,8 @@ def selftest(idlocal_bytes):
     idl = Idlocal(idlocal_bytes)
     for i in (364, 400, 532, 534, 600, 670):
         b = idl.blob(i)
-        assert encode(b, grid(b)) == b, 'round trip failed on %d' % i
+        if not encode(b, grid(b)) == b:
+            raise RuntimeError('round trip failed on %d' % i)
     return True
 
 

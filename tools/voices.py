@@ -299,7 +299,8 @@ def swar(swavs):
     out = bytearray(b'SWAR' + struct.pack('<HHIHH', 0xFEFF, 0x0100, size, 0x10, 1))
     out += b'DATA' + struct.pack('<I', size - 0x10) + bytes(32)
     out += struct.pack('<I', n) + b''.join(struct.pack('<I', o) for o in offs) + body
-    assert len(out) == size
+    if not len(out) == size:
+        raise RuntimeError('SWAR build size mismatch: got %d, expected %d' % (len(out), size))
     return bytes(out)
 
 
@@ -356,7 +357,8 @@ def se_to_wavearc_fid(d):
     files = sdat_parts(d)[2]
     seq_ids = table(1)
     ssar = files[struct.unpack_from('<H', d, info_off + seq_ids[0])[0]]
-    assert ssar[:4] == b'SSAR'
+    if not ssar[:4] == b'SSAR':
+        raise ValueError('expected SSAR tag, got %r' % (ssar[:4],))
     data = ssar.find(b'DATA')
     n = struct.unpack_from('<I', ssar, data + 12)[0]
     banks, wa = table(2), table(3)
@@ -377,7 +379,8 @@ def rebuild_sdat(d, repl):
     the FILE block is re-laid back to back, exactly as the original was."""
     (symb_off, info_off, fat_off, file_off), fat, files = sdat_parts(d)
     for i in range(1, len(fat)):
-        assert fat[i][0] == fat[i - 1][0] + fat[i - 1][1], 'FILE block is not back to back'
+        if not fat[i][0] == fat[i - 1][0] + fat[i - 1][1]:
+            raise ValueError('FILE block is not back to back')
     files = [repl.get(i, f) for i, f in enumerate(files)]
     out = bytearray(d[:file_off + 16])
     pos = file_off + 16
@@ -394,7 +397,8 @@ def rebuild_sdat(d, repl):
 
 def _swar_first_swav(s):
     """Read (not write) path for the loudness stage's JP target only."""
-    assert s[:4] == b'SWAR', s[:4]
+    if not s[:4] == b'SWAR':
+        raise ValueError('expected SWAR tag, got %r' % (s[:4],))
     data = s.find(b'DATA')
     cnt = struct.unpack_from('<I', s, data + 8 + 32)[0]
     o = struct.unpack_from('<I', s, data + 8 + 32 + 4)[0]

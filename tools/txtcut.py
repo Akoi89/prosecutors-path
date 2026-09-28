@@ -500,7 +500,8 @@ def build(outdir, only=None, verbatim=False):
         if only and entry not in only:
             continue
         gfx, palb = E[entry], E[entry + 1]
-        assert gfx[:4] == b'RGCN' and palb[:4] == b'RLCN', entry
+        if not (gfx[:4] == b'RGCN' and palb[:4] == b'RLCN'):
+            raise ValueError('entry %s: unexpected container types' % (entry,))
         colours, pal = screen_colours(gfx, palb)
         im = render(entry, rows[row][1], font, space, colours, log)
         repl[entry] = write_gfx(gfx, im)

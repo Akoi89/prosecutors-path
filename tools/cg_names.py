@@ -139,7 +139,8 @@ def build(src, outdir):
     os.makedirs(outdir, exist_ok=True)
     for entry, spec in sorted(EDITS.items()):
         gfx, palb = E[entry], E[entry + 1]
-        assert gfx[:4] == b'RGCN' and palb[:4] == b'RLCN', entry
+        if not (gfx[:4] == b'RGCN' and palb[:4] == b'RLCN'):
+            raise ValueError('entry %s: unexpected container types' % (entry,))
         pal = nclr(palb)
         repl[entry] = apply_entry(gfx, pal, spec, faces, log, entry)
         im = image_of(repl[entry], pal)

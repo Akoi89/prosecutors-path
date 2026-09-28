@@ -184,7 +184,8 @@ class Plates(object):
         b = bytearray(self._blob(idx))
         data, bpp, cnt, w, h = ncgr(bytes(b))
         pos = bytes(b).find(data)
-        assert pos > 0 and bpp == 4
+        if not (pos > 0 and bpp == 4):
+            raise ValueError('tile data not found or unexpected bpp (pos=%d, bpp=%d)' % (pos, bpp))
         for t in range(cnt):
             for y in range(8):
                 for xx in range(0, 8, 2):
@@ -559,7 +560,8 @@ class Titles(object):
         b = bytearray(d)
         data, bpp, cnt, w, h = ncgr(bytes(d[o:]))
         pos = bytes(d).find(data, o)
-        assert pos > 0 and bpp == 4
+        if not (pos > 0 and bpp == 4):
+            raise ValueError('tile data not found or unexpected bpp (pos=%d, bpp=%d)' % (pos, bpp))
         for t in range(cnt):
             bx, by = (t // 8)*32 + (t % 8 % 4)*8, (t % 8 // 4)*8
             for y in range(8):

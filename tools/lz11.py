@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """Nintendo LZ11 (0x11) decompressor - used by GK2's graphic archives."""
 def decompress(d):
-    assert d[0] == 0x11, hex(d[0])
+    if not d[0] == 0x11:
+        raise ValueError('expected LZ11 tag 0x11, got %s' % hex(d[0]))
     size = int.from_bytes(d[1:4], 'little')
     if size == 0:
         size = int.from_bytes(d[4:8], 'little'); p = 8

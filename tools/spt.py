@@ -17,7 +17,8 @@ def parse(d, ds=False, scale=None):
     """Parse an SPT file. Returns (hdr, records). ds=True for the 16-bit DS variant.
     scale=2 means offsets are stored as 16-bit units (fan-patched engine)."""
     if scale is None: scale = offset_scale(d, ds)
-    assert d[:4] == b' TPS', d[:4]
+    if not d[:4] == b' TPS':
+        raise ValueError('expected SPT tag b\' TPS\', got %r' % (d[:4],))
     ver   = struct.unpack_from('<H', d, 4)[0]
     ncnt  = struct.unpack_from('<H', d, 6)[0]
     last  = struct.unpack_from('<H', d, 8)[0]

@@ -41,7 +41,8 @@ def extract_logo(bundle_dir):
 def compose(logo, fan_screen):
     """Black 256x192, the logo scaled to fit above the copyright band, band kept."""
     fan = Image.open(fan_screen).convert('RGB')
-    assert fan.size == (W, H), 'fan screen is %s' % (fan.size,)
+    if not fan.size == (W, H):
+        raise ValueError('fan screen is %s' % (fan.size,))
     avail_h = (BAND_TOP - 6) - TOP_MARGIN
     scale = min((W - 2 * SIDE_MARGIN) / float(logo.width), avail_h / float(logo.height))
     lw, lh = int(round(logo.width * scale)), int(round(logo.height * scale))

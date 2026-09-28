@@ -66,7 +66,8 @@ def decode(gfx, palb):
     """RGCN + RLCN -> RGB image and the palette list."""
     pal = nclr(palb)
     data, bpp, cnt, tw, th = ncgr(gfx)
-    assert bpp == 8, 'expected 8bpp'
+    if not bpp == 8:
+        raise ValueError('expected 8bpp')
     im = Image.new('P', (W, H))
     px = im.load()
     for t in range(cnt):
@@ -84,7 +85,8 @@ def write_pal(palb, colours):
     """Replace the TTLP colour data of an RLCN with the given RGB list (BGR555)."""
     p, size, body = _sections(palb)[b'TTLP']
     dsize = struct.unpack_from('<I', body, 8)[0]
-    assert len(colours) * 2 <= dsize, (len(colours), dsize)
+    if not len(colours) * 2 <= dsize:
+        raise ValueError('%d colours do not fit in %d bytes' % (len(colours), dsize))
     raw = bytearray(dsize)
     for i, (r, g, b) in enumerate(colours):
         v = (r >> 3) | ((g >> 3) << 5) | ((b >> 3) << 10)
@@ -142,7 +144,8 @@ def preview(gfx, palb, path, scale=3):
 
 def final_picture(entry):
     im = Image.open(os.path.join(FINAL_DIR, FINAL[entry])).convert('RGB')
-    assert im.size == (W, H), (entry, im.size)
+    if not im.size == (W, H):
+        raise ValueError('entry %s: image is %s' % (entry, im.size))
     return im
 
 
@@ -206,7 +209,8 @@ def build(src, dumpdir, outdir, only=None, jp_src=None):
             continue
         gfx = E[entry]
         pslot = palette_of(E, entry)
-        assert gfx[:4] == b'RGCN' and E[pslot][:4] == b'RLCN', entry
+        if not (gfx[:4] == b'RGCN' and E[pslot][:4] == b'RLCN'):
+            raise ValueError('entry %s: unexpected container types' % (entry,))
         if entry in FINAL:
             rgb = final_picture(entry)
             log.append('entry %d: shipped picture %s' % (entry, FINAL[entry]))

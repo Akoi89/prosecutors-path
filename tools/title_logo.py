@@ -77,7 +77,8 @@ def build(png_path, title_local_bytes):
     gfx = bytearray(_blob(data, ents, 0))
     pal = bytearray(_blob(data, ents, 1))
     scr = bytearray(_blob(data, ents, 2))
-    assert gfx[:4] == b'RGCN' and pal[:4] == b'RLCN' and scr[:4] == b'RCSN', 'unexpected entry types'
+    if not (gfx[:4] == b'RGCN' and pal[:4] == b'RLCN' and scr[:4] == b'RCSN'):
+        raise ValueError('unexpected entry types')
 
     tiles_off = 0x18 + 24
     tiles_len = struct.unpack_from('<I', gfx, 0x18 + 16)[0]
@@ -89,10 +90,12 @@ def build(png_path, title_local_bytes):
     ncol = pal_dsize // 2
     mw, mh = struct.unpack_from('<HH', scr, 0x18)
     map_off = 0x18 + 12
-    assert (mw, mh) == (W, H), 'map is %dx%d, expected %dx%d' % (mw, mh, W, H)
+    if not (mw, mh) == (W, H):
+        raise ValueError('map is %dx%d, expected %dx%d' % (mw, mh, W, H))
 
     im = Image.open(png_path).convert('RGB')
-    assert im.size == (W, H), 'image is %s, need %dx%d' % (im.size, W, H)
+    if not im.size == (W, H):
+        raise ValueError('image is %s, need %dx%d' % (im.size, W, H))
 
     # Quantise to (ncol - 1) colours, then shift every index up by one so
     # index 0 can be the black backdrop the game expects.
