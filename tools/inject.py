@@ -34,6 +34,7 @@ import rewrite
 import relaid_rows
 import condense_rows
 import skipguard
+import sentence_breaks
 
 # Codes that end a message box (the box-count fingerprint used for alignment checks).
 BOXEND = {0xE102, 0xE104, 0xE106, 0xE185, 0xE081}
@@ -2107,6 +2108,24 @@ def main(base=None, out=None):
           % (guarded, len(guard_fallback_sites),
              ': ' + ', '.join('DS[%d] str %d' % s for s in guard_fallback_sites)
              if guard_fallback_sites else ''))
+
+    # 297 two-box messages whose port-made box break fell mid-sentence: move
+    # the break to a sentence end that also fits both boxes (same words, same
+    # codes, only the break moves). Hash-guarded like linefix.py. Runs after
+    # skipguard, so its table is keyed to the final built strings and
+    # skipguard's own hashes (three moved breaks share a string with a guarded
+    # entrance) still match. See tools/sentence_breaks.py.
+    sbmoved = sb_fallback = 0
+    for _ent_i in {ei for ei, _si in sentence_breaks.SENTENCE_BREAKS}:
+        d = entries.get(_ent_i)
+        if d:
+            nd, c, fb = sentence_breaks.patch_entry(_ent_i, d)
+            if c: entries[_ent_i] = nd; sbmoved += c
+            sb_fallback += fb
+        else:
+            sb_fallback += sum(len(v['boxes']) for (ei, _si), v in
+                               sentence_breaks.SENTENCE_BREAKS.items() if ei == _ent_i)
+    print('box breaks moved to sentence ends: %d (fallback: %d)' % (sbmoved, sb_fallback))
 
     newspt = build_archive(entries)
     print('entries replaced with official English: %d' % swapped)
