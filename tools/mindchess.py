@@ -1201,7 +1201,11 @@ def patch(idlocal_bytes, dumpdir, log=None):
         % (commence_start_field, commence_end_field, commence_ink_span[0] + COMMENCE_START,
            commence_ink_span[1] + COMMENCE_START, commence_ink_span[1] - commence_ink_span[0] + 1,
            commence_join_gap, CHECKMATE_JOIN0))
-    new_idlocal = rebuild(idlocal_bytes, {25: new_b})
+    # Entry 25 alone is stored as a real LZ11 stream (the fan's own shape,
+    # about 8 KB): literal-only would be 45,063 bytes for 40,052, and the
+    # loader holds the stored bytes and the decoded bytes in the heap at once.
+    # Every other idlocal entry stays exactly as it was.
+    new_idlocal = rebuild(idlocal_bytes, {25: new_b}, lz=(25,))
     return new_idlocal, True
 
 

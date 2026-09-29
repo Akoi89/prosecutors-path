@@ -200,7 +200,8 @@ def selftest():
                 'spt', 'dstext', 'inject', 'locate', 'ndsx', 'names', 'plates', 'buttons',
                 'lz11', 'nitro', 'txtcut', 'cg_names', 'cg_art', 'loc_dump', 'title_assets', 'voices',
                 'compact', 'mindchess', 'mindchess_recn', 'rnan25', 'linefix', 'last_rows', 'rewrite', 'relaid_rows',
-                'condense_rows', 'skipguard', 'sentence_breaks', 'e11c', 'rowsplit', 'rowfold', 'cutdata_hotfix'):
+                'condense_rows', 'skipguard', 'sentence_breaks', 'e11c', 'rowsplit', 'rowfold', 'cutdata_hotfix',
+                'bufcheck'):
         try:
             __import__(mod)
             print('  import %-29s ok' % mod)
@@ -474,6 +475,12 @@ def main(argv=None):
     import title_assets, voices
     out_path = a.out or os.path.join(work(), inject.DEFAULT_OUT)
     title_assets.apply(dumpdir, out_path, version=VERSION)
+    # title_assets.apply is the last step that writes jpn/spt.bin (inject),
+    # jpn/idlocal.bin and com/cutdata.bin; voices and compact only touch the
+    # sound archive and the file layout. Check the built bytes now, so a
+    # fixed-buffer overflow stops the build before the slow voice step.
+    import bufcheck
+    print(bufcheck.run(out_path, dumpdir), flush=True)
     voices.apply(dumpdir, out_path, loudness=not a.no_loudness)
     import compact
     compact.compact_file(out_path)

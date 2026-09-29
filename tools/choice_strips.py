@@ -50,7 +50,7 @@ the FONT.
 """
 import sys, os, io, json, struct
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from lz11 import decompress
+from lz11 import decompress, compress
 from nitro import ncgr, tile_pixels
 from ncer import ncer
 from PIL import Image, ImageDraw, ImageFont
@@ -375,9 +375,12 @@ def preview(idlocal_bytes, loc_en, outdir, fontfile=FONT, per=14):
     return stats, n
 
 
-def rebuild(idlocal_bytes, repl):
+def rebuild(idlocal_bytes, repl, lz=()):
     """New idlocal container with `repl` entries replaced (stored as
-    literal-only LZ11, as plates.py does); every other entry keeps its bytes."""
+    literal-only LZ11, as plates.py does); every other entry keeps its bytes.
+    Entries named in `lz` are stored as a real LZ11 stream (lz11.compress)
+    instead: only the Mind Chess banner, whose literal-only form would need a
+    45 KB temporary buffer on top of its 40 KB destination."""
     idl = Idlocal(idlocal_bytes)
     n, ents = idl.n, idl.ents
     order = sorted(range(n), key=lambda i: ents[i][0])
@@ -393,10 +396,14 @@ def rebuild(idlocal_bytes, repl):
         size = s & 0x7FFFFFFF
         if i in repl:
             raw = repl[i]
-            out = bytearray(b'\x11' + len(raw).to_bytes(3, 'little'))
-            for p in range(0, len(raw), 8):
-                out.append(0); out += raw[p:p + 8]
-            stored = bytes(out); size = len(raw); comp = 0x80000000
+            if i in lz:
+                stored = compress(raw)
+            else:
+                out = bytearray(b'\x11' + len(raw).to_bytes(3, 'little'))
+                for p in range(0, len(raw), 8):
+                    out.append(0); out += raw[p:p + 8]
+                stored = bytes(out)
+            size = len(raw); comp = 0x80000000
         while (n * 8 + len(body)) % 4:
             body += b'\x00'
         struct.pack_into('<II', table, i * 8, n * 8 + len(body), size | comp)
