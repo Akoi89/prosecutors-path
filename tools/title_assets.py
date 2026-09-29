@@ -138,6 +138,14 @@ def apply(dumpdir, rom_path, log=print, version=None):
     if not changed:
         log('Mind Chess banner: not redrawn (see reason above)')
 
+    # 4c) the Mind Chess wait button's label ("Wait and see." -> "Bide my time"):
+    #     the shared 80x16 text area of idlocal entry 673, hash-guarded, in
+    #     the game's small face, the one the fan's label uses (see tools/mc_wait.py)
+    import mc_wait
+    rom, changed = mc_wait.apply_to_rom(rom, dumpdir, log)
+    if not changed:
+        log('Mind Chess wait button: not redrawn (see reason above)')
+
     # 5) close-up text screens (reports, letters, notes): Capcom's rows rendered
     #    in the fan's own pixel face into the full-screen images. Stored as
     #    literals, so the container grows ~2 MB; accepted (2026-09-04).
