@@ -3,9 +3,9 @@
 
 The port's data can outgrow a fixed buffer in the game without any visible
 error at build time. playtest/SOLVE_buffers.md traced every loader and text
-buffer in the engine; none overflows today, and these five checks keep it
-that way. They read jpn/spt.bin, jpn/idlocal.bin and com/cutdata.bin out of
-the finished ROM (after the last step that writes any of them), compare
+buffer in the engine; none overflows today, and checks a to e keep it that
+way (f is the Logic keyword cards). They read jpn/spt.bin, jpn/idlocal.bin,
+com/cutdata.bin and jpn/logic_keyword_local.bin out of the finished ROM (after the last step that writes any of them), compare
 idlocal with the fan's, and RAISE BufCheckError naming the entry and the
 numbers. Every check raises an exception (so it also runs under python -O).
 
@@ -34,6 +34,11 @@ d. idlocal sizes. Every idlocal entry decodes to the size the fan's does,
 e. cutdata slot 47. The cut-record loader appends matching records to a
    16-entry array; the slot may hold at most 16 records and 1604 decoded
    bytes (the fan's largest slot).
+f. logic keyword cards. Cards 242, 244 and 246 (banners) have six 32x16 OBJs, 1536 bytes of
+   tiles, but the fan's RGCN declares 1280 and stores its phrase tail after the declared
+   data; the game shows those bytes. Read from the built jpn/logic_keyword_local.bin: every
+   card's OBJs must lie inside the bytes the RGCN part holds, and a card whose OBJs reach
+   past the declared data must have been rewritten, with a tail different from the fan's.
 """
 import os
 import struct
@@ -306,18 +311,65 @@ def check_blobs(spt, idlocal, cutdata, fan_idlocal):
                CUT_SLOT, e_rec, CUT_MAX_RECORDS, e_size, CUT_MAX_DSIZE))
 
 
+def check_logic_cards(built, fan):
+    """Check f on the built and the fan's jpn/logic_keyword_local.bin bytes.
+    Returns (cards checked, {entry: (declared, extent)} for cards whose OBJs pass the declared
+    data); raises BufCheckError."""
+    import logic_cards as L
+    from nitro import ncgr
+    from ncer import ncer
+    B, F = L.table(built), L.table(fan)
+    if len(B) != len(F):
+        raise BufCheckError('logic_keyword_local.bin has %d entries, the fan has %d' % (len(B), len(F)))
+    n, past = 0, {}
+    for e, sub in enumerate(B):
+        if sub[:4] != L.SUB_MAGIC:
+            continue
+        parts = L.sub_split(sub)
+        gfx = next((p for p in parts if p[:4] == b'RGCN'), None)
+        rec = next((p for p in parts if p[:4] == b'RECN'), None)
+        cells = ncer(rec)[0] if rec else []
+        objs = next((c for c in cells if c), None)
+        if gfx is None or objs is None:
+            continue
+        n += 1
+        tiles, bpp = ncgr(gfx)[:2]
+        need = L.obj_extent(objs, bpp)
+        start = 0x18 + struct.unpack_from('<I', gfx, 0x18 + 20)[0]
+        held = len(gfx) - start
+        if need > held:
+            raise BufCheckError('logic card %d: its OBJs reach tile byte %d but the RGCN part holds only %d'
+                                % (e, need, held))
+        if need <= len(tiles):
+            continue
+        past[e] = (len(tiles), need)
+        if sub == F[e]:
+            continue    # the fan card kept whole: its tail is the end of its own phrase
+        if F[e][:4] != L.SUB_MAGIC:
+            raise BufCheckError('logic card %d has no fan card to compare its tail with' % e)
+        fg = next(p for p in L.sub_split(F[e]) if p[:4] == b'RGCN')
+        fs = 0x18 + struct.unpack_from('<I', fg, 0x18 + 20)[0]
+        fan_tail = fg[fs + len(tiles):fs + need]
+        if any(fan_tail) and gfx[start + len(tiles):start + need] == fan_tail:
+            raise BufCheckError('logic card %d: bytes %d..%d, past the declared data but inside its OBJs, '
+                                'are still the fan tail' % (e, len(tiles), need))
+    return n, past
+
+
+def rom_file(rom, path):
+    """One file's bytes out of a ROM image."""
+    from inject import file_id
+    fid = file_id(rom, path)
+    if fid is None:
+        raise BufCheckError('%s is not in the ROM' % path)
+    fat = struct.unpack_from('<I', rom, 0x48)[0]
+    a, b = struct.unpack_from('<II', rom, fat + fid * 8)
+    return bytes(rom[a:b])
+
+
 def rom_files(rom):
     """The three files out of a ROM image: (spt, idlocal, cutdata) bytes."""
-    from inject import file_id
-    fat = struct.unpack_from('<I', rom, 0x48)[0]
-    out = []
-    for path in ('jpn/spt.bin', 'jpn/idlocal.bin', 'com/cutdata.bin'):
-        fid = file_id(rom, path)
-        if fid is None:
-            raise BufCheckError('%s is not in the ROM' % path)
-        a, b = struct.unpack_from('<II', rom, fat + fid * 8)
-        out.append(bytes(rom[a:b]))
-    return tuple(out)
+    return tuple(rom_file(rom, p) for p in ('jpn/spt.bin', 'jpn/idlocal.bin', 'com/cutdata.bin'))
 
 
 def run(rom_path, dumpdir):
@@ -328,7 +380,13 @@ def run(rom_path, dumpdir):
     with open(os.path.join(dumpdir, 'ds_fan', 'jpn', 'idlocal.bin'), 'rb') as f:
         fan = f.read()
     spt, idl, cut = rom_files(rom)
-    return check_blobs(spt, idl, cut, fan)
+    line = check_blobs(spt, idl, cut, fan)
+    with open(os.path.join(dumpdir, 'ds_fan', 'jpn', 'logic_keyword_local.bin'), 'rb') as f:
+        fan_logic = f.read()
+    n, past = check_logic_cards(rom_file(rom, 'jpn/logic_keyword_local.bin'), fan_logic)
+    ps = ', '.join('%d (%d->%d bytes)' % (k, v[0], v[1]) for k, v in sorted(past.items())) or 'none'
+    return ('%s; (f) logic cards: %d checked, every OBJ inside the RGCN bytes, cards with OBJs past the '
+            'declared data (rewritten, no fan tail): %s' % (line, n, ps))
 
 
 if __name__ == '__main__':

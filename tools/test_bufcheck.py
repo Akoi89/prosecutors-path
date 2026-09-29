@@ -143,6 +143,33 @@ def main(rom_path, dumpdir='dump'):
     b16 = bytes(b16) + bytes(1604 - len(b16))
     bufcheck.check_blobs(spt, idl, cut_with(cut, b16), fan)
     print('  PASSED  slot 47 at exactly 16 records and 1604 bytes')
+    print('f. logic keyword cards')
+    import logic_cards as L
+    built = bufcheck.rom_file(rom, 'jpn/logic_keyword_local.bin')
+    fan_l = open(os.path.join(dumpdir, 'ds_fan', 'jpn', 'logic_keyword_local.bin'), 'rb').read()
+    print('  clean:', bufcheck.check_logic_cards(built, fan_l))
+
+    def _swap(data, e, sub):
+        """logic_keyword_local.bin with entry e replaced by sub (appended, table repointed)."""
+        out = bytearray(data)
+        while len(out) % 4:
+            out += bytes(1)
+        off = len(out)
+        out += sub
+        struct.pack_into('<II', out, e * 8, off, len(sub))
+        return bytes(out)
+
+    print('  fan file as built (fan cards kept whole pass):', bufcheck.check_logic_cards(fan_l, fan_l))
+    must_raise('a card with no fan counterpart', lambda: bufcheck.check_logic_cards(_swap(built, 242, L.table(fan_l)[242]), fan_l))
+    parts = L.sub_split(L.table(built)[244])
+    g = bytearray(parts[2])
+    fg = L.sub_split(L.table(fan_l)[244])[2]
+    g[0x530:0x630] = fg[0x530:0x630]
+    parts[2] = bytes(g)
+    must_raise('card 244 rewritten but the fan tail bytes put back', lambda: bufcheck.check_logic_cards(_swap(built, 244, L.sub_join(parts)), fan_l))
+    parts = L.sub_split(L.table(built)[243])
+    parts[2] = parts[2][:0x30 + 1280]
+    must_raise('card 243 RGCN part cut to 1280 tile bytes (OBJs reach 1536)', lambda: bufcheck.check_logic_cards(_swap(built, 243, L.sub_join(parts)), fan_l))
     print('all negative tests raised, boundary cases passed')
 
 

@@ -8,6 +8,11 @@ Palettes are shared at file level (entry 0 for A, entry 134 for B). Each card is
 a sub-container (u32 offset table) holding RECN + RNAN + RGCN; only the RGCN
 tile data is rewritten here, the cells stay as they are.
 
+Banners 242, 244 and 246 have six 32x16 OBJs (192 px) but the fan's RGCN declares only 1280 of
+the 1536 tile bytes, with the rest of its phrase stored after the declared data; the game shows
+those bytes. The whole OBJ extent is therefore drawn and written back (tile_area, build), and
+each rewritten card is read back and compared with the canvas drawn, so no fan byte survives.
+
 The fan patch drew its own English into these; the official names come from
 tools/logic_names.py (Collection string tables). Where a DS keyword has no
 official name (6 real ones + 30 dummies) the fan card is left alone.
@@ -24,7 +29,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from lz11 import decompress
 from nitro import ncgr, nclr
 from ncer import ncer
-from title_art import cell_indices
+from title_art import cell_indices, BOUNDARY
 from title_text import repack, write_sprites
 from PIL import Image
 
@@ -77,16 +82,50 @@ def sub_join(parts):
     return b''.join(struct.pack('<I', o) for o in offs) + bytes(body)
 
 
-def card_rows(E, e):
-    parts = sub_split(E[e])
+class LogicCardError(ValueError):
+    """A rewritten keyword card would display bytes the tool did not write."""
+
+
+def obj_extent(objs, bpp):
+    """Bytes of tile data the cell's OBJs address (the same mapping cell_indices reads)."""
+    per = 64 if bpp == 8 else 32
+    return max((o['tile'] * BOUNDARY + (o['w'] // 8) * (o['h'] // 8)) * per for o in objs)
+
+
+def tile_area(gfx, tiles, objs, bpp):
+    """The tile bytes the display can reach. Normally the RGCN's declared data. The fan
+    patch's banners 242, 244 and 246 have six 32x16 OBJs (1536 bytes) but declare 1280, and
+    store the other 256 bytes after the declared data, holding the tail of its longer phrases;
+    the game draws them as the sixth OBJ. When the cell reaches past the declared data and
+    the part physically holds those bytes, the OBJ extent is the tile area. If the part does
+    not hold them the declared data is returned and the caller's check raises."""
+    need = obj_extent(objs, bpp)
+    if need <= len(tiles):
+        return tiles
+    start = 0x18 + struct.unpack_from('<I', gfx, 0x18 + 20)[0]
+    if start + need > len(gfx):
+        return tiles
+    return bytearray(gfx[start:start + need])
+
+
+def card_from_sub(sub, extend=False):
+    parts = sub_split(sub)
     gi = next(i for i, p in enumerate(parts) if p[:4] == b'RGCN')
     rec = next(p for p in parts if p[:4] == b'RECN')
     cells, _ = ncer(rec)
     objs = next(c for c in cells if c)
     tiles, bpp, cnt, _, _ = ncgr(parts[gi])
     tiles = bytearray(tiles)
+    if extend:
+        tiles = tile_area(parts[gi], tiles, objs, bpp)
     rows, origin = cell_indices(objs, tiles, bpp)
     return parts, gi, objs, tiles, bpp, rows, origin
+
+
+def card_rows(E, e, extend=False):
+    """extend=False reads only the declared tile data (the harvest of the fan's faces is
+    keyed to exactly that); extend=True reads the full OBJ extent, as the game displays it."""
+    return card_from_sub(E[e], extend)
 
 
 def build(outdir, names):
@@ -103,7 +142,7 @@ def build(outdir, names):
         for e, style in ((k + 1, 'A'), (k + 135, 'B')):
             if not E[e] or E[e][:4] != SUB_MAGIC:
                 continue
-            parts, gi, objs, tiles, bpp, rows, origin = card_rows(E, e)
+            parts, gi, objs, tiles, bpp, rows, origin = card_rows(E, e, True)
             if style == 'A':
                 res = font.draw_card(rows, name)
             else:
@@ -116,9 +155,23 @@ def build(outdir, names):
             gfx = bytearray(parts[gi])
             doff = struct.unpack_from('<I', gfx, 0x18 + 20)[0]
             dsize = struct.unpack_from('<I', gfx, 0x18 + 16)[0]
-            gfx[0x18 + doff:0x18 + doff + dsize] = tiles[:dsize]
+            # write the whole area the OBJs reach (dsize, or the OBJ extent when larger), so
+            # no fan byte is left where the display can see it; header fields stay the fan's
+            need = obj_extent(objs, bpp)
+            n = max(dsize, need)
+            if len(tiles) < n or 0x18 + doff + n > len(gfx):
+                raise LogicCardError('card %d: its OBJs reach byte %d but the RGCN part holds %d '
+                                     'tile bytes (%d declared)' % (e, need, len(gfx) - 0x18 - doff, dsize))
+            gfx[0x18 + doff:0x18 + doff + n] = tiles[:n]
             newparts = list(parts); newparts[gi] = bytes(gfx)
             repl[e] = sub_join(newparts)
+            # read the new bytes back as the display would (full OBJ extent) and require
+            # exactly the canvas just drawn: nothing the tool did not write may show
+            back = card_from_sub(repl[e], True)[5]
+            if back != rows:
+                bad = sum(1 for ra, rb in zip(back, rows) for a, b in zip(ra, rb) if a != b)
+                raise LogicCardError('card %d: %d pixels read back from the rewritten card differ '
+                                     'from the canvas drawn' % (e, bad))
             bucket = prev_a if style == 'A' else prev_b
             if len(bucket) < 40:
                 pal = pals[0 if style == 'A' else 134]
