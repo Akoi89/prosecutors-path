@@ -35,6 +35,7 @@ import relaid_rows
 import condense_rows
 import skipguard
 import sentence_breaks
+import e11c
 import rowsplit
 
 # Codes that end a message box (the box-count fingerprint used for alignment checks).
@@ -2127,6 +2128,24 @@ def main(base=None, out=None):
             sb_fallback += sum(len(v['boxes']) for (ei, _si), v in
                                sentence_breaks.SENTENCE_BREAKS.items() if ei == _ent_i)
     print('box breaks moved to sentence ends: %d (fallback: %d)' % (sbmoved, sb_fallback))
+
+    # {E11C:n} is the field's stylus-tap switch (bit 0 of a game-state flag,
+    # read only by the hotspot tap test). Capcom's script does not model it, so
+    # 15 of the fan's are missing and 3 stray {E11C:0} are ours alone. Put the
+    # fan's set back at hash-guarded anchors; a mismatch stops the build. Runs
+    # after skipguard and sentence_breaks (their tables key on row content) and
+    # before rowsplit, which stays the last pass. See tools/e11c.py.
+    e11c_ins = e11c_rem = 0
+    for _ent_i in sorted({ei for ei, _si in e11c.E11C_SITES}):
+        d = entries.get(_ent_i)
+        if not d:
+            raise e11c.E11CError('entry %d is missing, cannot restore its field-tap switches' % _ent_i)
+        nd, i_, r_ = e11c.patch_entry(_ent_i, d)
+        entries[_ent_i] = nd
+        e11c_ins += i_
+        e11c_rem += r_
+    e11c.check_totals(e11c_ins, e11c_rem)
+    print('field-tap switches restored: %d inserted, %d removed' % (e11c_ins, e11c_rem))
 
     # The field engine loads a script entry into a fixed 0x2000-byte buffer
     # sized 0xC + ncnt*8 + 2*(longest row + 1) with no clamp; an entry that
