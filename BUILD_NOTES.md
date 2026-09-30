@@ -7,11 +7,106 @@ used to live there is kept here in full.
 
 Port Capcom's official English localization of *Gyakuten Kenji 2* into the Nintendo DS ROM.
 
-**98.8% of the script's text is Capcom's writing** (measured by `tools/coverage.py`;
-the exact unit count is in the README). 1.5.2 said 93.9%, 1.5.1 said 94.3%: four tutorial
+**99.4% of the script's text is Capcom's writing** (measured by `tools/coverage.py`;
+the exact unit count is in the v1.11.0 entry below). 1.10.0 said 98.8%, 1.5.2 said 93.9%, 1.5.1 said 94.3%: four tutorial
 lines went back to the fan text in 1.5.2 and twelve description rows in 1.6.0, see below. Earlier notes said 96.5% and, before that,
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
+
+## v1.11.0: the Case 4 crash after talking to Lotta, long script rows split to fit the engine's load buffer, the fan's touch-tap switches restored, the Mind Chess banner in Capcom's lettering, the burn-mark tap, Logic banner tails, held-B entrances, sentence-end box breaks, and more of the script in Capcom's words
+
+This release is the `next` branch of `port`: 27 commits after the v1.10.0 tag, ending with the 1.11.0 version commit. The DS program code (arm9 and every overlay) is byte-identical to 1.10.0 and to the fan ROM; four files in the ROM differ from 1.10.0 (`jpn/spt.bin`, `jpn/idlocal.bin`, `jpn/logic_keyword_local.bin`, `com/cutdata.bin`), read back with `python audits/romdiff.py` on the 1.10.0 output against the release candidate. Coverage, measured with `python tools/coverage.py` on the release ROM:
+
+    python tools/coverage.py out/GK2-v1.11.0-official-english.nds
+                  official   char units
+    Episode 1        97.7%  175,424 / 179,474
+    Episode 2       100.0%  368,696 / 368,696
+    Episode 3       100.0%  377,751 / 377,751
+    Episode 4       100.0%  297,663 / 297,663
+    Episode 5       100.0%  497,811 / 497,811
+    Menus & UI       94.5%  105,423 / 111,588
+    TOTAL            99.4%  1,822,768 / 1,832,983
+    TOTAL (without the identical-wording counter fix):  99.4%  1,822,573 / 1,832,983
+    identical-wording counter fix adds: 10 rows / 195 char units
+    rows rewritten in Capcom's style: 29 rows, replacing 1,783 fan units
+
+1.10.0 measured 98.8% (1,810,475 / 1,832,983; rerun today on the released 1.10.0 ROM, sha256 d6f3891a..., with the same counting), so the official-text total is up by 12,098 units counted the same way, or 12,293 with the counter fix's 195. The remaining 10,215 units (0.6%) are fan text or rows I wrote (see the counting note below).
+
+### The Case 4 crash after talking to Lotta (commits 2e474d1 and 912ae1b)
+
+A tester reported that in early Case 4, after talking to Lotta, the Logic, Organizer and Save menus failed: Logic showed a white screen forever, Save a black one, Organizer still worked. His melonDS save state from that point reproduced it at once on 1.10.0 (the public release) and on the release candidates of the time, and did not reproduce on the fan ROM. Entry 230's load size was then measured on 1.8.4, 1.8.5, 1.8.6, 1.9.0, 1.9.1 and 1.10.0, and it is over 0x2000 in all six, so the public docs say 1.10.0 and earlier versions are affected; earlier than 1.8.4 was not measured. A snapshot of the frozen state showed an ARM9 data abort in the heap's free routine, on the block right after the overrun one (the field object keeps five 0x31C-byte script records, each with its own 0x2000-byte buffer).
+
+Cause. The field engine loads the current map's NPC or check script (an entry of `jpn/spt.bin`) into a fixed 0x2000-byte heap buffer. It sizes the read as the 12-byte header plus 8 bytes per row-table entry plus two bytes per unit of the longest row, and it reads that many bytes straight into the buffer with no comparison against 0x2000 (arm9 0200d9ac computes the size, 0200d974 does the read, overlay 7 020b6444 is the slot loader). In this port entry 230 (the Case 4 storeroom talk script) needs 0x2400 to 0x2408 bytes, because its longest row, row 82, the auction conversation with Lotta, is 4,205 units against the fan's 3,551. The extra bytes land on the next record's heap header, and the next Logic or Save teardown frees that block and aborts. The fan has no NPC or check script over the limit; the port had exactly this one.
+
+A second family, the chapter scene scripts loaded into the fifth record, also runs past 0x2000 in both ROMs (27 in the port, 11 in the fan). Those spill into free heap rather than a live header, which is why they had never crashed.
+
+Fix (`tools/rowsplit.py`, runs after `sentence_breaks` and the tap-switch pass, before the archive is built). Every field-slot entry is now held to a need of 0x2000 or less: 29 entries were over it, and 33 rows in them were split, with every word kept. A cut is allowed only after an `{E102}` (box end) that is followed by `{E100}` or `{E101}`. The first piece ends in a jump to the appended row (`{E081:n}`, a plain jump within the same entry, checked in the arm9 handler), and the new row's read mark is the original row's mark plus the boxes before the cut, so the game's read-flag bookkeeping is unchanged. No words are cut and no code is dropped. Entry 230's row 82 is cut at unit 2,048 into pieces of 2,050 and 2,157 units, as new row 99, and the entry's need falls from 0x2400 to 0x17e2. Across the whole ROM the largest field-slot need is now 0x1e30 (entry 290, slot 3, the NPC and check scripts) and 0x1fd4 (entry 334, slot 4, the chapter scene scripts); the only entry still over 0x2000 is 342, a Logic/trial script loaded another way, and it is byte-identical to the fan's.
+
+Checks run. A verifier with its own copy of the arity table checked all 33 rows: pieces rejoin to the original row, every cut sits after `{E102}` before `{E100}`/`{E101}`, every jump targets the new row, every read mark matches. The 421 rows in those entries that were not split are identical to the baseline. Only `jpn/spt.bin` differs from the previous candidate. `coverage.py` and the per-index audits fold the appended rows back through the build's split manifest (`tools/rowfold.py`), so coverage is unchanged by the split (the figure above). On the rig, replaying the tester's crash recipe (examine the statue, watch the Lotta scene, walk left and Talk, then open Save and Logic) now shows the Save prompt and opens Logic, and the split auction conversation plays the same as before the split. The tester then finished Episode 4 on a later test build that carries this fix.
+
+Predictive checks after the fix, because this is a class of bug and not one row (`tools/bufcheck.py`, now run by every build right after the last writer of the affected files, and covered by `tools/test_bufcheck.py` negative tests): (a) every script entry's load need against its buffer, (b) the longest text box in units, (c) the longest examine row, (d) every idlocal entry against the fan's size, (e) the cutdata slot in use, and (f) the Logic banner tails below. A static search (disassembly and data, not run on an emulator) of every other loader of `spt`, `idlocal` or `cutdata` into a fixed buffer found none that can overflow: every other loader sizes its buffer from the entry's own header, and compressed graphics are decompressed through temporary buffers sized from the archive table.
+
+### The Mind Chess banner file is stored properly compressed (commit 912ae1b)
+
+The Mind Chess banner graphic (`jpn/idlocal.bin` entry 25) had been stored as literal-only LZ11, bigger than its own raw data. Nothing overflowed, but the banner needed far more temporary memory while loading than the fan's did. It now uses a real LZ11 encoder (`tools/lz11.py`, optimal parse, window 0x1000, minimum displacement 2 like every stream in the fan's file), which brings the load much closer to what the fan's needed. The decoded bytes are identical to before (compared with two independent decoders), so nothing on screen changes; only this one entry's stored bytes differ, and the ROM file is about 36 KB smaller.
+
+### The fan's touch-tap switches restored (commit 0363089)
+
+`{E11C:n}` sets or clears one bit in the main game-state block. Its only reader is the per-frame tap test of the field's tappable hotspots (overlay 7 020BC8DC), which honours a stylus tap inside a hotspot only while the bit is 1, so it is an on/off switch for taps during scripted scenes. The fan script has 91 of them; 1.10.0 had 79. Fifteen of the fan's switches were missing, in 12 rows (16/6, 16/33, 16/34, 89/1, 89/2, 101/5, 177/5, 231/48, 264/0, 277/1, 310/17, 310/23), and three rows (22/0, 293/9, 387/1) carried an off-switch the fan never had. `tools/e11c.py` puts back the fifteen and removes the three, each guarded by the hash of the row it expects; afterwards every row's ordered list of these commands equals the fan's (91 against 91). This was not the cause of the Lotta crash (reading the code shows a missing switch only leaves taps live during a scene), and no report traces back to it; it restores the fan's behaviour.
+
+### The Mind Chess banner in Capcom's lettering (commit 27fdd2f)
+
+The banner that flies in at the start of a Mind Chess and the one that ends it now use Capcom's own lettering for "Mind", "Chess", "Checkmate" and "Commence", laid out the way Capcom's banner is. "Checkmate" is drawn as one piece instead of pieces that grew separately, which removes the 1.10.0 frame sequence "Clckmate", "Chckmate", "Chickmate" while it zooms in. On the rig every zoom step reads "Checkmate" whole. One thing remains and was accepted: for a single frame a 1 to 2 pixel hairline can show between the e and the c, because the seam runs through outline ink; 1.10.0 had the same hairline at one zoom scale. The tester's comment on the first candidate was that the lettering looks great.
+
+### The Logic keyword banner tails (commit 532583e)
+
+The tester found the Logic keyword banner "Hidden body" reading "Hidden body den?". Cause: `jpn/logic_keyword_local.bin` banners 242, 244 and 246 ("Hidden body", "Was he stomped on?", "Side gate chain cut") span six sprites (192 px wide) but their graphic header declares 1,280 bytes, while the fan stored 256 more bytes after the declared data (fragments of the fan's own text: "den?", "r", "en"). `logic_cards.py` rewrote only the declared 1,280 bytes, so the fan's leftover tails showed beside the new lettering. This has been so since 1.8.5. Fix: the builder now reads the cell's full extent, redraws exactly as before, writes back the whole extent, and reads each rewritten card back as the display sees it, raising if it differs from what was drawn. In the three banners the leftover ink bytes go from 56, 31 and 37 to 0, 3 and 0 (the 3 in banner 244 is the port's own question mark). A scan of every graphic file the build writes (Logic cards, plates, strips, Mind Chess, close-ups, title, opening and save screens) found no other entry with the quirk. Only those three entries differ from the previous candidate, only in the tail bytes. This is checked by rendering the built graphics and by the build's own read-back, not yet on a running game.
+
+### Known limit: "Gavelle" without its accent
+
+The Case 4 visitor log (`upcut_local` entry 242, drawn by `tools/cg_names.py` in the fan's close-up face, `txtcut_font.json`) has no accented glyphs, so it reads "Gavelle". Organizer descriptions and Mind Chess use the small font, which has no accent slot, so the same. No glyph was drawn by hand. In dialogue the accent shows (1.10.0).
+
+### The burn-mark tap (commit cac8385)
+
+In Case 4's Coroner's Findings you are asked to point at the burn mark on the document. The close-up screen carries Capcom's English wording, but the tap rectangle in `com/cutdata.bin` (slot 47, for cut 208) still sat where the Japanese lettering was, so in 1.10.0 it covered the words "of victim's" instead of "burn" and "mark", and the right answer was rejected. `tools/cutdata_hotfix.py` derives the rectangle from the text renderer's own line layout (no typed coordinates), guarded by the hashes of the row text and of the fan's `cutdata.bin`. `audits/audit_hotspots.py` (new) decodes the ROM's image and slot and checks that every "burn" and "mark" pixel is real ink inside an accepted rectangle and that no other lit pixel is; for the other point-at prompts (photos and maps, no phrase) it checks that image and slot are byte-identical to the fan's. On the rig a tap on "burn" was accepted and a tap on "of victim's" rejected. The audit covers only this prompt's text; the other 23 point-at prompts show pictures the build does not modify.
+
+### Held B and the entrances that froze mid-move (commit 3348857)
+
+An animated entrance (`{E111 a,...}`) is normally followed by `{E112 a}`, which waits for that actor's move to finish; 4,188 of the game's 4,221 entrances have it. The other 33 are Capcom's own script, identical in the fan ROM. With B held to skip, the next box's `{E12F ...}` overwrites the actor's single task slot and the move stops where it stands: entry 119, string 3, box 1 leaves Edgeworth at about x = -100 with only a sleeve on screen. `tools/skipguard.py` inserts `{E112 a}` after the `{E111}` at 13 of those entrances, each guarded by the hash of its string; the rest are left alone. Only those strings change, by one command each. On the rig, the Edgeworth scene with B held is now whole.
+
+### Box breaks moved to sentence ends (commit 1c24721)
+
+When Capcom's text does not fit one box, the port splits it, and a scan found 432 dialogue messages where that split fell mid-sentence although a sentence end fit. A three-tier rule classified them (266 automatic, 47 flagged, 119 kept as they were, 60 of those because an animation or sound code blocks the move); I reviewed the flagged tier and approved 46 of the 47. That made 312 breaks to move; 15 were dropped because the new break would cross an animation or sound code, leaving 297. `tools/sentence_breaks.py` moves them. Words, their order and every control code are unchanged, and each moved box is laid out again by the port's own layout and checked against the recorded widths.
+
+### Scenes laid into the fan's box structure, condensed rows, and more Capcom rows
+
+- **Relaid scenes** (a81e78f). Three scenes had stayed the fan's wording because the fan's boxes are laid out differently from Capcom's: entry 93 (Episode 2), entry 236 (Episode 4) and entry 340 (Episode 1, a Logic scene). `tools/relaid_rows.py` keeps the fan's box skeleton byte for byte and lays Capcom's converted words into it, guarded by hashes of the fan strings, Capcom's source strings and the result. In 10 of 101 boxes Capcom's words need a fourth line at 240 px and become two boxes, as the port already does elsewhere.
+- **Condensed rows** (425feff, f343782). 89 small-font rows (Mind Chess options in banks 453 to 455, Logic cards and item descriptions in banks 395 and 432) whose Capcom text overflows now carry shorter wording that keeps Capcom's words, each wording approved before it was built; the last four descriptions (tunnel photo, bouquet, shoes, nurse profile) were added in f343782. 89 applied, 0 fell back to the fan.
+- **Tolerant lookup** (513b197). 23 descriptions and Logic cards whose Japanese differs from Capcom's only by a comma or the DS-only details suffix now match Capcom's row.
+- **Last rows** (7813789). Capcom's line for the Episode 4 gift refusal is ported; one candidate row (DS[36] string 37) was dropped as unreachable. The coverage counter now credits fan rows that already read exactly as Capcom's (see the counting note).
+
+### Rows Capcom never wrote (commits 77fd6b5 and 0064f36)
+
+29 rows had no Capcom counterpart that fit: two guard conversations (13/1, 13/3), the red-dot line (37/9), three organizer descriptions (432/245, 312, 333), 14 save-system prompts (bank 460) and nine save-slot labels ("End" became "Latter"). I wrote them in Capcom's style in `tools/rewrite.py`, each guarded by the hash of the fan row it replaces and each control code checked against the fan row's own. They are measured against their boxes (dialogue in the main font at 240 px and three lines, descriptions in a 140.5 px field of at most four lines, save prompts in a 181 px budget) and are excluded from the official-text count, which reports them on a separate line. The rewritten wording was approved before it was built; six of the save-menu rows (delete confirmation, saving, two load errors, new episode, and the matching dots) were added in 0064f36 so they sit in the same style as the first eight prompts.
+
+### Counting note
+
+Three things about the coverage counter changed in this release, and none of them changes the 99.4%. First, a fan row that already reads exactly as Capcom's own wording (for example a few Mind Chess lines such as "Objection!" and "Hold it!") is now counted as Capcom's; before, it counted as fan text because the bytes matched the fan row. It adds 10 rows and 195 units, and the total is 99.4% with or without it. Second, the rows I wrote in Capcom's style are not counted as Capcom's, and are reported on their own line (29 rows replacing 1,783 fan units). Third, the rows appended by the buffer split are folded back into their original rows through the build's split manifest before rows are compared, so the split does not affect the count. The method for everything else (a row is official when its bytes differ from the fan row after names and titles are applied) is the one set in 1.5.0. The figure is from `python tools/coverage.py`, run against the current build.
+
+### The Mind Chess wait button reads "Bide my time"
+
+The Mind Chess "wait" button showed the fan's "Wait and see", drawn as a picture, where Capcom's Collection says "Bide my time". A tester pointed it out. It is redrawn in Capcom's wording.
+
+### Also in this release
+
+- Every `assert` in the tools became an explicit raise (b34c96b, 86a9172), so a check can no longer be switched off by running Python with `-O`. The output ROM is byte-identical before and after.
+- The index-argument guard also restores the string indices of six more codes (`E200`, `E1FD`, `E20A`, `E17E`, `E17F`, `E180`) from the fan (19791cd). A whole-script comparison found all 1,114 occurrences in 1.10.0 already identical to the fan's, so nothing changed in the ROM; it is a guard with an audit fixture.
+- `audits/measure_linewidth.py` now measures every dialogue-font line, narration included (8c5aa8a).
+- Workflow actions moved to their Node 24 versions (a8f5b5b); saves, zips and 7z archives are ignored by git (0c2e623).
+
+### Testing for this release
+
+The rig replayed the crash recipe and the split conversation (above), the burn-mark tap, the held-B Edgeworth scene, the save and delete prompts, and the Mind Chess banner at start and end. The tester, JPScaravino, finished Episode 4 on the 1.11 test builds (started on the first, finished on the third, "works perfectly from start to finish"); Episode 5 has not been reported finished on any build. I booted test builds of this release on a DSi through TWiLight Menu++ and on a DSPico, into the first case on both. Not seen on the rig: the two guard lines (13/1, 13/3), the red-dot line (37/9), card 432/245 (the last two have no route the scripts could find, so they were checked in the data), the officers' cards, the episode-clear prompts, and the erase-all screen reached by holding B, X and Select at power-on. The Logic banner fix and the tap-switch restoration have been checked in the data and by rendering, not on a running game.
 
 ## v1.10.0: the Case 2 rebuttal freeze and its Case 4 twin, four box-boundary defects, the DS-only gate lifted, restored DS staging, Mind Chess fixes, accents, louder shouts and ROM compaction
 
@@ -1125,24 +1220,27 @@ was built against, verified mechanically at build time.
 ## Testing status: read this if you play deep into the game
 
 Every release is verified structurally (every string audited against the fan layout,
-13 audits covering the defect classes that have shipped before) and exercised in
+14 audits covering the defect classes that have shipped before) and exercised in
 melonDS by a scripted rig. What that rig has actually executed, measured: all 25 chapter
 saves boot, load and advance; about 5,100 of the game's 41,706 message boxes have been
 displayed, weighted toward chapter openings and finales; and on the 1.5.0 candidate an
 Episode 1 run from a cold-boot New Game, following a walkthrough, has covered the opening,
 the first investigation, the first Logic connections, the first Mind Chess to checkmate
 and the second investigation area with zero defects. **The rig itself has finished
-nothing.** Episodes 1 and 3, and the second half of Episode 2, have been finished by a
-tester, across several builds: Episode 1 on v1.8.5, Episode 2's second half (from
-Gavèlle's rebuttal to the end) on the 1.10.0 candidate, and Episode 3 on v1.9.0 or v1.9.1
-(the tester isn't sure which). Episodes 4 and 5 haven't been reported finished, and most
-optional dialogue everywhere has never been run. Every hang a player actually hit was
-found by playing, not by audits. The one hang found another way is the Case 4 freeze
-fixed in 1.10.0, found by searching every scene for the cause of one a tester hit in
-Case 2, not by anyone hitting it.
+nothing and has never solved a rebuttal.** The tester JPScaravino finished Episode 1 on
+v1.8.5, Episode 3 on v1.9.0 or v1.9.1, the second half of Episode 2 (from Gavèlle's
+rebuttal to the end) on the 1.10.0 candidate, and Episode 4 on the 1.11 test builds
+(started on the first, finished on the third, "works perfectly from start to finish").
+Episode 5 has not been reported finished on any build, and most message boxes have never
+been run. Every hang a player actually hit was found by playing, not by audits. The one
+hang found another way is the Case 4 freeze fixed in 1.10.0, found by searching every scene
+for the cause of one a tester hit in Case 2, not by anyone hitting it. The Lotta crash fixed
+in 1.11.0 was hit by the tester; his emulator save state reproduced it, and a snapshot of
+the frozen state found the cause.
 
-On hardware, 1.4.4 booted and reached gameplay from a DSPico flashcart on a 3DS; nothing
-deeper has been tried on real hardware, and no original DS has been tried at all.
+On hardware, 1.4.4 booted and reached gameplay from a DSPico flashcart on a 3DS. Test builds
+of 1.11.0 booted into the first case on a DSi through TWiLight Menu++ and on a DSPico.
+The release build itself boots on both too. Nothing deeper has been tried on real hardware, and no original DS has been tried at all.
 
 If the game ever hangs mid-scene: **your save is not damaged**, text is read-only data.
 Restart the chapter and open an issue saying where it happened. Issue #1 is the thread

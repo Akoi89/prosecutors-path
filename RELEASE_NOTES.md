@@ -1,65 +1,68 @@
-Version 1.10.0 fixes a Case 2 rebuttal freeze and the same fault in Case 4, several lines and testimony that were cutting off partway through, and staging the newer game had re-tuned. It also adds accents, gives Mind Chess its real name, and moves more of the script to Capcom's writing in a smaller ROM.
+Version 1.11.0 fixes a Case 4 crash that 1.10.0 and earlier versions can hit after talking to Lotta. It also repairs a handful of smaller things and moves more of the script to Capcom's writing.
 
 ## What this build fixes
 
-- **A freeze in Case 2, right when Gavèlle's rebuttal starts.** No statement showed up and no button did anything from there.
-- **A possible freeze in a Case 4 rebuttal.** The exact same cause as Case 2's, found by checking every scene rather than waiting for a report; nobody has hit it.
-- **Lines, prompts and testimony that used to cut off partway through.** A line after a pause ran into the next sentence and stopped mid-word, a question during evidence choice showed only half, and testimony statements lost their ending. All now show in full.
-- **The camera, character positions and poses are back to how the DS always showed them**, instead of the newer game's re-tuned staging: a camera stopping short, someone left out of frame, or a character in the wrong pose, all fixed scene by scene.
-- **Logic cards and Mind Chess text fit their space, and the Mind Chess banner has its real name.** Card descriptions ran into the frame, and Mind Chess banners and option rows lost text; all now measured in the right font, and the banner reads "Mind Chess", ending on "Checkmate".
-- **Accented letters, and two-line titles that break in a better place.** Words like Gavèlle's name and "attaché" now show their accents in dialogue, and a too-long title breaks before a natural word instead of stranding one alone.
-- **Every shout the fan patch had re-recorded is Capcom's audio now, and louder.** They had been quieter than the music since the swap; a few stay slightly under the Japanese level on purpose, so they aren't squashed flat to get there.
-- **More of the script is Capcom's writing, and the files are smaller.** Tutorial lines naming a DS button now use Capcom's wording, and the ROM drops from about 72.7 MB to 50.6 MB, the patch from about 4.3 MB to 3.9 MB.
+- **A crash in Case 4 after talking to Lotta.** Once her scene ended, opening Logic or saving froze the game on a white or black screen. Capcom's longer English had made that room's script too big for the space the game loads it into. Long conversations are now split in two with every word kept, and the same fix covers the other scenes over the limit.
+- **The Mind Chess banner is in Capcom's lettering.** The title at the start of a Mind Chess and the one that ends it are drawn the way Capcom's are, and "Checkmate" is one piece, so it no longer flashes as "Chckmate" while it zooms in. It also loads with less memory.
+- **The Mind Chess wait button.** It said "Wait and see", the fan's wording; it now says Capcom's "Bide my time".
+- **Tapping "burn mark" in Case 4 works again.** The tap area had stayed where the Japanese lettering was, so pointing at the words themselves was rejected.
+- **Stray letters on three Logic keyword banners.** "Hidden body" read "Hidden body den?", and two others carried leftovers from the fan version. They show only their own text now.
+- **Scene fixes.** The fan version's touch-tap switches during scenes are back, and holding B no longer freezes a character partway through walking in.
+- **Text that breaks in a better place, and more of it Capcom's.** Long lines split across two boxes now break at a sentence end. Three scenes use Capcom's words, and many descriptions, Logic cards and Mind Chess options that fell back to the fan's wording are Capcom's, shortened only where they would not fit.
+- **Lines Capcom never wrote.** Save-menu messages, slot labels, some card descriptions and a few dialogue lines are in Capcom's style. Fewer than thirty lines, not counted as Capcom's own.
 
 ## Version history
 
-- **v1.10.0** - two rebuttal freezes fixed, cut-off lines and testimony repaired, DS staging restored, Mind Chess fixed and renamed, accents added, coverage up to 98.8%.
-- **v1.9.1** - menu buttons lettered like the fan game's own lettering.
-- **v1.9.0** - every line re-measured against the game's own font.
-- **v1.8.6** - the answer menus that froze the game.
-- **v1.8.5** - Logic keyword cards drawn in the fan team's own lettering.
-- **v1.8.4** - talking to Ms. Bound opens her conversation, not Larry's.
-- **v1.8.3** - location cards laid out the way the DS games always did it.
+- **v1.11.0** - Case 4 crash after talking to Lotta fixed, Mind Chess banner redrawn, coverage 99.4%.
+- **v1.10.0** - two rebuttal freezes, cut-off text, DS staging, accents.
+- **v1.9.1** - menu button lettering.
+- **v1.9.0** - every line re-measured.
+- **v1.8.6** - answer menus that froze.
+- **v1.8.5** - Logic keyword cards relettered.
+- **v1.8.4** - Ms. Bound's talk opens hers, not Larry's.
+- **v1.8.3** - location cards laid out the DS way.
 - **v1.8.2** - "John Doe" is John Doe again.
-- **v1.8.1** - silent boxes no longer move the speaker's mouth.
-- **v1.8.0** - six hand-lettered pictures now carry Capcom's official names.
-- **v1.7.0** - close-up document screens now use Capcom's official wording.
-- **v1.6.4** - a highlighted term keeps its color when split across two boxes.
-- **v1.6.3** - long evidence and profile titles are no longer squashed.
-- **v1.6.2** - closing quotation marks no longer look like an apostrophe.
-- **v1.6.1** - the 1.6.0 downloads were missing files and would crash.
-- **v1.6.0** - choice buttons speak Capcom's words, descriptions stop losing their last letter.
-- **v1.5.2** - a hang in Episode 1 that every earlier release had.
-- **v1.5.1** - the last five lines with a fan character name.
-- **v1.5.0** - official titles everywhere, Capcom's own shout recordings, and a stricter coverage count.
-- **v1.4.4** - ten lines that shipped visibly cut off.
+- **v1.8.1** - silent boxes stop moving mouths.
+- **v1.8.0** - six pictures carry Capcom's names.
+- **v1.7.0** - close-up documents use Capcom's wording.
+- **v1.6.4** - highlighted terms keep color across boxes.
+- **v1.6.3** - long titles no longer squashed.
+- **v1.6.2** - closing quotes no longer look like apostrophes.
+- **v1.6.1** - the 1.6.0 downloads were missing files.
+- **v1.6.0** - Capcom's choice buttons; descriptions keep their last letter.
+- **v1.5.2** - an Episode 1 hang.
+- **v1.5.1** - last five fan character names.
+- **v1.5.0** - official titles, Capcom's shouts, stricter coverage count.
+- **v1.4.4** - ten lines that shipped cut off.
 - **v1.4.3** - Episode 1 freezes at the Gourd Lake scene. Update before playing.
-- **v1.4.2** - an early Episode 1 freeze, found by a player.
-- **v1.4.1** - one renamed line was too wide for its menu.
+- **v1.4.2** - an Episode 1 freeze.
+- **v1.4.1** - one line too wide for its menu.
 - **v1.4.0** - Capcom's character names, everywhere.
-- **v1.3.4** - one description stops contradicting itself about a room's name.
-- **v1.3.3** - a permanent freeze during the Little Thief scenes, fixed.
-- **v1.3.2** - no game changes, just easier setup and troubleshooting.
-- **v1.3.1** - three autopsy descriptions stop contradicting the trial testimony.
-- **v1.3.0** - the last big chunks of missing text are recovered.
+- **v1.3.4** - a description contradicted a room's name.
+- **v1.3.3** - a freeze in the Little Thief scenes.
+- **v1.3.2** - setup help, no game changes.
+- **v1.3.1** - three autopsy descriptions fixed.
+- **v1.3.0** - last big chunks of missing text.
 - **v1.2.1** - one missing line restored.
-- **v1.2.0** - most of the previously missing text is recovered.
+- **v1.2.0** - most missing text recovered.
 
 ## Known problems
 
-- Most of the game still hasn't been run by anyone; see the Credits below for what has been finished. The Case 2 fix was checked by replaying the tester's own save: the rebuttal opens with all five statements, the game keeps responding, and he played it through to the end. The Case 4 fix is the identical mistake in a different rebuttal, but no save has reached that scene yet, so it has only been checked against the game's own data, not watched running.
-- The camera and pose fixes were checked by measurement and by rendering the scenes, not by watching them run on the rig. The Mind Chess banner has been checked on screen, at the start and end of a Mind Chess in Case 4.
-- At the end of a Mind Chess, "Checkmate" zooms in, and for its first three frames (about a twentieth of a second) part of the word is hidden, so it reads "Chckmate" or similar before it settles. Earlier builds do the same. The word is drawn in two pieces that grow separately while it zooms; drawing it as one piece is planned for the next release.
-- About one character in eighty is still the fan translation rather than Capcom's, in spots where Capcom's Collection has no matching text at all, or where its wording does not fit a Mind Chess row's bar.
+- Most of the game still hasn't been run by anyone; see the Credits for what has been finished. The crash fix was checked by replaying the tester's own save, and he then finished Episode 4 on a later test build. Episode 5 has not been reported finished. The Logic banner fix, the touch-tap switches and 1.10.0's camera and pose fixes were checked by measurement and rendering, not on a running game.
+- I booted test builds of this release on a DSi through TWiLight Menu++ and on a DSPico, into the first case. Nothing deeper has been tried on real hardware, and no original DS has been tried at all.
+- "Gavelle" has no accent on the Case 4 visitor log, in Organizer descriptions and in Mind Chess, because the lettering there has no accented letters. In dialogue it is Gavèlle as before.
+- About one character in 180 is still the fan translation, where Capcom's Collection has no matching text or its wording does not fit a Mind Chess row's bar. The lines I wrote in Capcom's style are counted separately.
 - Bugs listed as fixed in an earlier version have come back before. If something here shows up again, say so. That matters more than this note saying it is handled.
+
+**How the figure is counted.** 99.4% is the share of the script's characters that are Capcom's, measured by a tool in the repository (the README says how to run it). The counting changed slightly: a fan row already matching Capcom's wording now counts as Capcom's, and my own lines are reported separately. 1.10.0 said 98.8%; before the 1.5.0 correction the figure was 96.5%, which counted fan-written rows as official once Capcom's names were swapped in.
 
 ## Files
 
-- `gk2port-windows-x64.exe` and `gk2port-linux-x64`: the build tool, with `SHA256SUMS` alongside them. `gk2port --verify` checks a finished ROM against this version's published reference, `d6f3891ab53609cfff938adb2c79d4bc3f26a6d86697b5167db8f864da0a4a51`.
-- `Prosecutors-Path-1.10.0-fan-base.xdelta` (3,923,588 bytes, sha256 `5c7d4986647b003103f608a16d22dd6d4db5c2b84881f7cceeb608320a40d785`): the patch, uploaded separately and deliberately left out of `SHA256SUMS`, since it carries Capcom's script rather than just tool code.
-- `GK2-v1.10.0.zip`: the same patch bundled with `xdelta3.exe` and a short README, for anyone who would rather not install a separate tool.
+- `gk2port-windows-x64.exe` and `gk2port-linux-x64`: the build tool, with `SHA256SUMS` alongside them. `gk2port --verify` checks a finished ROM against this version's published reference, sha256 fccfb88e9943c11dc7f9a00ab7c61d471c050495bcf9899aa99b021afada34f4.
+- `Prosecutors-Path-1.11.0-fan-base.xdelta` (3,928,935 bytes, sha256 ab15e528aedcf684b771f1541d978384e9689da0711982c31c97f38ac5379fe8): the patch, uploaded separately and deliberately left out of `SHA256SUMS`, since it carries Capcom's script rather than just tool code.
+- `GK2-v1.11.0.zip`: the same patch bundled with `xdelta3.exe` and a short README, for anyone who would rather not install a separate tool.
 - Full apply steps, source and output sizes and hashes, and troubleshooting are in [README.md](README.md).
 
 ## Credits
 
-Thanks to **JPScaravino** for the playtesting: Episodes 1 and 3, and the second half of Episode 2, across several builds. The AAI2 Final v2 fan translation team did the hard part: without their patch there is nothing to inject into and no font to render the result. This project is built entirely on top of their work and leaves their ATTENTION notice intact in every build. The tooling was written with LLM assistance, Claude, driven through Claude Code, over a series of sessions; what ships in the ROM is Capcom's own script, art and recordings plus the fan team's assets, nothing generated.
+Thanks to **JPScaravino** for the playtesting: Episodes 1, 3 and 4, and the second half of Episode 2, across several builds. His save state found the Lotta crash and his screenshot the stray Logic banner letters. The AAI2 Final v2 fan translation team did the hard part: without their patch there is nothing to inject into and no font to render the result. This project is built entirely on their work and leaves their ATTENTION notice intact in every build. The tooling was written with LLM assistance, Claude, driven through Claude Code,; what ships in the ROM is Capcom's own script, art and recordings plus the fan team's assets, nothing generated.

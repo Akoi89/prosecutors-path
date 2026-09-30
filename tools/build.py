@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import locate
 from paths import work, data, FROZEN
 
-VERSION = '1.10.0'
+VERSION = '1.11.0'
 ISSUES = 'https://github.com/Akoi89/prosecutors-path/issues'
 # sha256 of the ROM this version's tools produce from the AAI2 Final v2 base.
 # --verify checks a built ROM against it. Update ONLY when the injector changes
@@ -33,7 +33,7 @@ ISSUES = 'https://github.com/Akoi89/prosecutors-path/issues'
 # the box is broken instead of running off the edge - the whole script moves).
 # NOTE this hash is VERSION-SPECIFIC: title_assets paints 'v' + VERSION onto the
 # title screen, so bumping VERSION alone changes the ROM. Move both together.
-REFERENCE_ROM_SHA256 = 'd6f3891ab53609cfff938adb2c79d4bc3f26a6d86697b5167db8f864da0a4a51'
+REFERENCE_ROM_SHA256 = 'fccfb88e9943c11dc7f9a00ab7c61d471c050495bcf9899aa99b021afada34f4'
 
 # Bundle name prefixes -> where their TextAssets go. Addressables appends a content
 # hash to every bundle, so these must be matched by prefix, never by full name.

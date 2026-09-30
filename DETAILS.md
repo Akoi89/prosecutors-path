@@ -160,17 +160,19 @@ hit the thing they now prevent.
 
 ## Coverage
 
-Measured on v1.10.0 with `tools/coverage.py`:
+Measured on the 1.11.0 release ROM (sha256 fccfb88e9943c11dc7f9a00ab7c61d471c050495bcf9899aa99b021afada34f4) with `python tools/coverage.py`:
 
 | Episode | Official | character units |
 |---|---|---|
 | 1. *Turnabout Trigger* | 97.7% | 175,424 / 179,474 |
-| 2. *The Captive Turnabout* | 99.9% | 368,362 / 368,696 |
+| 2. *The Captive Turnabout* | 100.0% | 368,696 / 368,696 |
 | 3. *Turnabout Legacy* | 100.0% | 377,751 / 377,751 |
-| 4. *A Turnabout Forsaken* | 98.4% | 292,970 / 297,663 |
+| 4. *A Turnabout Forsaken* | 100.0% | 297,663 / 297,663 |
 | 5. *Turnabout for the Ages* | 100.0% | 497,811 / 497,811 |
-| Menus & UI | 88.0% | 98,157 / 111,588 |
-| **Total** | **98.8%** | 1,810,475 / 1,832,983 |
+| Menus & UI | 94.5% | 105,423 / 111,588 |
+| **Total** | **99.4%** | 1,822,768 / 1,832,983 |
+
+**The counting changed in 1.11.0, slightly.** A fan row that already reads exactly as Capcom's wording now counts as Capcom's (10 rows, 195 units; the total is 99.4% with or without it), and 29 rows I wrote in Capcom's style, where Capcom had nothing that fit, are reported on their own line (1,783 fan units replaced) and counted as neither. Rows the build splits to fit the engine's load buffer are folded back into their original rows before comparing, so the split does not affect the count. 1.10.0 measured 98.8%.
 
 **The counting changed in 1.5.0.** Every release from v1.4.0 to v1.4.4 quoted 96.5%, and the
 ROM did not get worse when that figure dropped; the counting got stricter. `tools/coverage.py` used to call a string official
@@ -510,8 +512,9 @@ python audits/audit_fixtures.py         # prove the audits can actually fail
 | `audits/audit_choicearg.py` | A choice-menu {E187} argument that cannot resolve on the DS: a strip id past the DS's own block, or a target string index skewed against the fan (the Ep2 DS[58] frozen-prompt defect) |
 | `audits/audit_indexargs.py` | Any string-index argument, other than {E187}/{E081}, that no longer points at the fan's string (the Case 2 and Case 4 rebuttal freezes) |
 | `audits/audit_staging.py` | A string's camera, character-position or pose command sequence that no longer matches the fan's, in the same message box (the Case 2 camera fault) |
+| `audits/audit_hotspots.py` | Whether the tap rectangle for Case 4's "point at the burn mark" prompt still covers those words and nothing else; for the nine picture prompts with a local image, whether image and rectangle still equal the fan's |
 | `audits/audit_zeros.py` | A 0x0000 unit in text position that the fan ROM didn't already ship there, which ends the DS engine's string read early |
-| `audits/audit_fixtures.py` | Breaks a copy of your build sixteen ways across twelve of the audits (audit_choicearg gets two, one per fault class; audit_staging gets three; audit_widgets gets two), and checks each one notices |
+| `audits/audit_fixtures.py` | Breaks a copy of your build nineteen ways across fourteen scripts (the thirteen audits that have a fixture, and the line-width measurement; audit_choicearg gets two, one per fault class; audit_indexargs two; audit_staging three; audit_widgets two), and checks each one notices |
 | `audits/audit_typography.py` | Not a width check, a SHAPE check: a spurious space, a line opening with a comma, empty brackets, a stray blank line. None of those make a line too wide, which is how the v1.9.0 development build put a space after 144 re-opened brackets and survived a full review. Comparative against an older ROM, since several of these quirks predate this port; `--selftest` proves it can fail against eight broken fixtures |
 | `audits/measure_linewidth.py` | Not an audit, a measurement: how many dialogue lines are wider than the 240px box, using the font's real advances. Its scope is pinned in its docstring because four differently scoped walkers gave four different line totals while agreeing exactly on the over-budget count, so any figure taken from it is quoted with its command |
 | `spt.py` | SPT container parser, both variants, with offset-scale detection |
@@ -524,7 +527,7 @@ python audits/audit_fixtures.py         # prove the audits can actually fail
 | `inject.py` | Mapping, structural guards, ROM rebuild |
 | `loc_patch.py` | Evidence, profiles and Logic cards from the Unity Localization tables |
 | `logic_names.py` | Maps each DS Logic keyword slot to Capcom's official short name |
-| `logic_cards.py` | Renders those names into the Logic card and banner images |
+| `logic_cards.py` | Renders those names into the Logic card and banner images; since 1.11.0 it also rewrites a banner's whole stored extent, so leftover fan letters past the declared data cannot show |
 | `voices.py` | Capcom's English shouts from the Collection into the DS sound archive |
 | `names.py` | The fan→official character-name map, applied only to strings that kept fan text |
 | `plates.py` | Redraws the nameplate and title-card graphics in the fan's own pixel font |
@@ -533,12 +536,16 @@ python audits/audit_fixtures.py         # prove the audits can actually fail
 | `cg_names.py` | Re-letters the fan character names drawn into the room map and the two log tables with the official ones; `map_font.json` is the fan's small map face |
 | `cg_art.py` | Writes the six shipped close-up pictures in `cg_art_final/` (briefing diagrams, cake placards, TV logo, movie poster, magazine) into the ROM and derives the TV logo's 60 zoom frames from the TV picture; `cg_art_reg.json` holds the measured framing of each zoom frame inside Capcom's picture |
 | `build_map.py` / `map_ids.py` | Fuzzy n-gram matching of DS entries to Collection files |
-| `lz11.py` / `nitro.py` | Nintendo LZ11 and NCGR/NCLR/NSCR/NCER/NANR |
+| `lz11.py` / `nitro.py` | Nintendo LZ11 (`lz11.compress` is a real optimal-parse encoder since 1.11.0, used for the Mind Chess banner) and NCGR/NCLR/NSCR/NCER/NANR |
 | `episode_titles.py` | The official episode names in the save-screen strings (on since 1.5.0) |
 | `title_assets.py` | Title logo, episode-title sprites and Logic cards: pulls the assets from the Collection and applies `extract_logo` / `title_logo` / `title_text` / `logic_cards` |
 | `title_version.py` | Paints the build's version into the title screen's empty corner |
 | `condense.py` / `condense_generated.py` | The word-index edits that fit 111 official descriptions into the DS box (result-hashed, no Capcom text) |
 | `coverage.py` | The coverage figures above, recomputed from a built ROM |
+| `rowsplit.py` | Splits any script row whose entry would overrun the engine's fixed 0x2000 load buffer into two chained rows, cutting only at a box end, with every word kept (the 1.11.0 Case 4 crash fix) |
+| `rowfold.py` | Folds those split rows back through the build's split manifest so the audits and `coverage.py` see the fan's row layout |
+| `e11c.py` | Puts back the fan's `{E11C}` touch-tap on/off commands the port had dropped, and removes three it had added (hash-guarded rows) |
+| `bufcheck.py` | Build-time checks that no script entry, text box, examine row, graphics entry, cutdata slot or Logic banner exceeds what its loader can hold; run by every build |
 | `desc_overflow.py` | Lists every condensed description four ways from your own extracted data |
 
 ---
@@ -555,8 +562,8 @@ grounded in measurements over the real files rather than in anyone's recollectio
 be trusted without trusting whoever built it, and the published binary has been confirmed
 to reproduce that hash byte-for-byte.
 
-The 13 audits in [`audits/`](audits) guard the structural failure classes, and **each one
-is meant to be tested against a deliberately corrupted input**. `audits/audit_fixtures.py`
+The 14 audits in [`audits/`](audits) guard the structural failure classes, and **each one
+but `audit_typography.py`, which checks a shape rather than a fault, is tested against a deliberately corrupted input**. `audits/audit_fixtures.py`
 breaks a copy of your build (or, for the title audit, of the fan artwork it reads) in exactly
 the way each one claims to detect and checks it notices, reporting the line that changed.
 Run it yourself; it never touches `out/` or `dump/`. One of those fixtures immediately
@@ -603,7 +610,7 @@ only works if someone reads the wall.
 
 So treat the guards as a record of what has actually gone wrong rather than proof that
 nothing else will, and treat the code as reviewable rather than authoritative. It is about
-13,070 lines across 52 modules, plus 14 audit scripts (the 13 audits and the harness that tests them), MIT licensed, and it ships as source precisely so you do
+18,390 lines across 67 modules, plus 15 audit scripts (the 14 audits and the harness that tests them), MIT licensed, and it ships as source precisely so you do
 not have to take any of the above on faith. Read it before you trust it with a ROM you
 care about, and recompute anything here that matters to you.
 
