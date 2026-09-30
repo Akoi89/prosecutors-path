@@ -117,19 +117,23 @@ titles are redrawn, what doesn't port and why, and the tool inventory.
 3 and 4 and the second half of Episode 2, across several builds. His save state found the
 Case 4 crash that 1.11.0 fixes.
 
-The **AAI2 fan translation team** did the hard part:
-**[Gyakuten Kenji 2: AAI2 Final v2](https://www.romhacking.net/translations/2260/)**.
+Built on the **AAI2 fan translation team**'s
+**[Gyakuten Kenji 2: AAI2 Final v2](https://www.romhacking.net/translations/2260/)**, the
+English translation that stood alone for over a decade.
 
-This is built entirely on top of their work: their variable-width font engine, most of
-their English graphics, their menus, their ROM. Without the Final v2 patch there's nothing
-to inject *into*, and no font capable of rendering the result. They also solved problems
-this project simply inherits, like fitting English into a script laid out for Japanese.
+Their patch is the base this one applies to. Its variable-width font engine renders the
+English, and the interface, the menus and the graphics this project doesn't redraw are still
+theirs. Without it there's nothing to inject into.
 
-If you haven't played their translation, play it. It stood alone for over a decade and it's
-genuinely good. This is a different thing, not a better one: it swaps in Capcom's wording,
-titles and voices for people who want the official script on hardware.
+On top of that, this project replaces their script with Capcom's official one and does the
+work that swap takes: reverse-engineering the game's script commands so Capcom's text runs
+on the DS engine, redrawing the lettered artwork (nameplates, evidence and Logic cards,
+choice buttons, banners, close-up documents, the title logo) from fonts harvested at build
+time, bringing in Capcom's voiced shouts, restoring the DS's own staging, and fixing the
+freezes and crashes a different script exposes.
 
-Their ATTENTION notice is left intact in every build, and should stay that way.
+If you haven't played their translation, it's well worth it. This is a different thing, not
+a better one: it's for people who want Capcom's official script on the DS.
 
 *Gyakuten Kenji 2* and the *Ace Attorney Investigations Collection* are © Capcom.
 
