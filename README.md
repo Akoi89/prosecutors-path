@@ -68,10 +68,6 @@ list it falls on, send it anyway.
 - **"Gavelle" has no accent in a few places.** The Case 4 visitor log, Organizer
   descriptions and Mind Chess spell it without the grave, because the lettering there has no
   accented letters. In dialogue it is Gavèlle as before.
-- **Bugs fixed in an earlier version can come back.** Several problems listed as fixed in
-  the release notes, a hang in Episode 1, a mouth moving on a silent line, quotation marks
-  drawing wrong, were each found by one person playing. If you see one of them now, that
-  matters more than the release note saying it was handled, so please say so.
 - **On real hardware, dialogue that turns into strings of accented letters is the game's
   anti-piracy check.** Current versions of TWiLight Menu++ and the DSpico's Pico Loader
   handle it for this patch, and I tested both. If you see it, update your loader or switch
