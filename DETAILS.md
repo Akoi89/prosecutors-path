@@ -614,10 +614,10 @@ nothing else will, and treat the code as reviewable rather than authoritative. I
 not have to take any of the above on faith. Read it before you trust it with a ROM you
 care about, and recompute anything here that matters to you.
 
-That is also why this is offered as a **test build** rather than a finished one, and why
-[issue #1](../../issues/1) asks for players rather than for approval. Episodes 1 and 3,
-and the second half of Episode 2, have been finished by a tester, across several builds;
-the automated rig has finished none of them.
+That is also why [issue #1](../../issues/1) asks for players rather than for approval.
+Episodes 1, 3 and 4 and the second half of Episode 2 have been finished by a tester,
+across several builds. Episode 5 hasn't been reported finished, and the automated rig has
+not finished an episode.
 
 ---
 

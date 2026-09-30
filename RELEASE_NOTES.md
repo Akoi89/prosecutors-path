@@ -48,11 +48,11 @@ Version 1.11.0 fixes a Case 4 crash that 1.10.0 and earlier versions can hit aft
 
 ## Known problems
 
-- A lot of optional dialogue (wrong answers, side conversations) still hasn't been run by anyone; see the Credits for what has been finished. The crash fix was checked by replaying the tester's own save, and he then finished Episode 4 on a later test build. Episode 5 has not been reported finished. The Logic banner fix, the touch-tap switches and 1.10.0's camera and pose fixes were checked by measurement and rendering, not on a running game.
+- The tester JPScaravino has finished Episodes 1, 3 and 4 and the second half of Episode 2, across several builds (the Credits have the detail). Episode 5 hasn't been reported finished, and a lot of optional dialogue (wrong answers, side conversations) hasn't been played by anyone. The crash fix was checked by replaying his own save, and he then finished Episode 4 on a later test build. The Logic banner fix, the touch-tap switches and 1.10.0's camera and pose fixes were checked by measurement and rendering rather than on a running game.
 - I booted test builds of this release into the first case on a DSi through TWiLight Menu++ and on a DSPico, and the release build boots on both too. Nothing deeper has been tried on real hardware, and no original DS has been tried at all.
 - "Gavelle" has no accent on the Case 4 visitor log, in Organizer descriptions and in Mind Chess, because the lettering there has no accented letters. In dialogue it is Gavèlle as before.
 - About one character in 180 is still the fan translation, where Capcom's Collection has no matching text or its wording does not fit a Mind Chess row's bar. The lines I wrote in Capcom's style are counted separately.
-- Bugs listed as fixed in an earlier version have come back before. If something here shows up again, say so. That matters more than this note saying it is handled.
+- Bugs listed as fixed in an earlier version have come back before. If one shows up again, please say so.
 
 **How the figure is counted.** 99.4% is the share of the script's characters that are Capcom's, measured by a tool in the repository (the README says how to run it). The counting changed slightly: a fan row already matching Capcom's wording now counts as Capcom's, and my own lines are reported separately. 1.10.0 said 98.8%; before the 1.5.0 correction the figure was 96.5%, which counted fan-written rows as official once Capcom's names were swapped in.
 
