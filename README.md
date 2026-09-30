@@ -26,20 +26,12 @@ and the title screen are all redrawn at build time.
 
 > ### Playtesters wanted
 >
-> **Episode 1 has been finished, on an older build (v1.8.5).** The second half of Episode 2,
-> from Gavèlle's rebuttal to the end, has been finished on the 1.10.0 candidate, Episode 3
-> was finished on v1.9.0 or v1.9.1 (the tester isn't sure which), and Episode 4 was finished
-> on the 1.11 test builds (started on the first, finished on the third, "works perfectly
-> from start to finish"). Episode 5 hasn't been reported finished, and the automated rig
-> hasn't finished any of them. Of
-> the game's ~41,700 message boxes, about 5,100 have been run by a script
-> that can only press A and tap, and several hundred more by hand: Episode 1 chapter 1 end
-> to end, Episode 2 chapters 1 and 2, part of chapter 3 and chapter 4's opening, and
-> Episode 5 chapter 4's opening. Episode 3's fourth chapter went through the rig instead,
-> about 1,000 boxes with no hangs, which is where the accented nameplate was first
-> confirmed in-game. Episode 1's complete Organizer and Episode 4's complete evidence list
-> were read card by card on the shipped build. Every hang a player actually hit was found
-> by playing, not by an offline check.
+> The tester JPScaravino has finished Episodes 1, 3 and 4 and the second half of Episode 2,
+> across several builds, most recently Episode 4 on the 1.11 test builds ("works perfectly
+> from start to finish"). **Episode 5 hasn't been reported finished yet**, and a lot of
+> optional dialogue (wrong answers, side conversations) hasn't been played anywhere, so
+> reports from either help most. [TESTING.md](TESTING.md) says which build each episode was
+> played on and what the automated rig has covered.
 >
 > **[Report anything wrong in issue #1](../../issues/1)**, not just things that stop.
 > Wrong or odd wording, text that runs past its box, a name that changes between screens,
@@ -67,11 +59,10 @@ list it falls on, send it anyway.
   Capcom never localised this game officially on the DS, so where their Collection text
   has no counterpart here the AAI2 fan translation stays. Those lines are not wrong, they
   are just not Capcom's, and they can read slightly differently in tone.
-- **Most of this game has never been run.** Episodes 1, 3 and 4, and the second half of
-  Episode 2, have now been finished by a tester, across several builds (the Playtesters
-  box above has the detail), but Episode 5, and most optional dialogue everywhere,
-  hasn't been. That is the single biggest thing wrong with this release, and it is why the invitation
-  above is so broad. [TESTING.md](TESTING.md) has the detail.
+- **Episode 5 hasn't been played through yet.** Episodes 1, 3 and 4 and the second half of
+  Episode 2 have been finished by a tester (the Playtesters box above has the detail), but
+  Episode 5 hasn't been reported finished, and a lot of optional dialogue hasn't been
+  played anywhere. If something looks off there, please report it.
 - **"Gavelle" has no accent in a few places.** The Case 4 visitor log, Organizer
   descriptions and Mind Chess spell it without the grave, because the lettering there has no
   accented letters. In dialogue it is Gavèlle as before.
@@ -157,7 +148,7 @@ Their ATTENTION notice is left intact in every build, and should stay that way.
 by running the tools on your own files. `tools/coverage.py` computes the coverage table, and
 `--verify` hashes a finished build against the release's published reference, so a ROM can
 be trusted without trusting whoever built it. The two exceptions are the message box counts
-above, the ~41,700 total and the ~5,100 run by script. Those came from counts made during
+in [TESTING.md](TESTING.md), the ~41,700 total and the ~5,100 run by script. Those came from counts made during
 the work and no shipped tool reproduces them, which is why they carry a tilde. Read the
 coverage figure as measured and the box figures as estimates.
 
