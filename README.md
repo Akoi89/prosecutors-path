@@ -86,7 +86,7 @@ list it falls on, send it anyway.
   anti-piracy check.** Current versions of TWiLight Menu++ and the DSpico's Pico Loader
   handle it for this patch, and I tested both. If you see it, update your loader or switch
   to one of those. I also booted test builds of 1.11.0 into the first case on a DSi (through
-  TWiLight Menu++) and on a DSPico; nothing deeper has been tried on hardware, and no
+  TWiLight Menu++) and on a DSPico, and the release build boots on both; nothing deeper has been tried on hardware, and no
   original DS has been tried at all.
 
 ## What you need
