@@ -68,9 +68,6 @@ list it falls on, send it anyway.
 - **"Gavelle" has no accent in a few places.** The Case 4 visitor log, Organizer
   descriptions and Mind Chess spell it without the grave, because the lettering there has no
   accented letters. In dialogue it is Gavèlle as before.
-- **Two Mind Chess answers are shortened.** In Capcom's full wording they're too wide for
-  their bar, so they show it with a word or two dropped: "You're the one who found the
-  body!" and "You remembered all the evidence!"
 - **Bugs fixed in an earlier version can come back.** Several problems listed as fixed in
   the release notes, a hang in Episode 1, a mouth moving on a silent line, quotation marks
   drawing wrong, were each found by one person playing. If you see one of them now, that
