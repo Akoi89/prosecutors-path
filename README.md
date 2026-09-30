@@ -13,7 +13,9 @@ the DS game, so you can play the official localization on original hardware, on 
 flashcart, or in an emulator.
 
 **99.4% of the script's text is Capcom's writing**, measured by `tools/coverage.py`, so you
-can recompute it yourself. Earlier releases said 96.5%; that counted fan-written rows as
+can recompute it yourself. Based on an analysis of the game's code rather than a full
+playthrough, about 99.8% of the text you can actually see in the game is Capcom's official
+wording. Earlier releases said 96.5%; that counted fan-written rows as
 official once Capcom's names had been swapped in, which isn't the same thing. The counting
 changed slightly again in 1.11.0: a fan row that already reads exactly as Capcom's wording
 now counts as Capcom's (it doesn't move the figure at this precision), and the lines I wrote
@@ -55,7 +57,7 @@ and the title screen are all redrawn at build time.
 Context, not a filter. If you're looking at something and can't tell which side of this
 list it falls on, send it anyway.
 
-- **Some of the script is still the fan translation.** About one character in 180.
+- **A little of the script is still the fan translation.**
   Capcom never localised this game officially on the DS, so where their Collection text
   has no counterpart here the AAI2 fan translation stays. Those lines are not wrong, they
   are just not Capcom's, and they can read slightly differently in tone.

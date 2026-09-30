@@ -172,6 +172,8 @@ Measured on the 1.11.0 release ROM (sha256 fccfb88e9943c11dc7f9a00ab7c61d471c050
 | Menus & UI | 94.5% | 105,423 / 111,588 |
 | **Total** | **99.4%** | 1,822,768 / 1,832,983 |
 
+**The text the game can actually show (1.11.0, static analysis).** The 99.4% above counts every string stored in the ROM. Most of what is left over is never displayed: Japanese placeholder strings in the Mind Chess banks and lines that nothing in the game's code points to. Counting only the rows that a chain of script and code references can reach from a place the game starts, Capcom's share is 99.813% (conservative, rows that might be reachable count as shown) and 99.857% (rows proven reachable only). One code path could not be fully traced, so only "about 99.8%" is quoted publicly. Distrusting even the arguments that are displayed only gives 99.709%. This comes from reading the code, not from a playthrough. Method, row list and a second independent check: `playtest/SOLVE_visible_coverage.md` and `playtest/VERIFY_visible_coverage.md`.
+
 **The counting changed in 1.11.0, slightly.** A fan row that already reads exactly as Capcom's wording now counts as Capcom's (10 rows, 195 units; the total is 99.4% with or without it), and 29 rows I wrote in Capcom's style, where Capcom had nothing that fit, are reported on their own line (1,783 fan units replaced) and counted as neither. Rows the build splits to fit the engine's load buffer are folded back into their original rows before comparing, so the split does not affect the count. 1.10.0 measured 98.8%.
 
 **The counting changed in 1.5.0.** Every release from v1.4.0 to v1.4.4 quoted 96.5%, and the
