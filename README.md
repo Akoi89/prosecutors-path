@@ -162,14 +162,13 @@ script, art and recordings plus the fan team's assets; nothing in the ROM is gen
 text. The code is about 18,390 lines across 67 modules, plus 15 audit scripts (the 14 audits and the harness that tests them), MIT licensed, and it ships as source
 precisely so you don't have to take any of that on faith.
 
-Because every hang but one was found by **playing the game**, not by an offline check (the
-Case 4 freeze fixed in 1.10.0 was found by searching for the cause of the Case 2 one). Three
+Every hang but one was found by **playing the game**, not by an offline check (the Case 4
+freeze fixed in 1.10.0 was found by searching for the cause of the Case 2 one). Three
 examples, and what they say about the guards, are in [DETAILS.md](DETAILS.md).
 
 So treat the guards as a record of what has actually gone wrong rather than proof that
 nothing else will, and treat the code as reviewable rather than authoritative. That's also
-why this is a **test build**, and why [issue #1](../../issues/1) asks for players rather
-than for approval.
+why [issue #1](../../issues/1) asks for players rather than for approval.
 
 ## Legal
 

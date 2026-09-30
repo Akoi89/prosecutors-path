@@ -588,9 +588,9 @@ The tooling was written with **LLM assistance**: Claude, driven through Claude C
 a series of sessions. That is stated plainly rather than buried, and so is the rest of the
 record, including the parts that do not flatter it.
 
-Because every hang but one was found by **playing the game**, not by an offline check (the
-Case 4 freeze fixed in 1.10.0 was found by searching for the cause of the Case 2 one).
-Three of them:
+Every hang but one was found by **playing the game**, not by an offline check (the Case 4
+freeze fixed in 1.10.0 was found by searching for the cause of the Case 2 one). Three of
+them:
 
 - a mode launcher whose argument had been converted into a letter, because the
   argument's constant value *was* the letter `D`;
