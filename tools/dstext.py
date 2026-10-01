@@ -678,6 +678,89 @@ def _line_width(seq):
     return total
 
 
+# SCREAMS WITH A NEWLINE IN THE MIDDLE. Capcom's long screams ("OOOOOOOOOOOOOOOOOOOOOOOO")
+# hold hard newlines with no space on either side, placed to suit the Switch's wider
+# box. The ordinary rule below turns every newline into a space, and _layout() sets
+# that space inline whenever the next piece still fits on the row, so on the DS a 6 px
+# gap appeared in the middle of the scream ("AAAAAAAAAAAAAA AAAAAAAAAAAA"; a player
+# reported it in Wang's and Knight's breakdowns, entries 27 and 32). A newline with
+# the same letter running three or more times on BOTH sides is not a word break, so
+# it is dropped and the scream stays one run. The run is counted over text units only
+# (control codes and their arguments are skipped, and may sit between the two halves).
+# Run length 3 is not a tuned figure: across every newline the build converts, the
+# longest run on a same-letter break that is NOT a scream is 2 ("chess" / "set",
+# "too" / "often"), and the shortest on a scream is 3. Ordinary newlines are untouched.
+SCREAM_NL_FIX = True
+SCREAM_RUN_MIN = 3
+
+
+def _scream_newlines(units):
+    """Positions in units of the 0x0A that sit inside a scream (see SCREAM_NL_FIX)."""
+    if not SCREAM_NL_FIX:
+        return set()
+    text, i, n = [], 0, len(units)
+    while i < n:                    # positions of text units: no codes, no arguments
+        if CTRL(units[i]):
+            v = units[i]; i += 1
+            for _ in range(ARGS.get(v, DEFAULT_ARGS)):
+                if i < n and not CTRL(units[i]):
+                    i += 1
+        else:
+            text.append(i); i += 1
+    def same(u, c):                 # ASCII letter u is the letter c, either case
+        return (0x41 <= u <= 0x5A or 0x61 <= u <= 0x7A) and (u | 0x20) == c
+    found = set()
+    for k in range(1, len(text) - 1):
+        if units[text[k]] != 0x0A:
+            continue
+        a, b = units[text[k - 1]], units[text[k + 1]]
+        if not (0x41 <= a <= 0x5A or 0x61 <= a <= 0x7A) or (a | 0x20) != (b | 0x20):
+            continue
+        c = a | 0x20
+        left = 0
+        while k - 1 - left >= 0 and same(units[text[k - 1 - left]], c):
+            left += 1
+        right = 0
+        while k + 1 + right < len(text) and same(units[text[k + 1 + right]], c):
+            right += 1
+        if left >= SCREAM_RUN_MIN and right >= SCREAM_RUN_MIN:
+            found.add(text[k])
+    return found
+
+
+def selfcheck_scream_newlines():
+    """Failures (a list of strings, empty when sound) of the scream-newline rule.
+    Used by build.py --selftest and tools/test_dstext_scream.py."""
+    global SCREAM_NL_FIX
+    if not SCREAM_NL_FIX:
+        return ['SCREAM_NL_FIX is off']
+    def cv(units, **kw):
+        return convert(units, **kw)[0]
+    def u(s):
+        return [ord(c) for c in s]
+    bad = []
+    scream = u('AAAAAAAA\nAAAAAAAA')
+    if SPACE in cv(scream) or 0x0A in cv(scream):
+        bad.append('mid-scream newline was not joined')
+    if SPACE in cv(u('AAAA\n') + [0xE280] + u('AAAA')):
+        bad.append('mid-scream newline across a control code was not joined')
+    if SPACE in cv(u('NOOOO\nOOOOH!')):
+        bad.append('NOOOO/OOOOH scream was not joined')
+    for s in ('too\noften', 'chess\nset', 'HHHHHHH\nHEH', 'AAAA\nBBBB', 'AAAAAAAA\n AAAAAAAA',
+              'Hello there,\nfriend.'):
+        if SPACE not in cv(u(s)) or 0x0A in cv(u(s)):
+            bad.append('ordinary break was changed: %r' % s)
+    if 0x0A not in cv(scream, hard_nl=True) or SPACE in cv(scream, hard_nl=True):
+        bad.append('hard_nl=True no longer keeps a break')
+    SCREAM_NL_FIX = False
+    try:
+        if SPACE not in cv(scream):
+            bad.append('switch off did not restore the old behaviour')
+    finally:
+        SCREAM_NL_FIX = True
+    return bad
+
+
 def convert(units, wrap=True, page=True, hard_nl='e20d'):
     """hard_nl: 'e20d' keeps a source newline as a line break only when {E20D} follows
     (location/date cards); True keeps every newline; False folds them all to spaces."""
@@ -952,6 +1035,7 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
                         elif c == PAREN_CLOSE: depth = max(0, depth - 1)
 
     # Split the stream into messages; a message ends at a box-terminating code.
+    scream_nl = _scream_newlines(units)
     i, n = 0, len(units)
     buf = []
     while i < n:
@@ -1062,8 +1146,11 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
         cur = []
         for k, u in enumerate(run):
             if u == 0x0A:
-                if cur: buf.append(('w', word_units(cur))); cur = []
                 nxt = units[base + k + 1] if base + k + 1 < n else None
+                if (base + k in scream_nl and hard_nl is not True
+                        and not (hard_nl == 'e20d' and nxt == LAYOUT_ROW)):
+                    continue        # inside a scream: no break, no space (SCREAM_NL_FIX)
+                if cur: buf.append(('w', word_units(cur))); cur = []
                 if hard_nl is True or (hard_nl == 'e20d' and nxt == LAYOUT_ROW):
                     buf.append(('br', None))
                 elif not buf or buf[-1][0] != 's':
