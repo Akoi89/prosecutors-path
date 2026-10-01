@@ -9,10 +9,10 @@ differently:
 
   281  64x64   the business card: the fan's "Raymond Shields", Capcom's Eddie Fender
                (Collection texture itm01_017_00_l_eng; the Japanese twin
-               itm01_017_00_l reads 信楽 盾之)
+               itm01_017_00_l reads Shigaraki Tateyuki, the fan's Raymond Shields)
   573  64x64   the victim's letter, with the fan's "Jill Crane"; Capcom's card reads
                Ms. Rosie Ringer (itm03_00f_00_l_eng; Japanese twin itm03_00f_00_l,
-               篭目 つばさ様)
+               Kagome Tsubasa-sama, the fan's Jill Crane)
   575  40x40   the small twin of 573 (four OBJs of one cell)
 
 The fan's icons are downscales of the same art the Collection ships as 300x300
@@ -375,17 +375,17 @@ def patch(container, textures, reg, log=None, any_rom=False):
 
     t = table(container)
     ext = extents(t, len(container))
-    try:
-        parts = {}
-        for e, spec in ICONS.items():
-            for i, want in ((e, spec['sha']), (spec['pal'], spec['pal_sha'])):
+    parts = {}
+    for e, spec in ICONS.items():
+        for i, want in ((e, spec['sha']), (spec['pal'], spec['pal_sha'])):
+            try:
                 dec, _n = entry_decoded(container, i)
-                have = hashlib.sha256(dec).hexdigest()
-                if have != want:
-                    return skip('%s entry %d sha256 %s is not the fan\'s' % (CONTAINER, i, have[:12]))
-                parts[i] = dec
-    except (IndexError, ValueError, struct.error) as ex:
-        return skip("%s does not read as the fan's (%s)" % (CONTAINER, ex))
+            except (IndexError, ValueError, struct.error) as ex:
+                return skip("%s does not read as the fan's (%s)" % (CONTAINER, ex))
+            have = hashlib.sha256(dec).hexdigest()
+            if have != want:
+                return skip('%s entry %d sha256 %s is not the fan\'s' % (CONTAINER, i, have[:12]))
+            parts[i] = dec
     out = bytearray(container)
     info = {}
     for e, spec in ICONS.items():

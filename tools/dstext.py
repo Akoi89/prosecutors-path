@@ -1125,8 +1125,8 @@ def _fill_screams(tokens, auto=False, want_rows=None, tails=None, info=None):
     control codes with no space between. With auto=True the scream is instead found by
     its letters (a letters-only word holding three identical letters in a row, plus the
     letters-only words joined to it through codes) and kept only when it is wider than
-    a row, i.e. when the layout has to break it; want_rows is the row count the box
-    already has (the balance then uses at least that many rows)."""
+    a row, i.e. when the layout has to break it. want_rows is not passed by any caller
+    in this build (kept for a box that must keep a fixed row count; untested)."""
     n = len(tokens)
     inrun = [False] * n
     for i, t in enumerate(tokens):
