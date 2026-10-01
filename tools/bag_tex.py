@@ -69,7 +69,10 @@ KEEP_DIFF = 12                  # a masked texel whose picture colour moved by l
 PAPER_LUMA = 200                # a texel of the new picture at least this light and this grey is bare paper
 PAPER_SPREAD = 25
 PAPER_SIGMA = 3.0               # texels; the blur that gives the paper's local tone around an erased letter
-MIN_PATCH = 6                   # an erased patch smaller than this is left to the tone-matched redraw
+ERASE_GAIN = 6                  # luma: a masked paper texel the fan's picture shows this much darker had ink on it
+GRAIN_K = 2.0                   # paper copied as grain may not be darker than the local paper by more than this many
+                                # standard deviations of the paper's own grain
+CHECK_K = 2.5                   # compose raises if erased ink still shows darker than this
 DONOR_RANGE = 24                # how far, in texels, to look for paper to copy the grain from
 
 
@@ -365,8 +368,10 @@ def compose(btx, fan, new, reg=None, tone=TONE_SIGMA):
       - the picture barely changed there (the mask is grown past the letters):
         the fan's texel stays;
       - the new picture is bare paper where the fan's had ink (an erased
-        letter): paper copied from nearby paper of the texture itself, grain
-        included (paper_patch);
+        letter), or its texel colour moved: paper copied from nearby paper of
+        the texture itself, grain included (paper_patch), never a dark line;
+        raises if any such texel still shows darker than the local paper by
+        more than CHECK_K grain deviations;
       - the rest (new letters and their edges): the picture area-averaged into
         texels, shifted by the texture's tone (`tone` 0 skips the shift),
         snapped to the palette.
@@ -385,7 +390,10 @@ def compose(btx, fan, new, reg=None, tone=TONE_SIGMA):
     if tone:
         res = res + tone_offset(rgb, fres, ok & ~grow(tm, 4), tm, tone)
     keep = tm & (np.abs(nres - fres).max(axis=2) < KEEP_DIFF)
-    erased = tm & ~keep & _is_paper(nres)
+    paper = _is_paper(nres)
+    lost = tm & paper & (_luma(nres) - _luma(fres) >= ERASE_GAIN)      # fan ink the new picture does not have
+    erased = tm & paper & (~keep | lost)
+    keep &= ~erased
     target = np.clip(res, 0, 255)
     patches, em = [], np.zeros(tm.shape, bool)
     work = tm & ~keep
@@ -393,9 +401,10 @@ def compose(btx, fan, new, reg=None, tone=TONE_SIGMA):
     pw = donor_ok.astype(np.float64)
     pden = blur(pw, PAPER_SIGMA)
     ptone = np.stack([blur(rgb[:, :, c] * pw, PAPER_SIGMA) for c in range(3)], axis=2) / np.maximum(pden, 1e-9)[:, :, None]
+    dev = _luma(rgb) - _luma(ptone)                 # how far each texel sits from the paper's local tone
+    grain = float(dev[donor_ok & (pden > 0.2)].std())
+    donor_ok &= dev >= -GRAIN_K * grain             # no dark line or stroke may be copied as "grain"
     for comp in _components(erased):
-        if len(comp) < MIN_PATCH:
-            continue
         cols, shift = paper_patch(rgb, ptone, pden > 1e-3, comp, donor_ok)
         for (y, x), c in zip(comp, cols):
             target[y, x] = c
@@ -404,7 +413,12 @@ def compose(btx, fan, new, reg=None, tone=TONE_SIGMA):
     snapped, dist = nearest(target, pal)
     out = idx.copy()
     out[work] = snapped[work]
-    return with_texture(btx, TEXTURE, out), dict(texels=int(tm.sum()), kept=int((tm & keep).sum()),
+    left = lost & (pden > 1e-3) & (_luma(np.array(pal, np.float64)[out]) - _luma(ptone) < -CHECK_K * grain)
+    if left.any():
+        y, x = np.argwhere(left)[0]
+        raise BagTexError('fan ink survives where the new picture has none: %d texels, the first at (%d,%d), '
+                          'darker than the local paper by more than %.1f levels' % (left.sum(), x, y, CHECK_K * grain))
+    return with_texture(btx, TEXTURE, out), dict(texels=int(tm.sum()), kept=int((tm & keep).sum()), grain=grain,
                                                  erased=sum(len(c) for c, _s in patches), patches=patches,
                                                  moved=int((out != idx).sum()),
                                                  mean_de=float(dist[work].mean()), max_de=float(dist[work].max()),
