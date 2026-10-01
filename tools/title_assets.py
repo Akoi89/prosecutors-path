@@ -81,7 +81,7 @@ def render_fan_title_screen(title_local_path):
     return img
 
 
-def apply(dumpdir, rom_path, log=print, version=None):
+def apply(dumpdir, rom_path, log=print, version=None, any_rom=False):
     t = title_dir(dumpdir)
     fan_title = os.path.join(dumpdir, 'ds_fan', 'jpn', 'title_local.bin')
     rom = open(rom_path, 'rb').read()
@@ -179,7 +179,7 @@ def apply(dumpdir, rom_path, log=print, version=None):
     #     with the shipped picture's names in the changed texels only, in the
     #     texture's own palette (see tools/bag_tex.py)
     import bag_tex
-    rom, bag_changed = bag_tex.apply_to_rom(rom, dumpdir, log)
+    rom, bag_changed = bag_tex.apply_to_rom(rom, dumpdir, log, any_rom)
     if not bag_changed:
         log('bag texture: not redrawn (see reason above)')
 

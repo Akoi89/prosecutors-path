@@ -5,7 +5,8 @@ When the plans come out of the bag in the trash-can search, the game shows a 3D
 model, and the paper's picture is a texture, not a close-up: jpn/modelitemlocal.bin
 entry 1 (BTX0), texture `bag_01`, 256x256, 256 colours (format 4), palette
 `bag_01_pl`. The paper is the plan picture of jpn/upcut_local.bin entry 8
-squashed into about 188x126 texels at (4,0), so it carries the fan's
+squashed into about 188x126 texels (offset about (4.28, -4.31): the top
+rows of the picture are cut off), so it carries the fan's
 "Rooke / Knightley" legend and handwriting, which close-up 8 no longer shows
 (tools/cg_art.py draws Capcom's Rook / Knight there from
 tools/cg_art_final/008.png).
@@ -18,13 +19,20 @@ This module puts the same new names into the texture, and nothing else:
      tools/bag_tex_reg.json (a per-axis scale and offset from the picture's
      pixels to the texture's texels, fitted once offline by
      tools/bag_tex_register.py).
-  2. inside the mask only, the shipped picture is area-averaged through the same
-     transform, shifted by the texture's own tone there (the texture is about 22
-     levels darker than the picture it came from and shaded unevenly; the offset is
-     measured outside the mask and blurred across it), and snapped to the texture's
-     EXISTING palette (nearest colour in CIELAB, no dithering). Every texel outside the mask keeps the fan's index,
-     and the palette bytes are not touched, so the paper, the clip and the frame
-     are as they were.
+  2. inside the mask only (every texel outside it keeps the fan's index, and the
+     palette bytes are not touched, so the paper, the clip and the frame are as
+     they were), three kinds of texel:
+       - the picture barely changed there: the fan's texel stays;
+       - the new picture is bare paper where the fan's had ink (an erased
+         letter): the texture's own paper, its local tone plus the grain of
+         nearby paper (paper_patch);
+       - the new letters and their edges: the shipped picture area-averaged
+         through the same transform, shifted by the texture's own tone there
+         (the texture is about 22 levels darker than the picture it came from
+         and shaded unevenly; the offset is measured outside the mask and
+         blurred across it).
+     Redrawn texels are snapped to the texture's EXISTING palette (nearest
+     colour in CIELAB, no dithering).
   3. the BTX0 keeps its decompressed size, and the entry is stored as a real LZ11
      stream (tools/lz11.py) no larger than the fan's stored entry, so that no
      buffer the game sized for the fan's entry can be outgrown (the file-system
@@ -33,8 +41,8 @@ This module puts the same new names into the texture, and nothing else:
      built ROM.
 
 patch() guards on the sha256 of the fan's decoded BTX0 and of the fan's decoded
-picture 8, and leaves the file alone (with the reason logged) if either differs,
-so the routine never ships unproven.
+picture 8 and raises if either differs (under --any-rom it logs the reason and
+leaves the file alone), so the routine never ships unproven.
 
     texture(btx, name) / palette(btx, name) / with_texture(btx, name, idx)
     python tools/bag_tex.py FAN_modelitemlocal.bin DUMPDIR OUT.bin
@@ -57,6 +65,12 @@ MASK_THRESHOLD = 10             # summed |R,G,B| difference that counts as chang
                                 # identical outside the names: 496 pixels differ at 0, 489 at 20)
 MASK_GROW = 2                   # picture pixels the changed area is grown by
 TONE_SIGMA = 6.0                # texels; the blur that spreads the texture's tone over the redrawn patch
+KEEP_DIFF = 12                  # a masked texel whose picture colour moved by less than this (any channel) keeps the fan's index
+PAPER_LUMA = 200                # a texel of the new picture at least this light and this grey is bare paper
+PAPER_SPREAD = 25
+PAPER_SIGMA = 3.0               # texels; the blur that gives the paper's local tone around an erased letter
+MIN_PATCH = 6                   # an erased patch smaller than this is left to the tone-matched redraw
+DONOR_RANGE = 24                # how far, in texels, to look for paper to copy the grain from
 
 
 class BagTexError(ValueError):
@@ -287,28 +301,114 @@ def tone_offset(tex_rgb, fan_res, weight, need, sigma=TONE_SIGMA):
     return np.stack([blur(err[:, :, c] * wt, sigma) for c in range(3)], axis=2) / np.maximum(den, 1e-9)[:, :, None]
 
 
+def _luma(a):
+    return a @ np.array([0.299, 0.587, 0.114])
+
+
+def _is_paper(res):
+    """Texels of a resampled picture that are bare light paper."""
+    return (_luma(res) >= PAPER_LUMA) & (res.max(axis=2) - res.min(axis=2) <= PAPER_SPREAD)
+
+
+def _components(m):
+    """8-connected groups of True texels, each a list of (y, x)."""
+    seen = np.zeros(m.shape, bool)
+    out = []
+    for y, x in np.argwhere(m):
+        if seen[y, x]:
+            continue
+        st, comp = [(y, x)], []
+        seen[y, x] = True
+        while st:
+            cy, cx = st.pop()
+            comp.append((cy, cx))
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    ny, nx = cy + dy, cx + dx
+                    if 0 <= ny < m.shape[0] and 0 <= nx < m.shape[1] and m[ny, nx] and not seen[ny, nx]:
+                        seen[ny, nx] = True
+                        st.append((ny, nx))
+        out.append(comp)
+    return out
+
+
+def paper_patch(tex_rgb, tone, tone_ok, comp, donor_ok):
+    """Colours for an erased patch `comp` (list of (y, x)): the local tone of the
+    texture's paper around it (`tone`, a blur of the unredrawn paper texels,
+    defined where `tone_ok`), plus the grain of the nearest paper that fits:
+    the smallest shift of up to DONOR_RANGE texels whose copy of the patch
+    lies wholly on paper (`donor_ok`), grain being that paper's colour minus its
+    own local tone. An area-averaged picture has no grain, so pasted in it
+    reads as a smooth pale blob. -> (colours (n, 3), the shift)."""
+    h, w = donor_ok.shape
+    ys, xs = np.array([c[0] for c in comp]), np.array([c[1] for c in comp])
+    if not tone_ok[ys, xs].all():
+        raise BagTexError('no paper near the erased patch at texel (%d,%d) to take its tone from' % (xs[0], ys[0]))
+    ok = donor_ok & tone_ok
+    shifts = sorted(((dy, dx) for dy in range(-DONOR_RANGE, DONOR_RANGE + 1)
+                     for dx in range(-DONOR_RANGE, DONOR_RANGE + 1) if dy or dx),
+                    key=lambda t: (t[0] * t[0] + t[1] * t[1], t))
+    for dy, dx in shifts:
+        qy, qx = ys + dy, xs + dx
+        if qy.min() < 0 or qx.min() < 0 or qy.max() >= h or qx.max() >= w or not ok[qy, qx].all():
+            continue
+        grain = tex_rgb[qy, qx] - tone[qy, qx]
+        grain -= grain.mean(axis=0)      # the patch takes the local tone exactly; only the texture of the paper is copied
+        return np.clip(tone[ys, xs] + grain, 0, 255), (dy, dx)
+    raise BagTexError('no bare paper to copy the grain of the erased patch at texel (%d,%d) from' % (xs[0], ys[0]))
+
+
 def compose(btx, fan, new, reg=None, tone=TONE_SIGMA):
     """The BTX0 with the changed texels of bag_01 redrawn from `new` (a
     (192, 256, 3) picture), `fan` being the picture the fan's texture was made
-    from; `tone` 0 pastes the new picture's own colours. -> (new BTX0 bytes, info dict)."""
+    from. Inside the mask, three kinds of texel:
+      - the picture barely changed there (the mask is grown past the letters):
+        the fan's texel stays;
+      - the new picture is bare paper where the fan's had ink (an erased
+        letter): paper copied from nearby paper of the texture itself, grain
+        included (paper_patch);
+      - the rest (new letters and their edges): the picture area-averaged into
+        texels, shifted by the texture's tone (`tone` 0 skips the shift),
+        snapped to the palette.
+    -> (new BTX0 bytes, info dict)."""
     reg = reg or load_reg()
     idx = texture(btx, TEXTURE)
     _raw, pal = palette(btx, PALETTE)
     size = idx.shape[0]
     tm = texel_mask(changed_mask(fan, new), reg, size)
-    res, vy, vx = resample(new.astype(np.float64), reg, size)
+    nres, vy, vx = resample(new.astype(np.float64), reg, size)
+    fres, _vy, _vx = resample(fan.astype(np.float64), reg, size)
+    res = nres
+    rgb = np.array(pal, np.float64)[idx]
+    ok = np.zeros((size, size), bool)
+    ok[2:-2, 2:-2] = (vy[:, None] & vx[None, :])[2:-2, 2:-2]
     if tone:
-        fres, _vy, _vx = resample(fan.astype(np.float64), reg, size)
-        rgb = np.array(pal, np.float64)[idx]
-        ok = np.zeros((size, size), bool)
-        ok[2:-2, 2:-2] = (vy[:, None] & vx[None, :])[2:-2, 2:-2]
         res = res + tone_offset(rgb, fres, ok & ~grow(tm, 4), tm, tone)
-    snapped, dist = nearest(np.clip(res, 0, 255), pal)
+    keep = tm & (np.abs(nres - fres).max(axis=2) < KEEP_DIFF)
+    erased = tm & ~keep & _is_paper(nres)
+    target = np.clip(res, 0, 255)
+    patches, em = [], np.zeros(tm.shape, bool)
+    work = tm & ~keep
+    donor_ok = ok & ~grow(work, 1) & _is_paper(fres)
+    pw = donor_ok.astype(np.float64)
+    pden = blur(pw, PAPER_SIGMA)
+    ptone = np.stack([blur(rgb[:, :, c] * pw, PAPER_SIGMA) for c in range(3)], axis=2) / np.maximum(pden, 1e-9)[:, :, None]
+    for comp in _components(erased):
+        if len(comp) < MIN_PATCH:
+            continue
+        cols, shift = paper_patch(rgb, ptone, pden > 1e-3, comp, donor_ok)
+        for (y, x), c in zip(comp, cols):
+            target[y, x] = c
+            em[y, x] = True
+        patches.append((comp, shift))
+    snapped, dist = nearest(target, pal)
     out = idx.copy()
-    out[tm] = snapped[tm]
-    return with_texture(btx, TEXTURE, out), dict(texels=int(tm.sum()), moved=int((out != idx).sum()),
-                                                 mean_de=float(dist[tm].mean()), max_de=float(dist[tm].max()),
-                                                 mask=tm)
+    out[work] = snapped[work]
+    return with_texture(btx, TEXTURE, out), dict(texels=int(tm.sum()), kept=int((tm & keep).sum()),
+                                                 erased=sum(len(c) for c, _s in patches), patches=patches,
+                                                 moved=int((out != idx).sum()),
+                                                 mean_de=float(dist[work].mean()), max_de=float(dist[work].max()),
+                                                 mask=tm, erased_mask=em)
 
 
 # ---------------------------------------------------------------- container
@@ -336,18 +436,26 @@ def entry_btx(container):
     return btx, len(stored), size
 
 
-def patch(container, fan_picture, new_picture, log=None):
+def patch(container, fan_picture, new_picture, log=None, any_rom=False):
     """-> (new container bytes, changed). `fan_picture` and `new_picture` are
-    (192, 256, 3) uint8 RGB. Leaves the container alone, and says why, when
-    the fan's data are not what the routine was proven on; raises BagTexError
-    if the result would not fit the fan's entry."""
+    (192, 256, 3) uint8 RGB. If the fan's data are not what the routine was
+    proven on, raises BagTexError (a stale or foreign dump would otherwise
+    ship the fan's texture unnoticed); with `any_rom` (the build was told to
+    go on with a ROM that is not AAI2 Final v2) it logs the reason and leaves
+    the container alone instead. Raises BagTexError if the result would not
+    fit the fan's entry."""
     log = log or (lambda s: None)
 
     def skip(why):
-        log('bag texture: not redrawn (%s)' % why)
+        if not any_rom:
+            raise BagTexError('%s (pass --any-rom to build without the bag texture)' % why)
+        log('bag texture: NOT redrawn, --any-rom given (%s)' % why)
         return container, False
 
-    btx, fan_stored, fan_size = entry_btx(container)
+    try:
+        btx, fan_stored, fan_size = entry_btx(container)
+    except (BagTexError, IndexError, ValueError) as e:
+        return skip("%s entry %d does not read as the fan's (%s)" % (CONTAINER, ENTRY, e))
     have = hashlib.sha256(btx).hexdigest()
     if have != FAN_BTX_SHA256:
         return skip('%s entry %d sha256 %s is not the fan\'s' % (CONTAINER, ENTRY, have[:12]))
@@ -367,10 +475,12 @@ def patch(container, fan_picture, new_picture, log=None):
     if stored > fan_stored:
         raise BagTexError('%s entry %d would be stored in %d bytes, the fan\'s is %d; it must not '
                           'be larger' % (CONTAINER, ENTRY, stored, fan_stored))
-    log('bag texture: Capcom\'s names on the plan in the bag model (%s entry %d, %s): %d texels redrawn of %d, '
-        'palette untouched, colour error in the redrawn texels mean %.1f max %.1f (CIELAB); '
+    log('bag texture: Capcom\'s names on the plan in the bag model (%s entry %d, %s): %d texels changed of the %d in the mask '
+        '(%d left as the fan had them, %d of paper from %d erased patches), palette untouched, '
+        'colour error in the redrawn texels mean %.1f max %.1f (CIELAB); '
         'decoded %d bytes (fan %d), stored %d (fan %d)'
-        % (CONTAINER, ENTRY, TEXTURE, info['moved'], info['texels'], info['mean_de'], info['max_de'],
+        % (CONTAINER, ENTRY, TEXTURE, info['moved'], info['texels'], info['kept'], info['erased'],
+           len(info['patches']), info['mean_de'], info['max_de'],
            size, fan_size, stored, fan_stored))
     return out, True
 
@@ -388,11 +498,11 @@ def new_picture():
     return np.asarray(cg_art.final_picture(8), np.uint8)
 
 
-def apply_to_rom(rom, dumpdir, log=None):
+def apply_to_rom(rom, dumpdir, log=None, any_rom=False):
     import title_logo
     from choice_strips import rom_file
     cur = rom_file(rom, CONTAINER)
-    new, changed = patch(cur, fan_picture(dumpdir), new_picture(), log)
+    new, changed = patch(cur, fan_picture(dumpdir), new_picture(), log, any_rom)
     if not changed:
         return rom, False
     return title_logo.splice(rom, CONTAINER, new), True

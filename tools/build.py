@@ -460,6 +460,8 @@ def main(argv=None):
         # half-deleted dump fails HERE instead of minutes into the injection
         missing += [f for f in ('loc_en.json', 'loc_ja.json', 'loc_keys.json',
                                 os.path.join('ds_fan', 'jpn', 'spt.bin'),
+                                os.path.join('ds_fan', 'jpn', 'upcut_local.bin'),
+                                os.path.join('ds_fan', 'jpn', 'modelitemlocal.bin'),
                                 os.path.join('jpn_trial', 'detailMsg.bin'),
                                 os.path.join('jpn', 'logicKW.bin'))
                     if not os.path.exists(os.path.join(dumpdir, f))]
@@ -478,7 +480,7 @@ def main(argv=None):
     step(5, total, 'Title screen, episode titles, Logic keyword cards, close-up text screens and voices')
     import title_assets, voices
     out_path = a.out or os.path.join(work(), inject.DEFAULT_OUT)
-    title_assets.apply(dumpdir, out_path, version=VERSION)
+    title_assets.apply(dumpdir, out_path, version=VERSION, any_rom=a.any_rom)
     # title_assets.apply is the last step that writes jpn/spt.bin (inject),
     # jpn/idlocal.bin and com/cutdata.bin; voices and compact only touch the
     # sound archive and the file layout. Check the built bytes now, so a

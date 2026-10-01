@@ -5,8 +5,9 @@ The port's data can outgrow a fixed buffer in the game without any visible
 error at build time. playtest/SOLVE_buffers.md traced every loader and text
 buffer in the engine; none overflows today, and checks a to e keep it that
 way (f is the Logic keyword cards, g the bag model texture). They read jpn/spt.bin, jpn/idlocal.bin,
-com/cutdata.bin and jpn/logic_keyword_local.bin out of the finished ROM (after the last step that writes any of them), compare
-idlocal with the fan's, and RAISE BufCheckError naming the entry and the
+com/cutdata.bin, jpn/logic_keyword_local.bin and jpn/modelitemlocal.bin out of the finished ROM (after
+the last step that writes any of them), compare idlocal, the logic cards and the model file with the
+fan's, and RAISE BufCheckError naming the entry and the
 numbers. Every check raises an exception (so it also runs under python -O).
 
 a. spt need. The field engine loads a script entry into a fixed 0x2000-byte
