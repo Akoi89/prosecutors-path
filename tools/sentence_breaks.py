@@ -58,6 +58,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from spt import all_strings, parse, tails as _spt_tails
 from build_spt import build_ds
+import dstext
 
 # (entry, string): {'hash': <source unit-stream hash>, 'boxes': [box 1 index of
 #  each moved message], 'want': <result unit-stream hash>, 'segs': [(start, end)
@@ -65,7 +66,8 @@ from build_spt import build_ds
 # Rows (32, 0), (254, 2) and (328, 4) hold a scream in their last slice, so their hash,
 # 'want' and that slice's end are keyed to the unit stream WITH dstext's scream-newline
 # rule applied (SCREAM_NL_FIX); the moved breaks themselves are unchanged. In (254, 2) the
-# literal space unit that sat between two halves of a scream is gone too.
+# scream that follows the moved break is laid out again from the top of its box
+# (the 'refill' segment, dstext.refill_units).
 SENTENCE_BREAKS = {
     (4, 1): {'hash': '8647054570ab389f', 'boxes': [8], 'want': 'fa3d1b191a970a5b',
         'segs': [(0, 707), (710, 712), [10], (712, 742), [57602, 57607, 3], (743, 751), [65343], (752, 807)]},
@@ -103,7 +105,7 @@ SENTENCE_BREAKS = {
         'segs': [(0, 1048), [57602, 57607, 3], (1049, 1067), [65343], (1068, 1081), [10], (1082, 1088), [65343], (1091, 1118), [10], (1119, 1123), [65343], (1124, 1480)]},
     (30, 10): {'hash': 'eca9850e26ce205d', 'boxes': [3, 22], 'want': '23ce9a82cedef109',
         'segs': [(0, 228), [65343], (231, 237), [57602, 57607, 3], (238, 1334), [65289, 57602, 57607, 3, 65288], (1335, 1358), [65343], (1359, 1363), [10], (1364, 1375), [65343], (1380, 1402), [10], (1403, 1415), [65343], (1416, 1444)]},
-    (32, 0): {'hash': 'd3954cbdc61ea72f', 'boxes': [12], 'want': 'c3434d648c7dad46',
+    (32, 0): {'hash': '05b384c49a1df6e8', 'boxes': [12], 'want': 'cfcf0d54419e6ec0',
         'segs': [(0, 1057), [57602, 57607, 3], (1058, 1080), [65343], (1083, 1091), [10], (1092, 1119), [65343], (1120, 1128), [10], (1129, 1146), [65343], (1147, 2650)]},
     (33, 1): {'hash': 'b597e8f9dfa3bb23', 'boxes': [0], 'want': 'e43a82c0563b42bc',
         'segs': [(0, 38), [57602, 57607, 3], (39, 57), [65343], (58, 71), [10], (74, 805)]},
@@ -443,8 +445,8 @@ SENTENCE_BREAKS = {
         'segs': [(0, 933), [65343], (936, 942), [10], (943, 954), [57602, 57607, 3], (955, 970), [65343], (971, 3333)]},
     (252, 11): {'hash': 'e63d4a738fd7ad95', 'boxes': [7], 'want': 'dd5190dfc519d56f',
         'segs': [(0, 669), [65343], (672, 679), [10], (680, 690), [57602, 57607, 3], (691, 706), [65343], (707, 864)]},
-    (254, 2): {'hash': '40853eada6252f95', 'boxes': [31], 'want': 'a5ea9e4d4690f8ab',
-        'segs': [(0, 2086), [57608, 60, 57604, 57607, 3], (2087, 2117), (2122, 2124), (2124, 2846)]},
+    (254, 2): {'hash': '0bf30998f4877637', 'boxes': [31], 'want': '193fffc5dc4659e8',
+        'segs': [(0, 2086), [57608, 60, 57604, 57607, 3], {'refill': [(2087, 2117), (2122, 2158)]}, (2158, 2846)]},
     (265, 11): {'hash': 'fce087fd2fe54d77', 'boxes': [4], 'want': '8c543fe3fad162a0',
         'segs': [(0, 299), [65343], (304, 311), [10], (312, 338), [65343], (339, 346), [65289, 57602, 57607, 3, 65288], (347, 431)]},
     (265, 16): {'hash': '5425009aee25de51', 'boxes': [2], 'want': '9b57517719334261',
@@ -583,7 +585,7 @@ SENTENCE_BREAKS = {
         'segs': [(0, 3589), [65289, 57602, 57607, 3, 65288], (3590, 3600), [65343], (3601, 3620), [10], (3621, 3624), [65343], (3629, 3658), [10], (3659, 3661), [65343], (3662, 4205)]},
     (327, 21): {'hash': 'ce11c3ef41078f5c', 'boxes': [3], 'want': '844e3dc0381f0667',
         'segs': [(0, 226), [57602, 57607, 3], (227, 247), [65343], (248, 259), [10], (260, 278), [65343], (281, 299), [10], (300, 316), [65343], (317, 2835)]},
-    (328, 4): {'hash': '5e45deca2949e203', 'boxes': [4], 'want': '228377659ddc6c06',
+    (328, 4): {'hash': 'f5341b07cc20a6aa', 'boxes': [4], 'want': '629ea66511b08eda',
         'segs': [(0, 438), (441, 445), [65343], (445, 463), [10], (464, 478), [65343], (479, 484), [57602, 57607, 3], (485, 5636)]},
     (328, 7): {'hash': '13ad0acc2926b288', 'boxes': [12], 'want': 'd30a90c995ba7acd',
         'segs': [(0, 903), [57602, 57607, 3], (904, 914), [65343], (915, 933), [65343], (936, 941), [10], (942, 969), [65343], (970, 976), [10], (977, 994)]},
@@ -628,6 +630,15 @@ def _rebuild(units, segs):
             out.extend(units[a:b])
         elif isinstance(seg, list):
             out.extend(seg)
+        elif isinstance(seg, dict):
+            # {'refill': [(a, b), ...]}: those slices of the units, joined, with
+            # the scream they hold laid out again from the top of a row
+            part = []
+            for a, b in seg['refill']:
+                if not (0 <= a <= b <= len(units)):
+                    return None
+                part.extend(units[a:b])
+            out.extend(dstext.refill_units(part))
         else:
             raise TypeError('sentence_breaks: bad segment %r' % (seg,))
     return out

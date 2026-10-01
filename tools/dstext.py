@@ -347,7 +347,7 @@ def _chunk(val):
         out.append(cur)
     return out
 
-def _layout(tokens, cells0=0):
+def _layout_full(tokens, cells0=0):
     """Assign each token a line number, wrapping at LINE_PX. Control tokens have no
     width but must keep their position. Returns (tokens_with_lines, line_count).
 
@@ -402,7 +402,13 @@ def _layout(tokens, cells0=0):
             line += 1; cells = 0; pending = False; started = False
         else:
             placed.append((kind, val, line, False))
-    return placed, line + 1
+    return placed, line + 1, cells, pending, started
+
+
+def _layout(tokens, cells0=0):
+    """(tokens_with_lines, line_count); see _layout_full for the end state too."""
+    placed, nlines = _layout_full(tokens, cells0)[:2]
+    return placed, nlines
 
 PUNCT = set('.,!?;:')
 # A box break reads best just after punctuation, or just before a word that opens a
@@ -742,27 +748,220 @@ def _scream_newlines(units):
     return found
 
 
+class _ScreamUnits(list):
+    """Units of a word that belongs to a scream (it met a mid-scream newline)."""
+
+
 def _drop_scream_marks(tokens):
     """The same tokens with each mid-scream newline removed and the two words it sat
-    between joined into one."""
+    between joined into one. Every word next to a removed newline (nearest word on
+    either side, control codes between are skipped) comes back as _ScreamUnits."""
     out = []
     for t in tokens:
-        if t[0] == 's' and t[1] is _SCREAM:
-            out.append(None)            # placeholder: join the neighbours
-        else:
-            out.append(t)
-    res, k = [], 0
+        out.append(None if (t[0] == 's' and t[1] is _SCREAM) else t)
+    res, at, k = [], [], 0
     while k < len(out):
         t = out[k]
         if t is None:
+            at.append(len(res))
             if (res and res[-1][0] == 'w' and k + 1 < len(out)
                     and out[k + 1] is not None and out[k + 1][0] == 'w'):
-                res[-1] = ('w', res[-1][1] + out[k + 1][1]); k += 2
+                res[-1] = ('w', _ScreamUnits(res[-1][1] + out[k + 1][1])); k += 2
                 continue
             k += 1
             continue
         res.append(t); k += 1
+    for pos in at:
+        for rng in (range(pos - 1, -1, -1), range(pos, len(res))):
+            for q in rng:
+                if res[q][0] == 'w':
+                    if not isinstance(res[q][1], _ScreamUnits):
+                        res[q] = ('w', _ScreamUnits(res[q][1]))
+                    break
+                if res[q][0] != 'c':
+                    break
     return res
+
+
+def _scream_letter(u):
+    return 0xFF21 <= u <= 0xFF3A or 0xFF41 <= u <= 0xFF5A
+
+
+def _scream_word(val):
+    """A word made only of letters and !/? (what a scream is written with)."""
+    return bool(val) and all(_scream_letter(u) or u in (0xFF01, 0xFF1F) for u in val)
+
+
+def _fill_run(prefix, run):
+    """Lay one scream (words and control codes, no spaces) out as a single run of
+    letters that fills each row to the last letter that fits. Control codes stay in
+    front of the letter they precede, in the same order. A row never ends between a
+    letter and the !/? that follows it. The run starts on the row `prefix` left off
+    on, after the space that was pending there. Returns tokens whose pieces are cut
+    exactly at the rows, so _layout() puts every piece where this function did."""
+    cells, pending = 0, False
+    if prefix:
+        _p, _n, cells, pending, _s = _layout_full(prefix)
+    items = []
+    for kind, val in run:
+        if kind == 'c':
+            items.append(('c', val))
+        else:
+            items.extend(('u', u) for u in val)
+    letters = [it[1] for it in items if it[0] == 'u']
+    if not letters:
+        return list(run)
+    gap = W(chr(SPACE)) if pending else 0
+    if cells and cells + gap + W(chr(letters[0])) > LINE_PX:
+        cells, gap = 0, 0
+    rows, codes = [[]], []
+    rowpx, rowletters = cells + gap, 0
+    PUNCT_U = (0xFF01, 0xFF1F)
+    for it in items:
+        if it[0] == 'c':
+            codes.append(it)
+            continue
+        u = it[1]
+        w = W(chr(u))
+        if rowletters and rowpx + w > LINE_PX:
+            moved = []
+            if u in PUNCT_U:
+                # keep the !/? with the letter before it: take back the punctuation
+                # already on this row and one letter (with the codes in front of it)
+                row = rows[-1]
+                k = len(row)
+                while k > 0 and (row[k - 1][0] == 'c' or row[k - 1][1] in PUNCT_U):
+                    k -= 1
+                if k > 0:
+                    k -= 1                       # the letter itself
+                    while k > 0 and row[k - 1][0] == 'c':
+                        k -= 1                   # and the codes in front of it
+                    if any(x[0] == 'u' for x in row[:k]):
+                        moved = row[k:]
+                        del row[k:]
+            rows.append(moved)
+            rowpx = sum(W(chr(x[1])) for x in moved if x[0] == 'u')
+            rowletters = sum(1 for x in moved if x[0] == 'u')
+        rows[-1].extend(codes); codes = []
+        rows[-1].append(it)
+        rowpx += w
+        rowletters += 1
+    rows[-1].extend(codes)
+    out = []
+    for row in rows:
+        piece = []
+        for it in row:
+            if it[0] == 'u':
+                piece.append(it[1])
+            else:
+                if piece:
+                    out.append(('w', piece)); piece = []
+                out.append(('c', it[1]))
+        if piece:
+            out.append(('w', piece))
+    return out
+
+
+def _fill_screams(tokens):
+    """tokens with every scream (see _fill_run) cut into rows. A scream is the words
+    that met a mid-scream newline plus the letters-only words joined to them through
+    control codes with no space between."""
+    n = len(tokens)
+    inrun = [False] * n
+    for i, t in enumerate(tokens):
+        if t[0] == 'w' and isinstance(t[1], _ScreamUnits):
+            inrun[i] = True
+            for step in (-1, 1):
+                j = i + step
+                while 0 <= j < n and (tokens[j][0] == 'c'
+                                      or (tokens[j][0] == 'w' and _scream_word(tokens[j][1]))):
+                    inrun[j] = True
+                    j += step
+    i = 0
+    while i < n:                        # a run starts and ends on a word, not on a code
+        if not inrun[i]:
+            i += 1
+            continue
+        j = i
+        while j < n and inrun[j]:
+            j += 1
+        while i < j and tokens[i][0] == 'c':
+            inrun[i] = False; i += 1
+        k = j - 1
+        while k >= i and tokens[k][0] == 'c':
+            inrun[k] = False; k -= 1
+        i = j
+    out, i = [], 0
+    while i < n:
+        if not inrun[i]:
+            out.append(tokens[i]); i += 1
+            continue
+        j = i
+        while j < n and inrun[j]:
+            j += 1
+        out.extend(_fill_run(out, tokens[i:j]))
+        i = j
+    return out
+
+
+def refill_units(units):
+    """A run of scream letters and control codes (with or without its old row breaks)
+    laid out again from the start of a row, every row filled (see _fill_run). Used by
+    tools/sentence_breaks.py when a moved page break puts a scream at the top of a box."""
+    run, cur, i, n = [], [], 0, len(units)
+    while i < n:
+        v = units[i]
+        if CTRL(v):
+            if cur:
+                run.append(('w', _ScreamUnits(cur))); cur = []
+            tok = [v]; i += 1
+            for _ in range(ARGS.get(v, DEFAULT_ARGS)):
+                if i < n and not CTRL(units[i]):
+                    tok.append(units[i]); i += 1
+            run.append(('c', tok))
+        else:
+            if v != 0x0A:
+                cur.append(v)
+            i += 1
+    if cur:
+        run.append(('w', _ScreamUnits(cur)))
+    placed, _n = _layout(_fill_run([], run))
+    out, row = [], 0
+    for kind, val, ln, sp in placed:
+        while ln > row:
+            row += 1; out.append(0x0A)
+        out.extend(val)
+    return out
+
+
+def _split_rows(tokens, placed, nlines, nb):
+    """tokens cut into nb boxes at row boundaries, rows shared out as evenly as
+    possible (earlier boxes get the extra row), each cut moved back over the control
+    codes that stand in front of the first word of the new box. None when the
+    placed list does not line up with the tokens (a word was force-broken)."""
+    if len(placed) != len(tokens):
+        return None
+    base, extra = divmod(nlines, nb)
+    starts, row = [], 0
+    for b in range(nb - 1):
+        row += base + (1 if b < extra else 0)
+        starts.append(row)
+    cuts = []
+    for r in starts:
+        idx = next((q for q, pl in enumerate(placed) if pl[0] == 'w' and pl[2] >= r), None)
+        if idx is None:
+            return None
+        while (idx > 0 and tokens[idx - 1][0] == 'c'
+               and not any(v in STYLE_CLOSERS for v in tokens[idx - 1][1])):
+            idx -= 1
+        cuts.append(idx)
+    if cuts != sorted(set(cuts)) or (cuts and cuts[0] <= 0):
+        return None
+    parts, prev = [], 0
+    for c in cuts:
+        parts.append(tokens[prev:c]); prev = c
+    parts.append(tokens[prev:])
+    return parts
 
 
 def _has_scream_mark(tokens):
@@ -810,6 +1009,25 @@ def selfcheck_scream_newlines():
     cut = on.index(0xFF2F)          # the first scream letter (O)
     if on[:cut] != off[:off.index(0xFF2F)]:
         bad.append('text before a scream moved when the rule fired')
+    # a scream with control codes inside fills every row but the last, codes kept in order
+    code = 0xE1D1
+    sc = u('NOOOOOOO') + [code] + [0x4F] * 30 + [0x0A] + [0x4F] * 10
+    rows, row = [], []
+    for v in cv(sc):
+        if v == 0x0A:
+            rows.append(row); row = []
+        else:
+            row.append(v)
+    rows.append(row)
+    letters = lambda r: [v for v in r if not CTRL(v)]
+    px = lambda r: sum(W(chr(v)) for v in letters(r))
+    if len(rows) < 2 or any(px(r) > LINE_PX for r in rows):
+        bad.append('a scream row is over the line limit')
+    elif any(px(rows[i]) + W(chr(letters(rows[i + 1])[0])) <= LINE_PX for i in range(len(rows) - 1)):
+        bad.append('a scream row is not filled to the last letter that fits')
+    flat = [v for r in rows for v in r]
+    if flat.count(code) != 1 or flat.index(code) != 8 + 0:
+        bad.append('a control code inside a scream moved')
     return bad
 
 
@@ -995,9 +1213,19 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
                 while cj + 1 < len(chunks) and _has_scream_mark(chunks[cj + 1]):
                     cj += 1
                 seg = _drop_scream_marks([t for c in chunks[ci:cj + 1] for t in c])
-                _, nl = _layout(seg)
+                # the scream itself becomes one run of letters filling every row;
+                # the boxes keep the count they had, with whole rows in each
+                seg = _fill_screams(seg)
+                placed, nl = _layout(seg)
                 nbs = max(1, -(-nl // BOX_LINES)) if page else 1
                 parts = [seg]
+                if page and nl > 1:
+                    rows_parts = _split_rows(
+                        seg, placed, nl, max(nbs, min(cj - ci + 1, nl)))
+                    if rows_parts is not None and all(
+                            _layout(c)[1] <= BOX_LINES for c in rows_parts):
+                        parts = rows_parts
+                        nbs = 1
                 if nbs > 1:
                     for extra in range(0, 4):
                         parts = split_tokens(seg, nbs + extra)
