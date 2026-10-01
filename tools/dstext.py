@@ -759,8 +759,9 @@ def _scream_newlines(units):
 # WHICH NEWLINES. A 0x0A whose left text neighbour (control codes and their arguments
 # skipped) is one "-" that directly follows a letter, and whose right text neighbour is a
 # letter, with no box-ending code in between. It is dropped, so the compound is one word
-# ("long-standing"). Five newlines in this build's input qualify (64/0, 135/7, 225/1,
-# 243/0, 322/14; playtest/HYPHEN_NEWLINES.tsv).
+# ("long-standing"), unless the joined word would be wider than a row (see _joined_px).
+# In this build's input five newlines have the shape and four are joined (64/0, 135/7,
+# 243/0, 322/14); 225/1 joins to 347 px and keeps Capcom's break.
 #
 # NOT "--". Capcom writes a dash as "word -- word" (counted: of 777 inline "--" with a
 # word after it in the same box, 773 have a space), so the space a newline becomes after
