@@ -35,7 +35,11 @@ d. idlocal sizes. Every idlocal entry decodes to the size the fan's does,
 e. cutdata slot 47. The cut-record loader appends matching records to a
    16-entry array; the slot may hold at most 16 records and 1604 decoded
    bytes (the fan's largest slot).
-f. logic keyword cards. Cards 242, 244 and 246 (banners) have six 32x16 OBJs, 1536 bytes of
+f. logic keyword cards. Every rewritten card keeps the fan's decoded size, declares it in both the
+   table and its LZ11 header, and is stored no larger than the literal-only form (the form every
+   rewritten card has had since 1.8.5; the fan's own stored sizes are smaller, and this file's
+   loader sizes its buffer from the decoded size, so it is not the idlocal case); check_logic_names
+   requires the six punctuation-matched slots to be rewritten. Cards 242, 244 and 246 (banners) have six 32x16 OBJs, 1536 bytes of
    tiles, but the fan's RGCN declares 1280 and stores its phrase tail after the declared
    data; the game shows those bytes. Read from the built jpn/logic_keyword_local.bin: every
    card's OBJs must lie inside the bytes the RGCN part holds, and a card whose OBJs reach
@@ -64,6 +68,11 @@ CUT_SLOT = 47
 CUT_MAX_RECORDS = 16
 CUT_MAX_DSIZE = 1604
 MODEL_ENTRY = 1
+# Logic keyword slots whose Capcom name the build must draw: the six whose description differs from
+# Capcom's by a comma (tools/logic_names.py ignores punctuation since 1.11.1). Cards are entries
+# slot + 1 (style A) and slot + 135 (style B).
+LOGIC_PUNCT_SLOTS = (40, 56, 59, 60, 117, 120)
+LOGIC_PUNCT_ENTRIES = tuple(sorted([k + 1 for k in LOGIC_PUNCT_SLOTS] + [k + 135 for k in LOGIC_PUNCT_SLOTS]))
 
 OPEN = (0xE100, 0xE101)
 CLOSE = (0xE102, 0xE104)
@@ -402,7 +411,59 @@ def check_logic_cards(built, fan):
         if any(fan_tail) and gfx[start + len(tiles):start + need] == fan_tail:
             raise BufCheckError('logic card %d: bytes %d..%d, past the declared data but inside its OBJs, '
                                 'are still the fan tail' % (e, len(tiles), need))
+    check_logic_sizes(built, fan)
     return n, past
+
+
+def _lz11_literal_bound(n):
+    """Stored bytes of n decoded bytes in literal-only LZ11 (4 header, one flag byte per 8 bytes), 4-aligned."""
+    return (4 + n + (n + 7) // 8 + 3) // 4 * 4
+
+
+def check_logic_sizes(built, fan):
+    """Every logic_keyword_local.bin card that differs from the fan's decodes to the fan's size,
+    says so in the table and in its LZ11 header, and is stored in no more than the literal-only
+    form needs. Raises BufCheckError; returns the number of rewritten cards."""
+    import logic_cards as L
+    pt, ft = _table(built), _table(fan)
+    if len(pt) != len(ft):
+        raise BufCheckError('logic_keyword_local.bin has %d entries, the fan has %d' % (len(pt), len(ft)))
+    B, F = L.table(built), L.table(fan)
+    ext = _extents(pt, len(built))
+    n = 0
+    for e in range(len(pt)):
+        if B[e] == F[e]:
+            continue
+        n += 1
+        if len(B[e]) != len(F[e]):
+            raise BufCheckError('logic card %d decodes to %d bytes, the fan card to %d' % (e, len(B[e]), len(F[e])))
+        if (pt[e][1] & 0x80000000) != (ft[e][1] & 0x80000000):
+            raise BufCheckError('logic card %d is stored %s, the fan card %s'
+                                % (e, 'compressed' if pt[e][1] & 0x80000000 else 'raw',
+                                   'compressed' if ft[e][1] & 0x80000000 else 'raw'))
+        if pt[e][1] & 0x7FFFFFFF != len(F[e]):
+            raise BufCheckError('logic card %d: table size field %d, the fan card decodes to %d'
+                                % (e, pt[e][1] & 0x7FFFFFFF, len(F[e])))
+        stored = built[ext[e][0]:ext[e][1]]
+        if pt[e][1] & 0x80000000 and _stream_size(stored) != len(F[e]):
+            raise BufCheckError('logic card %d: LZ11 header declares %d bytes, the fan card decodes to %d'
+                                % (e, _stream_size(stored), len(F[e])))
+        if len(stored) > _lz11_literal_bound(len(F[e])):
+            raise BufCheckError('logic card %d is stored in %d bytes, over the %d the literal-only form needs'
+                                % (e, len(stored), _lz11_literal_bound(len(F[e]))))
+    return n
+
+
+def check_logic_names(built, fan):
+    """The six keyword slots whose description differs from Capcom's by a comma must have both
+    cards rewritten (not the fan's drawings). Raises BufCheckError."""
+    import logic_cards as L
+    B, F = L.table(built), L.table(fan)
+    for e in LOGIC_PUNCT_ENTRIES:
+        if B[e] == F[e]:
+            raise BufCheckError("logic card %d still has the fan drawing; slot %d should carry Capcom's name"
+                                % (e, e - 1 if e < 135 else e - 135))
+    return len(LOGIC_PUNCT_ENTRIES)
 
 
 def rom_file(rom, path):
@@ -433,14 +494,15 @@ def run(rom_path, dumpdir):
     with open(os.path.join(dumpdir, 'ds_fan', 'jpn', 'logic_keyword_local.bin'), 'rb') as f:
         fan_logic = f.read()
     n, past = check_logic_cards(rom_file(rom, 'jpn/logic_keyword_local.bin'), fan_logic)
+    n_named = check_logic_names(rom_file(rom, 'jpn/logic_keyword_local.bin'), fan_logic)
     ps = ', '.join('%d (%d->%d bytes)' % (k, v[0], v[1]) for k, v in sorted(past.items())) or 'none'
     with open(os.path.join(dumpdir, 'ds_fan', 'jpn', 'modelitemlocal.bin'), 'rb') as f:
         fan_model = f.read()
     g_size, g_stored, g_fan = check_model_item(rom_file(rom, 'jpn/modelitemlocal.bin'), fan_model)
     return ('%s; (f) logic cards: %d checked, every OBJ inside the RGCN bytes, cards with OBJs past the '
-            'declared data (rewritten, no fan tail): %s; (g) modelitemlocal entry %d decodes to %d bytes like '
+            'declared data (rewritten, no fan tail): %s, %d punctuation-matched name cards rewritten; (g) modelitemlocal entry %d decodes to %d bytes like '
             "the fan's, stored %d of the fan's %d, the other entries are the fan's bytes"
-            % (line, n, ps, MODEL_ENTRY, g_size, g_stored, g_fan))
+            % (line, n, ps, n_named, MODEL_ENTRY, g_size, g_stored, g_fan))
 
 
 if __name__ == '__main__':

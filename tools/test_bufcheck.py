@@ -170,6 +170,44 @@ def main(rom_path, dumpdir='dump'):
     parts = L.sub_split(L.table(built)[243])
     parts[2] = parts[2][:0x30 + 1280]
     must_raise('card 243 RGCN part cut to 1280 tile bytes (OBJs reach 1536)', lambda: bufcheck.check_logic_cards(_swap(built, 243, L.sub_join(parts)), fan_l))
+    print('  sizes and names of the rewritten cards (clean):', bufcheck.check_logic_sizes(built, fan_l),
+          'rewritten,', bufcheck.check_logic_names(built, fan_l), 'punctuation-matched cards named')
+    from title_text import repack
+    from title_version import _store
+    tb = L.table(built)
+    must_raise('card 41 decodes 4 bytes longer than the fan card',
+               lambda: bufcheck.check_logic_sizes(repack(built, {41: tb[41] + bytes(4)}), fan_l))
+    pt = bufcheck._table(built)
+    ext = bufcheck._extents(pt, len(built))
+
+    def _relay(e, stored, size):
+        """logic_keyword_local.bin laid out afresh with slot e holding `stored` and size field `size`
+        (every other slot keeps its own bytes and size field, so no neighbour's extent is disturbed)."""
+        n = len(pt); table = bytearray(n * 8); body = bytearray()
+        for i, (o, z) in enumerate(pt):
+            if not o:
+                struct.pack_into('<II', table, i * 8, 0, z)
+                continue
+            raw = stored if i == e else built[ext[i][0]:ext[i][1]]
+            while (n * 8 + len(body)) % 4:
+                body += bytes(1)
+            struct.pack_into('<II', table, i * 8, n * 8 + len(body), size if i == e else z)
+            body += raw
+        return bytes(table + body)
+
+    must_raise('card 41 stored raw, the fan card compressed',
+               lambda: bufcheck.check_logic_sizes(_relay(41, tb[41], len(tb[41])), fan_l))
+    must_raise('card 41 stored 64 bytes over the literal-only form',
+               lambda: bufcheck.check_logic_sizes(_relay(41, _store(tb[41]) + bytes(64), pt[41][1]), fan_l))
+    boundary = bufcheck.check_logic_sizes(_relay(41, _store(tb[41]), pt[41][1]), fan_l)
+    print('  PASSED  card 41 re-laid out at the literal-only size (%d rewritten)' % boundary)
+    bad = bytearray(built)
+    struct.pack_into('<II', bad, 41 * 8, pt[41][0], (pt[41][1] & 0x80000000) | (pt[41][1] & 0x7FFFFFFF) + 4)
+    must_raise('card 41 table size field +4', lambda: bufcheck.check_logic_sizes(bytes(bad), fan_l))
+    for e in (41, 175, 61, 255):
+        must_raise('card %d put back to the fan drawing (a name that stopped matching)' % e,
+                   lambda e=e: bufcheck.check_logic_names(repack(built, {e: L.table(fan_l)[e]}), fan_l))
+    must_raise('the fan file as built has none of the six named', lambda: bufcheck.check_logic_names(fan_l, fan_l))
     print('g. bag model texture (jpn/modelitemlocal.bin entry 1)')
     from choice_strips import rebuild
     built_m = bufcheck.rom_file(rom, 'jpn/modelitemlocal.bin')

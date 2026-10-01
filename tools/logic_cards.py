@@ -15,7 +15,7 @@ each rewritten card is read back and compared with the canvas drawn, so no fan b
 
 The fan patch drew its own English into these; the official names come from
 tools/logic_names.py (Collection string tables). Where a DS keyword has no
-official name (6 real ones + 30 dummies) the fan card is left alone.
+official name (the 30 dummy slots) the fan card is left alone.
 
 Since 1.8.5 the names are drawn in the fan's OWN pixel faces, on the fan's own text-free
 card, with the fan's spacing and layout - all harvested from the user's ROM by

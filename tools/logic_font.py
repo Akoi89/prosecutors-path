@@ -28,7 +28,9 @@ the block moves the row the fan moved it by hand and 16 differ where the fan tig
 line by hand. Where Capcom's name matches the fan's, our images are byte-identical to the
 fan's: 17 cards and 18 banners.
 Letters the fan never drew are derived from ones it did: '"' is two apostrophes, '0' the
-'o' stretched to digit height, 'z' drawn on the 'x' box, and the banner 'I' is its 'l'.
+'o' stretched to digit height, 'z' drawn on the 'x' box, the banner 'I' is its 'l', and '.' is the dot of the
+fan's own '?' (one pixel on the baseline, the face's stroke weight; the card outline is added
+around it like any other ink).
 
 The fan's own text is the harvest KEY only (tools/logic_fan_text.json), the same policy as
 the item labels in plates.py; every pixel comes from the user's ROM.
@@ -211,6 +213,13 @@ def _derive(face, style):
         for y in range(1, h - 1):
             z[y][round((w - 1) * (1 - y / (h - 1)))] = 1
         g['z'] = (z, g['x'][1])
+    if '?' in g and '.' not in g:
+        # the period ("Mr."): neither face has one. The fan's '?' ends in a one-pixel dot sitting on
+        # the baseline with a blank row above it; that dot, at the face's own 1 px stroke, is the period
+        bm, off = g['?']
+        if sum(bm[-1]) != 1 or any(bm[-2]) or off != 0:
+            raise ValueError("the harvested '?' does not end in a lone baseline dot; cannot derive '.'")
+        g['.'] = ([[1]], off)
     if style == 'B' and 'I' not in g and 'l' in g:
         g['I'] = ([list(r) for r in g['l'][0]], g['l'][1])
 

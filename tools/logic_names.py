@@ -7,8 +7,8 @@ DESCRIPTION (jpn/logicKW.bin, 133 slots, 30 of them the dummy 削除). The
 Collection has both the descriptions and the names, in two string tables whose
 rows are keyed gk2_logic{ep}_{idx}: names use HEX indices (00a, 00b, 01a), the
 descriptions DECIMAL ones (010, 011, 026), and the numbering drifts in Episode 3.
-So the join is: DS description -> Collection description row -> the name row of
-the same RANK within the episode, with two guards:
+So the join is: DS description -> Collection description row (compared with whitespace and
+punctuation ignored) -> the name row of the same RANK within the episode, with two guards:
 
   - where an episode has more descriptions than names, the orphan description is
     the one whose removal maximises character overlap between paired names and
@@ -21,7 +21,7 @@ key names, written by build.py's extraction step).
 
     python tools/logic_names.py            prints the map and the leftovers
 """
-import io, os, re, json, sys
+import io, os, re, json, sys, unicodedata
 sys.path.insert(0, os.path.dirname(__file__))
 from spt import all_strings
 from loc_patch import _ds_plain
@@ -36,7 +36,10 @@ OVERRIDES = [
 
 
 def _norm(s):
-    return ''.join((s or '').split())
+    """Text with whitespace and punctuation removed. The DS description and Capcom's
+    differ by a comma in six places (Capcom sets one after the topic of the sentence), and
+    those six were never matched while whitespace was the only thing ignored."""
+    return ''.join(c for c in (s or '') if not c.isspace() and not unicodedata.category(c).startswith('P'))
 
 
 def _ep_idx(key, base):
