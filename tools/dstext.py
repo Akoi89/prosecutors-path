@@ -707,6 +707,13 @@ def _line_width(seq):
 # moves to another box.
 SCREAM_NL_FIX = True
 SCREAM_RUN_MIN = 3
+# BOXES WITH NO MID-SCREAM NEWLINE. A scream in a message that Capcom wrote without a newline
+# in it (a letters-only word with three identical letters in a row, plus the letters-only words
+# joined to it through control codes) is still cut wherever the greedy layout runs out of row,
+# which left 21 letters over 7 in one box. When it is wider than a row it gets the same even
+# spread over the rows as a relaid scream (_balance_unmarked), over no more rows than the box
+# has; a box that would need more rows keeps its layout. Boxes without such a scream are untouched.
+SCREAM_AUTO_FIX = True
 _SCREAM = 'scream'      # val of the ('s', _SCREAM) token a mid-scream newline leaves
 
 
@@ -961,7 +968,7 @@ def _scream_word(val):
     return bool(val) and all(_scream_letter(u) or u in (0xFF01, 0xFF1F) for u in val)
 
 
-def _balance_cuts(lw, punct, first_px, nrows):
+def _balance_cuts(lw, punct, first_px, nrows, tail_px=0):
     """Letter ordinals where rows 1.. begin when the letters (widths lw; punct marks
     !/?) are spread over nrows rows as evenly as the 240 px limit allows: the smallest
     row capacity C that fits them in nrows rows (the first row already holds first_px
@@ -978,6 +985,8 @@ def _balance_cuts(lw, punct, first_px, nrows):
             px += w
         if len(cuts) + 1 != nrows:
             continue
+        if tail_px and sum(lw[cuts[-1] if cuts else 0:]) + (0 if cuts else first_px) + tail_px > cap:
+            continue                # the words after the scream share its last row
         fixed, prev = [], 0
         for k, j in enumerate(cuts):
             nxt = cuts[k + 1] if k + 1 < len(cuts) else m
@@ -992,14 +1001,14 @@ def _balance_cuts(lw, punct, first_px, nrows):
         else:
             starts = [0] + fixed
             ends = fixed + [m]
-            sums = [sum(lw[a:b]) + (first_px if r == 0 else 0)
+            sums = [sum(lw[a:b]) + (first_px if r == 0 else 0) + (tail_px if b == m else 0)
                     for r, (a, b) in enumerate(zip(starts, ends))]
             if max(sums) <= LINE_PX and all(b > a for a, b in zip(starts, ends)):
                 return fixed
     return None
 
 
-def _fill_run(prefix, run):
+def _fill_run(prefix, run, want_rows=None, tail_px=0):
     """Lay one scream (words and control codes, no spaces) out as a single run of
     letters, over the fewest rows that hold it, spread evenly over them (a row is a
     forced break, not a wrap). Control codes stay in
@@ -1063,7 +1072,8 @@ def _fill_run(prefix, run):
     if len(rows) > 1:
         lw = [W(chr(it[1])) for it in items if it[0] == 'u']
         punct = [it[1] in PUNCT_U for it in items if it[0] == 'u']
-        cuts = _balance_cuts(lw, punct, first_px, len(rows))
+        cuts = _balance_cuts(lw, punct, first_px,
+                             max(len(rows), want_rows) if want_rows else len(rows), tail_px)
         if cuts is not None:
             rows, codes, k = [[]], [], 0
             for it in items:
@@ -1094,14 +1104,34 @@ def _fill_run(prefix, run):
     return out
 
 
-def _fill_screams(tokens):
+def _has_run3(val):
+    """A letters-only word with three identical letters in a row (either case)."""
+    run, prev = 0, None
+    for u in val:
+        if not _scream_letter(u):
+            run, prev = 0, None
+            continue
+        c = u - 0x20 if u >= 0xFF41 else u
+        run = run + 1 if c == prev else 1
+        prev = c
+        if run >= SCREAM_RUN_MIN:
+            return True
+    return False
+
+
+def _fill_screams(tokens, auto=False, want_rows=None, tails=None, info=None):
     """tokens with every scream (see _fill_run) cut into rows. A scream is the words
     that met a mid-scream newline plus the letters-only words joined to them through
-    control codes with no space between."""
+    control codes with no space between. With auto=True the scream is instead found by
+    its letters (a letters-only word holding three identical letters in a row, plus the
+    letters-only words joined to it through codes) and kept only when it is wider than
+    a row, i.e. when the layout has to break it; want_rows is the row count the box
+    already has (the balance then uses at least that many rows)."""
     n = len(tokens)
     inrun = [False] * n
     for i, t in enumerate(tokens):
-        if t[0] == 'w' and isinstance(t[1], _ScreamUnits):
+        if t[0] == 'w' and (isinstance(t[1], _ScreamUnits)
+                            or (auto and _scream_word(t[1]) and _has_run3(t[1]))):
             inrun[i] = True
             for step in (-1, 1):
                 j = i + step
@@ -1123,6 +1153,10 @@ def _fill_screams(tokens):
         while k >= i and tokens[k][0] == 'c':
             inrun[k] = False; k -= 1
         i = j
+    old_placed = None
+    if auto:
+        _pl = _layout(tokens)[0]
+        old_placed = _pl if len(_pl) == n else None
     out, i = [], 0
     while i < n:
         if not inrun[i]:
@@ -1131,9 +1165,63 @@ def _fill_screams(tokens):
         j = i
         while j < n and inrun[j]:
             j += 1
-        out.extend(_fill_run(out, tokens[i:j]))
+        run = tokens[i:j]
+        if auto and sum(_tw(v) for k, v in run if k == 'w') <= LINE_PX:
+            out.extend(run)             # fits one row: the layout never breaks it
+        else:
+            tail = 0
+            if tails is not None and len(info) < len(tails):
+                tail = tails[len(info)]
+            elif auto and old_placed is not None:
+                # words after the scream that shared its last row in the greedy layout
+                row = old_placed[j - 1][2]
+                for q in range(j, n):
+                    if old_placed[q][2] != row:
+                        break
+                    if tokens[q][0] == 'w':
+                        tail += _tw(tokens[q][1]) + (W(chr(SPACE)) if old_placed[q][3] else 0)
+            start = len(out)
+            out.extend(_fill_run(out, run, want_rows, tail))
+            if info is not None:
+                info.append((start, len(out), tail))
         i = j
     return out
+
+
+def _balance_unmarked(chunk):
+    """One box (a chunk of tokens) that holds a scream the layout has to break but no
+    mid-scream newline: the scream is laid out as a relaid one is, over the fewest rows
+    that hold it. The words that follow a scream on its last row take part of that row,
+    so their width is measured on the new layout and the balance repeated until it
+    settles (at most four rounds). A box that would need MORE rows than it has now is
+    left as it was. (new_tokens, note): note is None when the box was left alone."""
+    old_rows = _layout(chunk)[1]
+    info = []
+    new = _fill_screams(chunk, auto=True, info=info)
+    if new == chunk:
+        return chunk, None
+    for _round in range(4):
+        rows = _layout(new)[1]
+        placed = _layout(new)[0]
+        if rows > old_rows or len(placed) != len(new):
+            return chunk, 'kept: %d rows -> %d' % (old_rows, rows)
+        tails = []
+        for s, e, t in info:
+            row, tail = placed[e - 1][2], 0
+            for q in range(e, len(new)):
+                if placed[q][2] != row:
+                    break
+                if new[q][0] == 'w':
+                    tail += _tw(new[q][1]) + (W(chr(SPACE)) if placed[q][3] else 0)
+            tails.append(tail)
+        if all(abs(t - e[2]) <= 6 for t, e in zip(tails, info)):
+            break
+        info2 = []
+        cand = _fill_screams(chunk, auto=True, tails=tails, info=info2)
+        if _layout(cand)[1] > old_rows:
+            break                       # keep the last layout that did not add a row
+        new, info = cand, info2
+    return new, 'balanced'
 
 
 def refill_units(units):
@@ -1270,6 +1358,28 @@ def selfcheck_scream_newlines():
     flat = [v for r in rows for v in r]
     if flat.count(code) != 1 or flat.index(code) != 8 + 0:
         bad.append('a control code inside a scream moved')
+    # a scream with no newline in it that the layout has to break is balanced too
+    global SCREAM_AUTO_FIX
+    def rows_of(units):
+        rs, r = [], []
+        for v in cv(units):
+            if v == 0x0A:
+                rs.append(r); r = []
+            else:
+                r.append(v)
+        rs.append(r)
+        return rs
+    rs = rows_of(u('Hrngh... ') + [0x4F] * 43)
+    pxs = [px(r) for r in rs]
+    if len(rs) < 2 or max(pxs) - min(pxs) > W(chr(0xFF2F)):
+        bad.append('a force-broken scream with no newline is not balanced')
+    SCREAM_AUTO_FIX = False
+    try:
+        rs0 = rows_of([0x4F] * 43)
+        if max(px(r) for r in rs0) - min(px(r) for r in rs0) <= W(chr(0xFF2F)):
+            bad.append('switching the no-newline balance off changed nothing')
+    finally:
+        SCREAM_AUTO_FIX = True
     return bad
 
 
@@ -1614,6 +1724,13 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
                 relaid.extend(parts)
                 ci = cj + 1
             chunks = relaid
+        if SCREAM_AUTO_FIX and page:
+            # A scream in a box the relay did not touch (no mid-scream newline in its
+            # message) is still cut wherever the greedy layout runs out of row. Spread
+            # it over the box's own rows like the relaid ones. Boxes the relay laid out
+            # carry forced row breaks already and are skipped.
+            chunks = [c if any(k == 'br' for k, _ in c) else _balance_unmarked(c)[0]
+                      for c in chunks]
         depth = 0
         style = None            # the {E04x} opener currently in effect, or None
         # chunk_start tracks where the CURRENT chunk's own content starts in
