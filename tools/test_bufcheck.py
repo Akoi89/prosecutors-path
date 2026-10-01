@@ -128,6 +128,32 @@ def main(rom_path, dumpdir='dump'):
     must_raise('entry 25 stored literal-only', lambda: bufcheck.check_blobs(spt, lit, cut, fan))
     must_raise('idlocal one entry short', lambda: bufcheck.check_idlocal(idl[:0] + struct.pack('<I', 8 * (len(t) - 1)) + idl[4:(len(t) - 1) * 8] + idl[len(t) * 8:], fan))
 
+    print('d2. Promise Notebook title strip (idlocal entry 172, real LZ11 bound by its literal-only size)')
+    ext172 = bufcheck._extents(t, len(idl))[172]
+    print('  built entry 172: stored extent %d, fan %d, literal-only bound %d' % (
+        ext172[1] - ext172[0], (lambda tf: bufcheck._extents(tf, len(fan))[172][1] - bufcheck._extents(tf, len(fan))[172][0])(bufcheck._table(fan)),
+        1312 + (1312 + 7) // 8 + 4))
+    raw172 = lz11.decompress(idl[ext172[0]:ext172[1]])
+    lit172 = rebuild(idl, {172: raw172})                        # literal-only: exactly the bound, passes
+    print('  PASSED  literal-only form (the bound itself):', bufcheck.check_idlocal(lit172, fan)[0], 'entries')
+
+    def grow(container, e, k):
+        """container with entry e's slot k bytes longer (zero tail), later offsets moved."""
+        tt = bufcheck._table(container)
+        ex = bufcheck._extents(tt, len(container))
+        out = bytearray(container[:ex[e][1]]) + bytes(k) + container[ex[e][1]:]
+        for j in range(len(tt)):
+            if tt[j][0] >= ex[e][1]:
+                struct.pack_into('<I', out, j * 8, tt[j][0] + k)
+        return bytes(out)
+    must_raise('entry 172 literal-only plus 8 bytes (over its bound)', lambda: bufcheck.check_idlocal(grow(lit172, 172, 8), fan))
+    bad = bytearray(idl)
+    struct.pack_into('<I', bad, 172 * 8 + 4, t[172][1] & 0x7FFFFFFF)
+    must_raise('entry 172 no longer flagged as an LZ11 stream', lambda: bufcheck.check_idlocal(bytes(bad), fan))
+    short = bytearray(idl)
+    short[ext172[0] + 40:ext172[1]] = bytes(ext172[1] - ext172[0] - 40)
+    must_raise('entry 172 stream cut short (does not decode to its size)', lambda: bufcheck.check_idlocal(bytes(short), fan))
+
     print('e. cutdata slot 47')
     tc = bufcheck._table(cut)
     o, s = tc[bufcheck.CUT_SLOT]

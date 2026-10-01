@@ -17,7 +17,7 @@ localization kept are left byte-identical. See gk2_common_nametag_en for the
 official names; the fan->official pairing was verified string-by-string
 against both scripts (tools/names.py carries the same map for dialogue).
 """
-import sys, os, struct
+import sys, os, struct, hashlib
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from lz11 import decompress
 from nitro import ncgr, tile_pixels
@@ -214,10 +214,19 @@ class Plates(object):
             size = s & 0x7FFFFFFF
             if i in repl:
                 raw = repl[i]
-                out = bytearray(b'\x11' + len(raw).to_bytes(3, 'little'))
-                for p in range(0, len(raw), 8):
-                    out.append(0); out += raw[p:p + 8]
-                stored = bytes(out); size = len(raw); comp = 0x80000000
+                if i in LZ_STORED:
+                    # real LZ11 (tools/lz11.py), not the literal-only form: the same decoded
+                    # size, a stream under a third of the literal-only one. It does not fit the
+                    # fan's own slot (410 bytes against 352), so later entries move; bufcheck d
+                    # bounds it by the literal-only size the other redrawn strips already ship
+                    from lz11 import compress
+                    stored = compress(raw)
+                    size = len(raw); comp = 0x80000000
+                else:
+                    out = bytearray(b'\x11' + len(raw).to_bytes(3, 'little'))
+                    for p in range(0, len(raw), 8):
+                        out.append(0); out += raw[p:p + 8]
+                    stored = bytes(out); size = len(raw); comp = 0x80000000
             while (self.n * 8 + len(body)) % 4: body += b'\x00'
             struct.pack_into('<II', table, i * 8, self.n * 8 + len(body), size | comp)
             body += stored
@@ -227,6 +236,19 @@ class Plates(object):
 def rebuild_idlocal(path):
     return Plates(open(path, 'rb').read()).rebuild()
 
+
+# Strips the fan never translated: still the retail Japanese pixels. They have no fan reading to
+# count letter runs against, so each is guarded by the sha256 of its 1024 bytes of tile data
+# (and by the retail text its TITLES row names) instead; compose() raises on any other strip.
+# 172 is the Court Record title of the Promise Notebook (itm03_00c, gk2_item_name_en
+# "Promise Notebook"), read off the strip as 約束ノート.
+RETAIL_JAPANESE = {
+ 172: ("約束ノート", '90c1d4f09cc259606871114ad69b337f2a50d9a980632ea4d7560fcf3e3cf847'),
+}
+
+# Title strips whose entry is stored as a real LZ11 stream instead of the literal-only form
+# the other redrawn strips use (smaller, same decoded size).
+LZ_STORED = (172,)
 
 # ---------------------------------------------------------------------------
 # Evidence/profile TITLE strips: 128x16 graphics embedded in the same file's
@@ -289,6 +311,7 @@ TITLES = {
  168:("Grand Tower Pamphlet","Bigg Building Pamphlet"),
  169:("Kay's Memories","Kay's Recollections"),
  171:("Candelabra","Candelabrum"),
+ 172:("約束ノート","Promise Notebook"),
  173:("Autopsy Report","Coroner's Findings"),
  176:("Conductor's Clothes","Ringleader's Appearance"),
  177:("Lotta's Testimony","Ms. Hart's Statement"),
@@ -524,7 +547,16 @@ class Titles(object):
         # of a mismatch and is allowed through.
         runs = self._runs(g)
         letters = [c for c in fan_expected if c != ' ']
-        if runs and len(runs) > len(letters):
+        if i in RETAIL_JAPANESE:
+            # untranslated retail kanji: letter runs mean nothing, the pixels must be exactly
+            # the retail strip this row was written for
+            text, want = RETAIL_JAPANESE[i]
+            d, o = self._embedded_off(i)
+            have = hashlib.sha256(bytes(ncgr(d[o:])[0])).hexdigest()
+            if fan_expected != text or have != want:
+                raise ValueError('strip %d is not the retail strip %r (tile data sha256 %s, expected %s) - '
+                                 'wrong card?' % (i, text, have[:12], want[:12]))
+        elif runs and len(runs) > len(letters):
             raise ValueError('strip %d has %d letter runs but %r has %d - wrong '
                              'card?' % (i, len(runs), fan_expected, len(letters)))
         # clear text

@@ -139,6 +139,21 @@ for i, off in missing:
 print()
 print('=== C. the fan text plates.py expects must match the strip it edits ===')
 mismatch = [(i, P.FAN_TITLES.get(i), fan) for i, (fan, off) in sorted(P.TITLES.items())
-            if P.FAN_TITLES.get(i) != fan]
+            if P.FAN_TITLES.get(i) != fan and i not in P.RETAIL_JAPANESE]
 print('TITLES rows whose guard text disagrees with FAN_TITLES: %d' % len(mismatch))
 for m in mismatch: print('   ', m)
+
+# rows for strips the fan never translated are guarded by the strip's own pixels, not a reading:
+# the fan's strip must still be the retail one the row was written for, byte for byte
+_fan = open(_os.path.join(_REPO, 'dump', 'ds_fan', 'jpn', 'idlocal.bin'), 'rb').read()
+_T = P.Titles(P.Plates(_fan))
+_badr = []
+import hashlib as _hl
+from nitro import ncgr as _ncgr
+for i, (text, want) in sorted(P.RETAIL_JAPANESE.items()):
+    d, o = _T._embedded_off(i)
+    have = _hl.sha256(bytes(_ncgr(d[o:])[0])).hexdigest()
+    if have != want or i not in P.TITLES or P.TITLES[i][0] != text:
+        _badr.append((i, have[:12], want[:12]))
+print('retail-Japanese guard rows: %d, disagreeing with the fan strip: %d' % (len(P.RETAIL_JAPANESE), len(_badr)))
+for m in _badr: print('   ', m)

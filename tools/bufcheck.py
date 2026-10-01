@@ -34,6 +34,10 @@ d. idlocal sizes. Every idlocal entry decodes to the size the fan's does,
    decoded in full and must match its own size field, and its stored size
    must stay under 16 KB (9,008 bytes today; the literal-only form is 45,064
    and needs a 45 KB temporary buffer on top of its 40 KB destination).
+   Entry 172 (the Promise Notebook title strip, stored as real LZ11 and 410 bytes where the fan's
+   slot held 352) must decode inside its stored bytes, and may not be stored in more bytes than
+   the literal-only form of its decoded size (the form the 119 other redrawn strips ship in:
+   size + size/8 rounded up + 4, 1,480 for these 1,312 bytes).
 e. cutdata slot 47. The cut-record loader appends matching records to a
    16-entry array; the slot may hold at most 16 records and 1604 decoded
    bytes (the fan's largest slot).
@@ -84,6 +88,7 @@ EXAM_ENTRIES = (453, 454, 455, 456, 457, 458)
 EXAM_ROW_LIMIT = 63
 IDLOCAL_SIZE_EXCEPTIONS = (25,)
 IDLOCAL_25_STORED_MAX = 16 * 1024
+IDLOCAL_STORED_BOUNDED = (172,)      # title strips stored as real LZ11: no larger than the literal-only form
 CUT_SLOT = 47
 CUT_MAX_RECORDS = 16
 CUT_MAX_DSIZE = 1604
@@ -299,6 +304,17 @@ def check_idlocal(port, fan):
             continue
         if psize != fsize:
             raise BufCheckError('idlocal entry %d decodes to %d bytes, the fan\'s to %d' % (i, psize, fsize))
+        if i in IDLOCAL_STORED_BOUNDED:
+            if not ps & 0x80000000:
+                raise BufCheckError('idlocal entry %d is expected to be an LZ11 stream' % i)
+            literal = psize + (psize + 7) // 8 + 4
+            if len(stored) > literal:
+                raise BufCheckError('idlocal entry %d is stored in %d bytes, over the %d of its literal-only form'
+                                    % (i, len(stored), literal))
+            got = len(_decode(stored, 'idlocal entry %d' % i))
+            if got != psize:
+                raise BufCheckError('idlocal entry %d decodes to %d bytes inside its stored bytes, table says %d'
+                                    % (i, got, psize))
     return len(pt), changed
 
 
