@@ -25,10 +25,21 @@ scene for the cause of one a tester hit in Case 2, not by anyone hitting it. The
 crash fixed in 1.11.0, after talking to Lotta, was hit by the tester; his emulator save
 state reproduced it, and the rig then replayed it and confirmed the fix.
 
+For 1.11.1, the purse paper was checked on a running game: the rig played a new game
+through the first investigation to the Episode 1 trash can, opened the purse and looked
+at the paper in the examine view, and its legend and handwriting read Rook and Knight
+with no Rooke or Knightley left. The handwriting is small and soft at DS size, so a few
+words were settled by their length against the 1.11.0 texture, side by side. That capture
+was taken on the first build of the new texture; the shipped one differs only in how
+the erased letters' patches are toned, which I checked by rendering. The scream rows were
+measured: every row of the thirteen changed strings is within the 240-pixel box, no row
+of one or two letters is left in them, and the audits give the same results as on
+1.11.0. The scream screens in the emulator: {{SCREAM_RIG}}
+
 On hardware, 1.4.4 booted and reached gameplay from a DSPico flashcart on a 3DS, and test
 builds of 1.11.0 booted into the first case on a DSi through TWiLight Menu++ and on a
-DSPico, and the release build boots on both. Nothing deeper has been tried on real hardware,
-and no original DS has been tried at all.
+DSPico, and the 1.11.0 release build boots on both. For 1.11.1: {{HW_BOOT}} Nothing deeper
+has been tried on real hardware, and no original DS has been tried at all.
 
 If the game ever hangs mid-scene, your save isn't damaged, since text is read-only data.
 Restart the chapter and open an issue saying where it happened. Issue #1 is the thread

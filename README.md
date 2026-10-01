@@ -72,7 +72,7 @@ list it falls on, send it anyway.
   anti-piracy check.** Current versions of TWiLight Menu++ and the DSpico's Pico Loader
   handle it for this patch, and I tested both. If you see it, update your loader or switch
   to one of those. I also booted test builds of 1.11.0 into the first case on a DSi (through
-  TWiLight Menu++) and on a DSPico, and the release build boots on both; nothing deeper has been tried on hardware, and no
+  TWiLight Menu++) and on a DSPico, and the 1.11.0 release build boots on both. {{HW_BOOT}} Nothing deeper has been tried on hardware, and no
   original DS has been tried at all.
 
 ## What you need
@@ -91,7 +91,7 @@ Two ways in, ending at the same ROM, and `--verify` confirms it either way.
 **Apply the patch** if you have the fan ROM and want it done in seconds:
 
 ```bash
-xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds" "Prosecutors-Path-1.11.0-fan-base.xdelta" "GK2 (Official English, DS port).nds"
+xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds" "Prosecutors-Path-1.11.1-fan-base.xdelta" "GK2 (Official English, DS port).nds"
 ```
 
 On Windows, DeltaPatcher asks for the same two files and writes the same output. The source
@@ -102,9 +102,10 @@ else either fails to decode or boots to a black screen. Check the result:
 gk2port-windows-x64.exe --verify "GK2 (Official English, DS port).nds"
 ```
 
-A correct output ROM is 50,597,852 bytes, sha256
-fccfb88e9943c11dc7f9a00ab7c61d471c050495bcf9899aa99b021afada34f4. The patch itself is
-3,928,935 bytes, sha256 ab15e528aedcf684b771f1541d978384e9689da0711982c31c97f38ac5379fe8.
+A correct output ROM is {{ROM_SIZE}} bytes, sha256
+{{ROM_SHA256}}. The patch itself is
+{{XDELTA_SIZE}} bytes, sha256 {{XDELTA_SHA256}}. The bundled `GK2-v1.11.1.zip` is
+{{ZIP_SIZE}} bytes, sha256 {{ZIP_SHA256}}.
 
 **Or build it yourself** from your own copy of the Collection, if you'd rather the
 localization came out of your files than out of one someone uploaded. Full steps are in

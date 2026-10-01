@@ -521,7 +521,7 @@ python audits/audit_fixtures.py         # prove the audits can actually fail
 | `audits/measure_linewidth.py` | Not an audit, a measurement: how many dialogue lines are wider than the 240px box, using the font's real advances. Its scope is pinned in its docstring because four differently scoped walkers gave four different line totals while agreeing exactly on the over-budget count, so any figure taken from it is quoted with its command |
 | `spt.py` | SPT container parser, both variants, with offset-scale detection |
 | `build_spt.py` | SPT writer |
-| `dstext.py` | Text conversion: fullwidth mapping, pixel wrapping, page breaks, control-code arity |
+| `dstext.py` | Text conversion: fullwidth mapping, pixel wrapping, page breaks, control-code arity; since 1.11.1 it also drops Capcom's line breaks inside long screams and lays those boxes out as even rows |
 | `build.py` | One-shot entry point: extract everything, then inject. This is what the released binaries run |
 | `locate.py` | Finds the fan ROM and the Collection, and verifies the ROM by hash |
 | `jp_profile.py` | Regenerates `dump/jp_structure.json`, the shipped structural counts from the JP script |
@@ -537,6 +537,7 @@ python audits/audit_fixtures.py         # prove the audits can actually fail
 | `txtcut.py` | Renders Capcom's close-up text screens (reports, letters, notes) into the 39 full-screen images the fan drew, in the fan's own pixel face harvested into `txtcut_font.json`; `txtcut_condensed.json` holds the six reviewed edits |
 | `cg_names.py` | Re-letters the fan character names drawn into the room map and the two log tables with the official ones; `map_font.json` is the fan's small map face |
 | `cg_art.py` | Writes the six shipped close-up pictures in `cg_art_final/` (briefing diagrams, cake placards, TV logo, movie poster, magazine) into the ROM and derives the TV logo's 60 zoom frames from the TV picture; `cg_art_reg.json` holds the measured framing of each zoom frame inside Capcom's picture |
+| `bag_tex.py` | Puts Capcom's Rook and Knight into the security plan paper of the 3D purse model (texture `bag_01` in `jpn/modelitemlocal.bin`, 1.11.1): redraws only the changed letters inside a mask, keeps the texture's palette, tone and grain, and repacks the entry smaller than the fan's; `bag_tex_reg.json` is the measured fit between the close-up picture and the texture, and `bag_tex_register.py` (development only, needs scipy) is what measured it |
 | `build_map.py` / `map_ids.py` | Fuzzy n-gram matching of DS entries to Collection files |
 | `lz11.py` / `nitro.py` | Nintendo LZ11 (`lz11.compress` is a real optimal-parse encoder since 1.11.0, used for the Mind Chess banner) and NCGR/NCLR/NSCR/NCER/NANR |
 | `episode_titles.py` | The official episode names in the save-screen strings (on since 1.5.0) |
