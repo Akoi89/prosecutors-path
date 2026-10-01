@@ -772,6 +772,11 @@ def _scream_newlines(units):
 # letter) is never a break point. Where no hyphen fits, the word is laid out exactly as
 # before. Words that are neither joined nor wider than a row are not touched.
 #
+# NOT WHEN TOO WIDE. If the two halves joined would be wider than a whole row (225/1,
+# "Soon-to-Be-Ex-Prosecutor-" / "Turned-Ex-Prosecutor!", 347 px), the newline is left as it
+# was: Capcom's own break already lands after a hyphen there, and joining would only move
+# it to a worse place.
+#
 # Like the scream rule, only the boxes that hold a joined newline or such a long word are
 # laid out again (relay step in convert()); every other box keeps the layout it had.
 HYPHEN_NL_FIX = True
@@ -801,8 +806,33 @@ def _hyphen_newlines(units):
             continue
         if any(c in RESET for c in between[k] + between[k + 1]):
             continue                # the newline sits across a box end: not one compound
+        if _joined_px(units, text, between, k) > LINE_PX:
+            continue                # wider than a row once joined: Capcom's break stays
         found.add(text[k])
     return found
+
+
+def _joined_px(units, text, between, k):
+    """Width in px of the two words either side of the newline text[k] if they were one
+    (a word ends at a space, a newline or a control code)."""
+    def px(u):
+        if u == 0x22: return W(chr(DQ_OPEN))
+        if u in (0x27, 0x2019): return W(chr(APOS))
+        return sum(W(c) for c in _fw(chr(u)))
+    total = 0
+    j = k - 1
+    while j >= 0 and units[text[j]] not in (0x20, 0x09, 0x0A, 0):
+        total += px(units[text[j]])
+        if between[j]:
+            break
+        j -= 1
+    j = k + 1
+    while j < len(text) and units[text[j]] not in (0x20, 0x09, 0x0A, 0):
+        total += px(units[text[j]])
+        j += 1
+        if j < len(text) and between[j]:
+            break
+    return total
 
 
 def _alnum_u(u):
@@ -1326,6 +1356,21 @@ def selfcheck_hyphen_newlines():
         got = _hyphen_breaks([ord(_fw(c)) for c in word])
         if got != want:
             bad.append('break points of %r are %r, expected %r' % (word, got, want))
+    # 2b. a compound that would be wider than a whole row once joined is not joined: Capcom's
+    # newline stays a space, exactly as with the rule off (225/1)
+    wide = 'Mr. ' + 'a' * 8 + '-' + 'b' * 8 + '-\n' + 'c' * 8 + '-' + 'd' * 8 + '!'
+    on_w = cv(wide)
+    HYPHEN_NL_FIX = False
+    try:
+        off_w = cv(wide)
+    finally:
+        HYPHEN_NL_FIX = True
+    if on_w != off_w:
+        bad.append('an over-wide joined compound was joined')
+    if _hyphen_newlines([ord(c) for c in wide]):
+        bad.append('over-wide compound is still a hyphen newline')
+    if not _hyphen_newlines([ord(c) for c in 'a long-\nstanding thing']):
+        bad.append('a compound that fits is no longer a hyphen newline')
     # 3. "--" keeps the space a newline becomes (Capcom writes "-- word")
     out = cv('It is true --\nall that')
     if not any(out[i] == H and out[i + 1] == H and out[i + 2] == SPACE for i in range(len(out) - 2)):
