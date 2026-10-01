@@ -470,7 +470,15 @@ TANGAROA_OPTIONS = {
     'D': "the strip's face, normal spacing",
     'E': "the fan's squeezed letters (a, s) where it has them",
     'F': "the fan's squeezed letters, pulled 1 px closer where clear",
+    'G': "as F, and the dome's Fountain / Patio label moved right as far as the dome allows",
+    "G'": "as F, and the dome label moved right only while it stays within 2 px of its balance",
 }
+# The dome's own label (321, big face, ink 9) in the lit dome, and where the
+# measuring starts inside the dome.
+FOUNTAIN_BOX = (52, 100, 62, 87)
+DOME_SEED = (75, 90)
+DOME_GROUND = 7
+BALANCE_SLACK = 2          # option G': left-minus-right margin may move this many px
 
 
 def mixed_face(faces):
@@ -502,7 +510,80 @@ def tangaroa_lines(opt, faces, left, base):
     mixed = mixed_face(faces)
     if opt == 'E':
         return [(name, left, base, mixed, None)]
-    return [(name, left, base, mixed, tight_kern(mixed, name))]
+    return [(name, left, base, mixed, tight_kern(mixed, name))]    # F, G, G'
+
+
+def dome_label(grid):
+    """The dome's own label in cell 0 of idlocal 321: -> dict with its ink mask,
+    the dome's interior (ground left after the label is taken out), and the spare
+    ground between the label (ink and halo) and the dome edge, per row, per line
+    and overall."""
+    m = ink_mask(grid, 9, FOUNTAIN_BOX)
+    g = grid.copy()
+    erase(g, m, BIG_LIT)
+    inside = interior(g, DOME_SEED, DOME_GROUND)
+    row_lo, row_hi = {}, {}
+    for (x, y) in inside:
+        row_lo[y] = min(row_lo.get(y, 999), x)
+        row_hi[y] = max(row_hi.get(y, -1), x)
+    orth, diag = ring_of(m)
+    allp = m | orth | diag
+    rows = sorted(set(y for _, y in allp))
+    spare = {}
+    for y in rows:
+        xs = [x for x, yy in allp if yy == y]
+        spare[y] = (min(xs) - row_lo[y], row_hi[y] - max(xs))
+    lines, cur = [], [rows[0]]
+    for y in rows[1:]:
+        if y - cur[-1] > 1:
+            lines.append(cur); cur = []
+        cur.append(y)
+    lines.append(cur)
+    per_line = [(min(spare[y][0] for y in ln), min(spare[y][1] for y in ln), ln[0], ln[-1]) for ln in lines]
+    left = min(v[0] for v in spare.values())
+    right = min(v[1] for v in spare.values())
+    return dict(ink=m, inside=inside, erased=g, spare=spare, per_line=per_line, left=left, right=right,
+                box=(min(x for x, _ in allp), max(x for x, _ in allp)))
+
+
+def dome_shift(opt, dl):
+    """Columns the dome label moves right for an option (0 unless G or G')."""
+    if opt == 'G':
+        return dl['right']
+    if opt == "G'":
+        base = dl['left'] - dl['right']
+        k = 0
+        while k < dl['right'] and abs((dl['left'] + k + 1) - (dl['right'] - k - 1) - base) <= BALANCE_SLACK:
+            k += 1
+        return k
+    return 0
+
+
+def ink_gap(lines, label_ink, shift):
+    """Fewest empty columns between the Tangaroa's ink and the dome label's ink
+    (rows within 1 of each other); negative if they cross."""
+    t = set()
+    for text, x, b, face, kern in lines:
+        t |= layout(face, text, x, b, 0, kern)[0]
+    best = 999
+    for (x, y) in t:
+        for (lx, ly) in label_ink:
+            if abs(ly - y) <= 1:
+                best = min(best, lx + shift - x - 1)
+    return best
+
+
+def name_overlap(lines, label_ink, shift):
+    """Pixels where the Tangaroa's lines (ink and halo) and the dome label (ink and
+    halo) share a pixel after the label moves `shift` right.
+    -> (ink on ink, ink on label halo, halo on label ink, halo on halo)."""
+    t = set()
+    for text, x, b, face, kern in lines:
+        t |= layout(face, text, x, b, 0, kern)[0]
+    th = set().union(*ring_of(t))
+    li = set((x + shift, y) for x, y in label_ink)
+    lh = set().union(*ring_of(li))
+    return (len(t & li), len(t & lh), len(th & li), len(th & lh))
 
 
 def wedge_measure(erased, lines, style, seed):
@@ -652,6 +733,19 @@ def patch_wedge(src, faces, option, info):
             info.setdefault('wedge', {})[new_t] = (x0, x0 + w - 1, old_t, l, r)
         for text, x, b, face, kern in lines:
             paint(new, layout(face, text, x, b, 0, kern)[0], style)
+    dl = dome_label(old)
+    shift = dome_shift(option, dl)
+    info['dome'] = dict(shift=shift, left=dl['left'], right=dl['right'], per_line=dl['per_line'], box=dl['box'])
+    t_lines = tangaroa_lines(option, faces, work[2][4], work[2][6])
+    info['dome']['overlap'] = name_overlap(t_lines, dl['ink'], shift)
+    info['dome']['ink_gap'] = ink_gap(t_lines, dl['ink'], shift)
+    if shift:
+        erase(new, dl['ink'], BIG_LIT)
+        moved = set((x + shift, y) for x, y in dl['ink'])
+        paint(new, moved, BIG_LIT)
+        orth, diag = ring_of(moved)
+        if any(q not in dl['inside'] for q in moved | orth | diag):
+            raise RoomNamesError('the dome label moved %d px leaves the dome' % shift)
     info['wedge_px'] = B.write(0, old, new)
     return B.result()
 
