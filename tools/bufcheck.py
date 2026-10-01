@@ -4,7 +4,7 @@
 The port's data can outgrow a fixed buffer in the game without any visible
 error at build time. playtest/SOLVE_buffers.md traced every loader and text
 buffer in the engine; none overflows today, and checks a to e keep it that
-way (f is the Logic keyword cards, g the bag model texture). They read jpn/spt.bin, jpn/idlocal.bin,
+way (f is the Logic keyword cards, g the bag model texture, h the room names). They read jpn/spt.bin, jpn/idlocal.bin,
 com/cutdata.bin, jpn/logic_keyword_local.bin and jpn/modelitemlocal.bin out of the finished ROM (after
 the last step that writes any of them), compare idlocal, the logic cards and the model file with the
 fan's, and RAISE BufCheckError naming the entry and the
@@ -47,6 +47,11 @@ f. logic keyword cards. Every rewritten card keeps the fan's decoded size, decla
 g. bag model texture. Entry 1 of jpn/modelitemlocal.bin (the BTX0 with texture bag_01, which
    bag_tex.py redraws) must decode to the fan's size, be stored in no more bytes than the
    fan's, and every other entry must be the fan's bytes.
+h. room names. Entries 321, 324 and 327 of jpn/idlocal.bin and entry 10 of
+   jpn/cutobj_local.bin (tools/room_names.py re-letters them in place) must decode to exactly
+   the fan's size, their stream header must agree with the table, and each must be stored in no
+   more bytes than the fan's entry; every other cutobj_local entry must be byte for byte the
+   fan's.
 """
 import os
 import struct
@@ -73,6 +78,8 @@ MODEL_ENTRY = 1
 # slot + 1 (style A) and slot + 135 (style B).
 LOGIC_PUNCT_SLOTS = (40, 56, 59, 60, 117, 120)
 LOGIC_PUNCT_ENTRIES = tuple(sorted([k + 1 for k in LOGIC_PUNCT_SLOTS] + [k + 135 for k in LOGIC_PUNCT_SLOTS]))
+ROOM_IDLOCAL = (321, 324, 327)
+ROOM_CUTOBJ = 10
 
 OPEN = (0xE100, 0xE101)
 CLOSE = (0xE102, 0xE104)
@@ -321,6 +328,45 @@ def check_model_item(built, fan):
     return psize, len(stored), fan_stored
 
 
+def check_rooms(built_idl, fan_idl, built_co, fan_co):
+    """Check h. Entries ROOM_IDLOCAL of idlocal and ROOM_CUTOBJ of cutobj_local keep the
+    fan's decoded size, are real LZ11 streams that decode to it, and are stored in no more
+    bytes than the fan's; the other cutobj_local entries are the fan's bytes.
+    -> {('idlocal', 321): (decoded, stored, fan stored), ..., ('cutobj_local', 10): ...}."""
+    out = {}
+    for name, built, fan, entries in (('idlocal', built_idl, fan_idl, ROOM_IDLOCAL),
+                                      ('cutobj_local', built_co, fan_co, (ROOM_CUTOBJ,))):
+        pt, ft = _table(built), _table(fan)
+        if len(pt) != len(ft):
+            raise BufCheckError('%s has %d entries, the fan has %d' % (name, len(pt), len(ft)))
+        pe, fe = _extents(pt, len(built)), _extents(ft, len(fan))
+        for i in entries:
+            if i >= len(pt):
+                raise BufCheckError('%s has no entry %d' % (name, i))
+            if pt[i][1] != ft[i][1]:
+                raise BufCheckError('%s entry %d: table field %#x, the fan\'s %#x' % (name, i, pt[i][1], ft[i][1]))
+            size = pt[i][1] & 0x7FFFFFFF
+            if not pt[i][1] & 0x80000000:
+                raise BufCheckError('%s entry %d is expected to be an LZ11 stream' % (name, i))
+            stored = built[pe[i][0]:pe[i][1]]
+            fan_stored = fe[i][1] - fe[i][0]
+            if _stream_size(stored) != size:
+                raise BufCheckError('%s entry %d: stream declares %d bytes, table says %d'
+                                    % (name, i, _stream_size(stored), size))
+            got = len(_decode(stored, '%s entry %d' % (name, i)))
+            if got != size:
+                raise BufCheckError('%s entry %d decodes to %d bytes, table says %d' % (name, i, got, size))
+            if len(stored) > fan_stored:
+                raise BufCheckError('%s entry %d is stored in %d bytes, over the fan\'s %d'
+                                    % (name, i, len(stored), fan_stored))
+            out[(name, i)] = (size, len(stored), fan_stored)
+        if name == 'cutobj_local':
+            for i in range(len(pt)):
+                if i != ROOM_CUTOBJ and built[pe[i][0]:pe[i][1]] != fan[fe[i][0]:fe[i][1]]:
+                    raise BufCheckError('cutobj_local entry %d is not the fan\'s bytes' % i)
+    return out
+
+
 def check_cutdata(cd):
     """Check e. -> (records, decoded size) of slot 47."""
     t = _table(cd)
@@ -499,10 +545,15 @@ def run(rom_path, dumpdir):
     with open(os.path.join(dumpdir, 'ds_fan', 'jpn', 'modelitemlocal.bin'), 'rb') as f:
         fan_model = f.read()
     g_size, g_stored, g_fan = check_model_item(rom_file(rom, 'jpn/modelitemlocal.bin'), fan_model)
+    with open(os.path.join(dumpdir, 'ds_fan', 'jpn', 'cutobj_local.bin'), 'rb') as f:
+        fan_co = f.read()
+    h = check_rooms(rom_file(rom, 'jpn/idlocal.bin'), fan, rom_file(rom, 'jpn/cutobj_local.bin'), fan_co)
+    hs = ', '.join('%s %d decodes %d, stored %d of the fan\'s %d' % ((k[0], k[1]) + v) for k, v in sorted(h.items()))
     return ('%s; (f) logic cards: %d checked, every OBJ inside the RGCN bytes, cards with OBJs past the '
             'declared data (rewritten, no fan tail): %s, %d punctuation-matched name cards rewritten; (g) modelitemlocal entry %d decodes to %d bytes like '
-            "the fan's, stored %d of the fan's %d, the other entries are the fan's bytes"
-            % (line, n, ps, n_named, MODEL_ENTRY, g_size, g_stored, g_fan))
+            "the fan's, stored %d of the fan's %d, the other entries are the fan's bytes; "
+            "(h) room names: %s, the other cutobj_local entries are the fan's bytes"
+            % (line, n, ps, n_named, MODEL_ENTRY, g_size, g_stored, g_fan, hs))
 
 
 if __name__ == '__main__':

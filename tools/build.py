@@ -199,7 +199,7 @@ def selftest():
     for mod in ('UnityPy', 'UnityPy.UnityPyBoost', 'lz4.block', 'brotli', 'PIL.Image', 'numpy',
                 'spt', 'dstext', 'inject', 'locate', 'ndsx', 'names', 'plates', 'buttons',
                 'lz11', 'nitro', 'txtcut', 'cg_names', 'cg_art', 'bag_tex', 'loc_dump', 'title_assets', 'voices',
-                'compact', 'mindchess', 'mc_wait', 'mindchess_recn', 'rnan25', 'linefix', 'last_rows', 'rewrite', 'relaid_rows',
+                'compact', 'mindchess', 'mc_wait', 'room_names', 'mindchess_recn', 'rnan25', 'linefix', 'last_rows', 'rewrite', 'relaid_rows',
                 'condense_rows', 'skipguard', 'sentence_breaks', 'e11c', 'rowsplit', 'cutdata_hotfix',
                 'bufcheck'):
         try:

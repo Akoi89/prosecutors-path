@@ -146,6 +146,15 @@ def apply(dumpdir, rom_path, log=print, version=None, any_rom=False):
     if not changed:
         log('Mind Chess wait button: not redrawn (see reason above)')
 
+    # 4d) the cake-show room names drawn into the map pieces: Capcom's Gusto's /
+    #     Scone's / Tangaroa's / Frost's over the fan's Gustavia's / Delicia's /
+    #     Master's / Dover's, in the fan's own lettering (jpn/cutobj_local.bin entry
+    #     10; jpn/idlocal.bin entries 321, 324, 327; see tools/room_names.py)
+    import room_names
+    rom, changed = room_names.apply_to_rom(rom, dumpdir, log, any_rom)
+    if not changed:
+        log('room names: not redrawn (see reason above)')
+
     # 5) close-up text screens (reports, letters, notes): Capcom's rows rendered
     #    in the fan's own pixel face into the full-screen images. Stored as
     #    literals, so the container grows ~2 MB; accepted (2026-09-04).

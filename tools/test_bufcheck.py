@@ -230,6 +230,37 @@ def main(rom_path, dumpdir='dump'):
     must_raise('entry 1 table size +4', lambda: bufcheck.check_model_item(bytes(bad), fan_m))
     must_raise('one entry short', lambda: bufcheck.check_model_item(
         struct.pack('<I', 8 * (len(tm) - 1)) + fan_m[4:(len(tm) - 1) * 8] + fan_m[len(tm) * 8:], fan_m))
+    print('h. room names (jpn/idlocal.bin 321 324 327, jpn/cutobj_local.bin 10)')
+    from choice_strips import Idlocal
+    built_i = bufcheck.rom_file(rom, 'jpn/idlocal.bin')
+    built_c = bufcheck.rom_file(rom, 'jpn/cutobj_local.bin')
+    fan_c = open(os.path.join(dumpdir, 'ds_fan', 'jpn', 'cutobj_local.bin'), 'rb').read()
+    print('  clean:', bufcheck.check_rooms(built_i, fan, built_c, fan_c))
+    print('  fan files as they are:', bufcheck.check_rooms(fan, fan, fan_c, fan_c))
+    bi, ci = Idlocal(built_i), Idlocal(built_c)
+    for e in bufcheck.ROOM_IDLOCAL:
+        raw = bi.blob(e)
+        must_raise('idlocal %d stored literal-only (bigger than the fan\'s)' % e,
+                   lambda: bufcheck.check_rooms(rebuild(built_i, {e: raw}), fan, built_c, fan_c))
+        must_raise('idlocal %d decoded one byte longer' % e,
+                   lambda: bufcheck.check_rooms(rebuild(built_i, {e: raw + b'\0'}, lz=(e,)), fan, built_c, fan_c))
+    bad = bytearray(built_i)
+    ti = bufcheck._table(built_i)
+    struct.pack_into('<I', bad, 321 * 8 + 4, ti[321][1] & 0x7FFFFFFF)      # compressed flag cleared
+    must_raise('idlocal 321 table says stored raw', lambda: bufcheck.check_rooms(bytes(bad), fan, built_c, fan_c))
+    raw = ci.blob(bufcheck.ROOM_CUTOBJ)
+    must_raise('cutobj_local 10 stored literal-only', lambda: bufcheck.check_rooms(built_i, fan, rebuild(built_c, {10: raw}), fan_c))
+    must_raise('cutobj_local 10 decoded one byte longer',
+               lambda: bufcheck.check_rooms(built_i, fan, rebuild(built_c, {10: raw + b'\0'}, lz=(10,)), fan_c))
+    tcc = bufcheck._table(built_c)
+    other = ci.blob(0)
+    must_raise('cutobj_local entry 0 changed',
+               lambda: bufcheck.check_rooms(built_i, fan, rebuild(built_c, {0: other[:-1] + bytes([other[-1] ^ 1])}, lz=(0,)), fan_c))
+    bad = bytearray(built_c)
+    struct.pack_into('<I', bad, 10 * 8 + 4, tcc[10][1] + 4)
+    must_raise('cutobj_local 10 table size +4', lambda: bufcheck.check_rooms(built_i, fan, bytes(bad), fan_c))
+    must_raise('cutobj_local one entry short', lambda: bufcheck.check_rooms(
+        built_i, fan, struct.pack('<I', 8 * (len(tcc) - 1)) + built_c[4:(len(tcc) - 1) * 8] + built_c[len(tcc) * 8:], fan_c))
     print('all negative tests raised, boundary cases passed')
 
 
