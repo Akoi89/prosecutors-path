@@ -57,7 +57,7 @@ This release is the `next` branch of `port`: six commits after c544530 (the READ
 
 ### Not a defect: the Mind Chess banner letters scatter in and snap together
 
-The same report mentioned the end-of-Mind-Chess banner, whose letters arrive out of place and then snap together. That is the original game's arrival animation: pieces scatter above and below, overshoot at tick 62 and rest at 64. The animation data for the name row is the same in the fan patch, in 1.10.0 and in 1.11.0, and the Japanese ROM's is within 1 px, and a frame-by-frame comparison shows the same motion in all four. The only difference from the Japanese game is a slightly larger sideways drift during the 3-tick scale-up of the banner (the object x positions in `tools/mindchess.py`), which I did not change.
+The same report mentioned the end-of-Mind-Chess banner, whose letters arrive out of place and then snap together. That is the original game's arrival animation: pieces scatter above and below, overshoot at tick 62 and rest at 64. The animation data for the name row is the same in the fan patch, in 1.10.0 and in 1.11.0, and the Japanese ROM's is within 1 px; a frame-by-frame comparison shows the same motion in all four. Nothing was changed.
 
 ### Testing for this release
 
