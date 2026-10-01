@@ -683,15 +683,22 @@ def _line_width(seq):
 # box. The ordinary rule below turns every newline into a space, and _layout() sets
 # that space inline whenever the next piece still fits on the row, so on the DS a 6 px
 # gap appeared in the middle of the scream ("AAAAAAAAAAAAAA AAAAAAAAAAAA"; a player
-# reported it in Wang's and Knight's breakdowns, entries 27 and 32). A newline with
-# the same letter running three or more times on BOTH sides is not a word break, so
-# it is dropped and the scream stays one run. The run is counted over text units only
-# (control codes and their arguments are skipped, and may sit between the two halves).
-# Run length 3 is not a tuned figure: across every newline the build converts, the
-# longest run on a same-letter break that is NOT a scream is 2 ("chess" / "set",
-# "too" / "often"), and the shortest on a scream is 3. Ordinary newlines are untouched.
+# reported it in Wang's and Knight's breakdowns, entries 27 and 32).
+#
+# WHICH NEWLINES. The letters-only word on each side of the newline (control codes and
+# their arguments skipped, and they may sit between the two halves) must contain a run
+# of three or more identical letters, either case. Across every newline the build
+# converts, that selects only screams and growls ("OOOO|OOOO", "RRRRGGGGHHHH|GGGHRHRR");
+# "too" / "often", "chess" / "set" and "Hmmm" / "That" have no such run on both sides.
+#
+# WHAT HAPPENS. The newline is dropped (no break, no space), so the scream is one run.
+# Only the message boxes that hold such a newline are laid out again; every other box
+# of the message keeps exactly the layout and page breaks it had without the rule (see
+# _drop_scream_marks and the relay step in convert()), so text around a scream never
+# moves to another box.
 SCREAM_NL_FIX = True
 SCREAM_RUN_MIN = 3
+_SCREAM = 'scream'      # val of the ('s', _SCREAM) token a mid-scream newline leaves
 
 
 def _scream_newlines(units):
@@ -707,25 +714,59 @@ def _scream_newlines(units):
                     i += 1
         else:
             text.append(i); i += 1
-    def same(u, c):                 # ASCII letter u is the letter c, either case
-        return (0x41 <= u <= 0x5A or 0x61 <= u <= 0x7A) and (u | 0x20) == c
+    def letter(u):
+        return 0x41 <= u <= 0x5A or 0x61 <= u <= 0x7A
+    def has_run(ks):                # three identical letters in a row among text indices ks
+        run, prev = 0, None
+        for k in ks:
+            c = units[text[k]] | 0x20
+            run = run + 1 if c == prev else 1
+            prev = c
+            if run >= SCREAM_RUN_MIN:
+                return True
+        return False
     found = set()
     for k in range(1, len(text) - 1):
         if units[text[k]] != 0x0A:
             continue
-        a, b = units[text[k - 1]], units[text[k + 1]]
-        if not (0x41 <= a <= 0x5A or 0x61 <= a <= 0x7A) or (a | 0x20) != (b | 0x20):
+        if not (letter(units[text[k - 1]]) and letter(units[text[k + 1]])):
             continue
-        c = a | 0x20
-        left = 0
-        while k - 1 - left >= 0 and same(units[text[k - 1 - left]], c):
-            left += 1
-        right = 0
-        while k + 1 + right < len(text) and same(units[text[k + 1 + right]], c):
-            right += 1
-        if left >= SCREAM_RUN_MIN and right >= SCREAM_RUN_MIN:
+        lo = k - 1
+        while lo - 1 >= 0 and letter(units[text[lo - 1]]):
+            lo -= 1
+        hi = k + 1
+        while hi + 1 < len(text) and letter(units[text[hi + 1]]):
+            hi += 1
+        if has_run(range(lo, k)) and has_run(range(k + 1, hi + 1)):
             found.add(text[k])
     return found
+
+
+def _drop_scream_marks(tokens):
+    """The same tokens with each mid-scream newline removed and the two words it sat
+    between joined into one."""
+    out = []
+    for t in tokens:
+        if t[0] == 's' and t[1] is _SCREAM:
+            out.append(None)            # placeholder: join the neighbours
+        else:
+            out.append(t)
+    res, k = [], 0
+    while k < len(out):
+        t = out[k]
+        if t is None:
+            if (res and res[-1][0] == 'w' and k + 1 < len(out)
+                    and out[k + 1] is not None and out[k + 1][0] == 'w'):
+                res[-1] = ('w', res[-1][1] + out[k + 1][1]); k += 2
+                continue
+            k += 1
+            continue
+        res.append(t); k += 1
+    return res
+
+
+def _has_scream_mark(tokens):
+    return any(t[0] == 's' and t[1] is _SCREAM for t in tokens)
 
 
 def selfcheck_scream_newlines():
@@ -746,18 +787,29 @@ def selfcheck_scream_newlines():
         bad.append('mid-scream newline across a control code was not joined')
     if SPACE in cv(u('NOOOO\nOOOOH!')):
         bad.append('NOOOO/OOOOH scream was not joined')
-    for s in ('too\noften', 'chess\nset', 'HHHHHHH\nHEH', 'AAAA\nBBBB', 'AAAAAAAA\n AAAAAAAA',
+    if SPACE in cv(u('RRRRGGGGHHHH\nGGGHRHRRRR')):
+        bad.append('mixed-letter growl (RRRRGGGGHHHH / GGGHRHRRRR) was not joined')
+    for s in ('too\noften', 'chess\nset', 'Hmmm\nThat', 'HHHHHHH\nHEH', 'AAAAAAAA\n AAAAAAAA',
               'Hello there,\nfriend.'):
         if SPACE not in cv(u(s)) or 0x0A in cv(u(s)):
             bad.append('ordinary break was changed: %r' % s)
     if 0x0A not in cv(scream, hard_nl=True) or SPACE in cv(scream, hard_nl=True):
         bad.append('hard_nl=True no longer keeps a break')
+    # boxes that hold no scream must keep the layout they have without the rule
+    lead = u('Sergeant! Where exactly were Mr. Knight fingerprints found, the ones you '
+             'mentioned in your report, and why did nobody say so earlier? ')
+    msg = lead + [0x4F] * 60 + [0x0A] + [0x4F] * 60 + [0x0A] + [0x4F] * 30
+    on = cv(msg)
     SCREAM_NL_FIX = False
     try:
         if SPACE not in cv(scream):
             bad.append('switch off did not restore the old behaviour')
+        off = cv(msg)
     finally:
         SCREAM_NL_FIX = True
+    cut = on.index(0xFF2F)          # the first scream letter (O)
+    if on[:cut] != off[:off.index(0xFF2F)]:
+        bad.append('text before a scream moved when the rule fired')
     return bad
 
 
@@ -900,7 +952,7 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
         if not tokens:
             return
         if not wrap:
-            for kind, val in tokens:
+            for kind, val in _drop_scream_marks(tokens):
                 if kind in ('c', 'w'): out.extend(val)
                 elif kind == 'n': out.append(0)
                 elif kind == 'br': out.append(0x0A)
@@ -929,6 +981,35 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
                 if merged and not any(k == 'w' for k, _ in c): merged[-1] = merged[-1] + c
                 else: merged.append(c)
             chunks = merged
+        if _has_scream_mark(tokens):
+            # Lay out again, with the scream newlines gone, ONLY the boxes that hold
+            # one. Every other box keeps the layout and page breaks it has above, so
+            # the boxes before and after a scream are the ones the converter made
+            # without this rule. Consecutive touched boxes are re-split together.
+            relaid, ci = [], 0
+            while ci < len(chunks):
+                if not _has_scream_mark(chunks[ci]):
+                    relaid.append(chunks[ci]); ci += 1
+                    continue
+                cj = ci
+                while cj + 1 < len(chunks) and _has_scream_mark(chunks[cj + 1]):
+                    cj += 1
+                seg = _drop_scream_marks([t for c in chunks[ci:cj + 1] for t in c])
+                _, nl = _layout(seg)
+                nbs = max(1, -(-nl // BOX_LINES)) if page else 1
+                parts = [seg]
+                if nbs > 1:
+                    for extra in range(0, 4):
+                        parts = split_tokens(seg, nbs + extra)
+                        if all(_layout(c)[1] <= BOX_LINES for c in parts): break
+                    merged = []
+                    for c in parts:
+                        if merged and not any(k == 'w' for k, _ in c): merged[-1] = merged[-1] + c
+                        else: merged.append(c)
+                    parts = merged
+                relaid.extend(parts)
+                ci = cj + 1
+            chunks = relaid
         depth = 0
         style = None            # the {E04x} opener currently in effect, or None
         # chunk_start tracks where the CURRENT chunk's own content starts in
@@ -1146,15 +1227,15 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
         cur = []
         for k, u in enumerate(run):
             if u == 0x0A:
-                nxt = units[base + k + 1] if base + k + 1 < n else None
-                if (base + k in scream_nl and hard_nl is not True
-                        and not (hard_nl == 'e20d' and nxt == LAYOUT_ROW)):
-                    continue        # inside a scream: no break, no space (SCREAM_NL_FIX)
                 if cur: buf.append(('w', word_units(cur))); cur = []
+                nxt = units[base + k + 1] if base + k + 1 < n else None
                 if hard_nl is True or (hard_nl == 'e20d' and nxt == LAYOUT_ROW):
                     buf.append(('br', None))
                 elif not buf or buf[-1][0] != 's':
-                    buf.append(('s', None))
+                    # a newline inside a scream is still a space to the layout that
+                    # decides the page breaks (so nothing around it moves); emit()
+                    # then lays the boxes holding one out again without it
+                    buf.append(('s', _SCREAM if base + k in scream_nl else None))
             elif u in (0x20, 0x09):
                 if cur: buf.append(('w', word_units(cur))); cur = []
                 if not buf or buf[-1][0] != 's': buf.append(('s', None))
