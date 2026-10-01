@@ -15,7 +15,7 @@ def units(s):
 
 
 def main():
-    bad = dstext.selfcheck_scream_newlines()
+    bad = dstext.selfcheck_scream_newlines() + dstext.selfcheck_hyphen_newlines()
     for b in bad:
         print('FAIL', b)
     # boundary: a run of 2 on one side is not a scream, 3 and 3 is

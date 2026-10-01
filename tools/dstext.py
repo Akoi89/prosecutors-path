@@ -751,21 +751,156 @@ def _scream_newlines(units):
     return found
 
 
+# HYPHENATED COMPOUNDS CUT BY A NEWLINE. Capcom's Switch box breaks a line inside a
+# hyphenated compound ("long-" / "standing", "muddle-" / "headed"). The ordinary rule
+# turns that newline into a space, so the DS showed "long- standing" in the middle of a
+# row (seen in the 1.11.0 ROM: bank 64 str 0, bank 135 str 7).
+#
+# WHICH NEWLINES. A 0x0A whose left text neighbour (control codes and their arguments
+# skipped) is one "-" that directly follows a letter, and whose right text neighbour is a
+# letter, with no box-ending code in between. It is dropped, so the compound is one word
+# ("long-standing"). Five newlines in this build's input qualify (64/0, 135/7, 225/1,
+# 243/0, 322/14; playtest/HYPHEN_NEWLINES.tsv).
+#
+# NOT "--". Capcom writes a dash as "word -- word" (counted: of 777 inline "--" with a
+# word after it in the same box, 773 have a space), so the space a newline becomes after
+# "--" is the house style and those 82 newlines are left alone.
+#
+# WHERE A ROW MAY BREAK. A joined compound, and any word wider than a whole row that holds
+# a hyphen, may break right after a hyphen (hyphen stays at the row end, no space added),
+# at the last hyphen that fits. A stutter ("B-But", "W-WAAA": one letter, hyphen, the same
+# letter) is never a break point. Where no hyphen fits, the word is laid out exactly as
+# before. Words that are neither joined nor wider than a row are not touched.
+#
+# Like the scream rule, only the boxes that hold a joined newline or such a long word are
+# laid out again (relay step in convert()); every other box keeps the layout it had.
+HYPHEN_NL_FIX = True
+_HYPHEN = 'hyphen'      # val of the ('s', _HYPHEN) token a joinable hyphen newline leaves
+_HYPHEN_U = 0xFF0D      # the converted "-"
+
+
+def _hyphen_newlines(units):
+    """Positions in units of the 0x0A that follow a compound's hyphen (see HYPHEN_NL_FIX)."""
+    if not HYPHEN_NL_FIX:
+        return set()
+    text, between, pend, i, n = [], [], [], 0, len(units)
+    while i < n:                    # text units, with the codes that sit in front of each
+        v = units[i]
+        if CTRL(v):
+            pend.append(v); i += 1
+            for _ in range(ARGS.get(v, DEFAULT_ARGS)):
+                if i < n and not CTRL(units[i]):
+                    i += 1
+        else:
+            text.append(i); between.append(pend); pend = []; i += 1
+    found = set()
+    for k in range(2, len(text) - 1):
+        if units[text[k]] != 0x0A or units[text[k - 1]] != 0x2D:
+            continue
+        if not (LETTER(units[text[k - 2]]) and LETTER(units[text[k + 1]])):
+            continue
+        if any(c in RESET for c in between[k] + between[k + 1]):
+            continue                # the newline sits across a box end: not one compound
+        found.add(text[k])
+    return found
+
+
+def _alnum_u(u):
+    return 0xFF21 <= u <= 0xFF3A or 0xFF41 <= u <= 0xFF5A or 0xFF10 <= u <= 0xFF19
+
+
+def _hyphen_breaks(val):
+    """Prefix lengths of the converted word val that end right after a hyphen between two
+    letters or digits, where a row may break. A stutter ("B-But": one letter, a hyphen,
+    the same letter) is not one."""
+    out = []
+    for k in range(1, len(val) - 1):
+        if val[k] != _HYPHEN_U:
+            continue
+        a, b = val[k - 1], val[k + 1]
+        if not (_alnum_u(a) and _alnum_u(b)):
+            continue
+        if (_scream_letter(a) and _scream_letter(b) and (a ^ b) & 0x1F == 0
+                and (k == 1 or not _alnum_u(val[k - 2]))):
+            continue
+        out.append(k + 1)
+    return out
+
+
+class _HyphenUnits(list):
+    """Units of a compound that was joined across a newline (it may break after a hyphen)."""
+
+
+def _tw(val):
+    return sum(W(chr(u)) for u in val)
+
+
+def _split_hyphen(val, cells, pending):
+    """val cut into pieces for a row that already holds `cells` px (and a pending space):
+    each piece ends right after a hyphen, the first one as far along as still fits the
+    row, the next ones on fresh rows. A word that fits whole is returned as it is, and where
+    no hyphen fits on a fresh row the rest is force-broken as _layout_full always did."""
+    gap = W(chr(SPACE)) if pending else 0
+    pieces, rest = [], list(val)
+    while True:
+        w = _tw(rest)
+        if (not cells and w <= LINE_PX) or cells + gap + w <= LINE_PX:
+            pieces.append(rest)
+            return pieces
+        fit = [c for c in _hyphen_breaks(rest) if cells + gap + _tw(rest[:c]) <= LINE_PX]
+        if fit:
+            pieces.append(rest[:fit[-1]]); rest = rest[fit[-1]:]
+            cells, gap = 0, 0
+        elif cells:
+            cells, gap = 0, 0       # nothing fits what is left of this row: start a row
+        else:
+            pieces.extend(_chunk(rest))
+            return pieces
+
+
+def _break_hyphens(tokens):
+    """tokens with every joined compound, and every word wider than a row that holds a
+    hyphen, cut into pieces at hyphens (see _split_hyphen). The pieces are separate words
+    with no space between them, so _layout() puts each one where _split_hyphen decided."""
+    out = []
+    for kind, val in tokens:
+        if (kind == 'w' and (isinstance(val, _HyphenUnits) or _tw(val) > LINE_PX)
+                and _hyphen_breaks(val)):
+            _p, _n, cells, pending, _s = _layout_full(out)
+            out.extend(('w', piece) for piece in _split_hyphen(val, cells, pending))
+        else:
+            out.append((kind, val))
+    return out
+
+
+def _is_mark(t):
+    """A space token that stands for a newline the relay step will take out."""
+    return t[0] == 's' and (t[1] is _SCREAM or t[1] is _HYPHEN)
+
+
 class _ScreamUnits(list):
     """Units of a word that belongs to a scream (it met a mid-scream newline)."""
 
 
 def _drop_scream_marks(tokens):
-    """The same tokens with each mid-scream newline removed and the two words it sat
-    between joined into one. Every word next to a removed newline (nearest word on
-    either side, control codes between are skipped) comes back as _ScreamUnits."""
+    """The same tokens with each marked newline removed and the two words it sat between
+    joined into one. For a scream, every word next to a removed newline (nearest word on
+    either side, control codes between are skipped) comes back as _ScreamUnits; a joined
+    hyphenated compound comes back as _HyphenUnits."""
     out = []
     for t in tokens:
-        out.append(None if (t[0] == 's' and t[1] is _SCREAM) else t)
+        out.append(None if _is_mark(t) else t)
     res, at, k = [], [], 0
     while k < len(out):
         t = out[k]
         if t is None:
+            if tokens[k][1] is _HYPHEN:
+                if (res and res[-1][0] == 'w' and k + 1 < len(out)
+                        and out[k + 1] is not None and out[k + 1][0] == 'w'):
+                    res[-1] = ('w', _HyphenUnits(res[-1][1] + out[k + 1][1])); k += 2
+                    continue
+                k += 1
+                continue
             at.append(len(res))
             if (res and res[-1][0] == 'w' and k + 1 < len(out)
                     and out[k + 1] is not None and out[k + 1][0] == 'w'):
@@ -1035,7 +1170,11 @@ def _split_rows(tokens, placed, nlines, nb):
 
 
 def _has_scream_mark(tokens):
-    return any(t[0] == 's' and t[1] is _SCREAM for t in tokens)
+    """True when the tokens hold a newline the relay step takes out (a mid-scream newline or
+    a hyphenated compound's), or a word wider than a row that holds a hyphen (which the relay
+    step may break after the hyphen)."""
+    return any(_is_mark(t) or (HYPHEN_NL_FIX and t[0] == 'w' and _tw(t[1]) > LINE_PX
+                               and _hyphen_breaks(t[1])) for t in tokens)
 
 
 def selfcheck_scream_newlines():
@@ -1100,6 +1239,123 @@ def selfcheck_scream_newlines():
     flat = [v for r in rows for v in r]
     if flat.count(code) != 1 or flat.index(code) != 8 + 0:
         bad.append('a control code inside a scream moved')
+    return bad
+
+
+def selfcheck_hyphen_newlines():
+    """Failures (a list of strings, empty when sound) of the hyphen-newline rule and the
+    break-after-a-hyphen layout. Used by build.py --selftest and tools/test_dstext_scream.py."""
+    global HYPHEN_NL_FIX
+    if not HYPHEN_NL_FIX:
+        return ['HYPHEN_NL_FIX is off']
+    def cv(s, **kw):
+        return convert([ord(c) for c in s], **kw)[0]
+    def rows(out):
+        """rows of an output stream, split at line breaks and box ends (codes kept in a row)"""
+        res, cur, i, n = [], [], 0, len(out)
+        while i < n:
+            v = out[i]
+            if CTRL(v):
+                k = i + 1 + ARGS.get(v, DEFAULT_ARGS)
+                if v in (WAIT_BREAK, AUTO_BREAK):
+                    res.append(cur); cur = []
+                else:
+                    cur.extend(out[i:k])
+                i = k
+            elif v == 0x0A:
+                res.append(cur); cur = []; i += 1
+            else:
+                cur.append(v); i += 1
+        res.append(cur)
+        return res
+    def breaks_inside(out, word):
+        """Row or box breaks that fall inside `word` (a converted word) in the output stream,
+        as the unit just before each one; [] when the word is not found."""
+        flat, i, n = [], 0, len(out)
+        while i < n:
+            v = out[i]
+            if CTRL(v):
+                i += 1 + ARGS.get(v, DEFAULT_ARGS)
+                if v in (WAIT_BREAK, AUTO_BREAK):
+                    flat.append(None)
+            elif v == 0x0A:
+                flat.append(None); i += 1
+            else:
+                flat.append(v); i += 1
+        text = [v for v in flat if v is not None]
+        for st in range(len(text) - len(word) + 1):
+            if text[st:st + len(word)] == word:
+                break
+        else:
+            return None
+        seen, res = 0, []
+        for k, v in enumerate(flat):
+            if v is None:
+                if st < seen < st + len(word):
+                    res.append(flat[k - 1])
+            else:
+                seen += 1
+        return res
+    bad = []
+    H = _HYPHEN_U
+    # 1. a compound cut by a newline is one word again: never a space right after its hyphen
+    for s in ('The Committee has a long-\nstanding relationship with the board.',
+              'just a silly, muddle-\nheaded girl!'):
+        out = cv(s)
+        if any(out[i] == H and out[i + 1] == SPACE for i in range(len(out) - 1)):
+            bad.append('hyphen newline left a space after the hyphen: %r' % s)
+    # ... at a row end the break stays after the hyphen with no space added
+    for n in range(1, 40):
+        out = cv('x ' * n + 'long-\nstanding relationship')
+        for i in range(len(out) - 1):
+            if out[i] == H and out[i + 1] == SPACE:
+                bad.append('space after a hyphen (filler %d)' % n)
+        for r in rows(out)[1:]:
+            if r and r[0] == SPACE:
+                bad.append('row starts with a space (filler %d)' % n)
+        if any(_line_width(r) > LINE_PX for r in rows(out)):
+            bad.append('row over the limit (filler %d)' % n)
+    # 2. a stutter is never broken at its hyphen, joined or not
+    for word in ('B-But', 'W-WAAA', 'N-No', 'B-\nBut'):
+        for n in range(1, 40):
+            out = cv('x ' * n + word + ' I did not')
+            if any(out[i] == H and out[i + 1] == 0x0A for i in range(len(out) - 1)):
+                bad.append('stutter broken at its hyphen: %r after %d fillers' % (word, n))
+    for word, want in (('B-But', []), ('W-WAAA', []), ('N-No', []), ('I-It', []), ('B-B-But', []),
+                       ('long-standing', [5]), ('x-ray', [2]), ('keep-the-end', [5, 9]), ('A--B', [])):
+        got = _hyphen_breaks([ord(_fw(c)) for c in word])
+        if got != want:
+            bad.append('break points of %r are %r, expected %r' % (word, got, want))
+    # 3. "--" keeps the space a newline becomes (Capcom writes "-- word")
+    out = cv('It is true --\nall that')
+    if not any(out[i] == H and out[i + 1] == H and out[i + 2] == SPACE for i in range(len(out) - 2)):
+        bad.append('a newline after "--" no longer becomes a space')
+    # 4. a word wider than a row that holds hyphens breaks after a hyphen, never inside a word
+    long_word = 'keep-the-incriminating-evidence-close'
+    for n in range(0, 14):
+        out = cv('x ' * n + long_word + ' routine!')
+        inside = breaks_inside(out, [ord(_fw(c)) for c in long_word])
+        if inside is None:
+            bad.append('long hyphenated word lost its letters (filler %d)' % n)
+        elif any(u != H for u in inside):
+            bad.append('long hyphenated word broken inside a word (filler %d)' % n)
+        if any(_line_width(r) > LINE_PX for r in rows(out)):
+            bad.append('row over the limit with a long hyphenated word (filler %d)' % n)
+    # 5. nothing else moves: words without a hyphen, and short hyphenated words, lay out
+    # exactly as with the rule off
+    same = ('M' * 70 + ' end', 'Well, this would-be thing is a first-move case, a red-hooded man ' * 3,
+            'x ' * 20 + 'would-be heir', 'The B-But W-WAAA stutter, and a flat-out lie.')
+    on = [cv(s) for s in same]
+    HYPHEN_NL_FIX = False
+    try:
+        if SPACE not in cv('a long-\nstanding thing'):
+            bad.append('switch off did not restore the old behaviour')
+        off = [cv(s) for s in same]
+    finally:
+        HYPHEN_NL_FIX = True
+    for s, x, y in zip(same, on, off):
+        if x != y:
+            bad.append('text without an affected hyphen changed: %r' % s[:30])
     return bad
 
 
@@ -1272,7 +1528,8 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
                 else: merged.append(c)
             chunks = merged
         if _has_scream_mark(tokens):
-            # Lay out again, with the scream newlines gone, ONLY the boxes that hold
+            # Lay out again, with the scream and hyphen-compound newlines gone (and
+            # a long hyphenated word cut after a hyphen), ONLY the boxes that hold
             # one. Every other box keeps the layout and page breaks it has above, so
             # the boxes before and after a scream are the ones the converter made
             # without this rule. Consecutive touched boxes are re-split together.
@@ -1288,6 +1545,7 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
                 # the scream itself becomes one run of letters filling every row;
                 # the boxes keep the count they had, with whole rows in each
                 seg = _fill_screams(seg)
+                seg = _break_hyphens(seg)
                 placed, nl = _layout(seg)
                 nbs = max(1, -(-nl // BOX_LINES)) if page else 1
                 parts = [seg]
@@ -1417,6 +1675,7 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
 
     # Split the stream into messages; a message ends at a box-terminating code.
     scream_nl = _scream_newlines(units)
+    hyphen_nl = _hyphen_newlines(units)
     i, n = 0, len(units)
     buf = []
     while i < n:
@@ -1532,10 +1791,11 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
                 if hard_nl is True or (hard_nl == 'e20d' and nxt == LAYOUT_ROW):
                     buf.append(('br', None))
                 elif not buf or buf[-1][0] != 's':
-                    # a newline inside a scream is still a space to the layout that
-                    # decides the page breaks (so nothing around it moves); emit()
-                    # then lays the boxes holding one out again without it
-                    buf.append(('s', _SCREAM if base + k in scream_nl else None))
+                    # a newline inside a scream (or after a compound's hyphen) is still a
+                    # space to the layout that decides the page breaks (so nothing around
+                    # it moves); emit() then lays the boxes holding one out again without it
+                    buf.append(('s', _SCREAM if base + k in scream_nl
+                                else _HYPHEN if base + k in hyphen_nl else None))
             elif u in (0x20, 0x09):
                 if cur: buf.append(('w', word_units(cur))); cur = []
                 if not buf or buf[-1][0] != 's': buf.append(('s', None))

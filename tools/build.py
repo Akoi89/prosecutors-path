@@ -212,6 +212,9 @@ def selftest():
     _bad = dstext.selfcheck_scream_newlines()
     ok &= not _bad
     print('  dstext scream newlines            %s' % ('ok' if not _bad else 'FAILED: ' + '; '.join(_bad)))
+    _bad = dstext.selfcheck_hyphen_newlines()
+    ok &= not _bad
+    print('  dstext hyphen newlines            %s' % ('ok' if not _bad else 'FAILED: ' + '; '.join(_bad)))
     print('\nselftest %s' % ('passed' if ok else 'FAILED'))
     return 0 if ok else 1
 
