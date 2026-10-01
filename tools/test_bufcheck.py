@@ -261,6 +261,55 @@ def main(rom_path, dumpdir='dump'):
     must_raise('cutobj_local 10 table size +4', lambda: bufcheck.check_rooms(built_i, fan, bytes(bad), fan_c))
     must_raise('cutobj_local one entry short', lambda: bufcheck.check_rooms(
         built_i, fan, struct.pack('<I', 8 * (len(tcc) - 1)) + built_c[4:(len(tcc) - 1) * 8] + built_c[len(tcc) * 8:], fan_c))
+    print('i. opening card (jpn/opening_local.bin entries 13/14)')
+    import opening_card as oc
+    built_o = bufcheck.rom_file(rom, 'jpn/opening_local.bin')
+    fan_o = open(os.path.join(dumpdir, 'ds_fan', 'jpn', 'opening_local.bin'), 'rb').read()
+    print('  clean:', bufcheck.check_opening_card(built_o, fan_o))
+    print('  fan file as it is:', bufcheck.check_opening_card(fan_o, fan_o))
+    g13, s13, _c = oc.entry(built_o, 13)
+    fan_s13 = len(oc.entry(fan_o, 13)[1])
+    lit = bytearray(b'\x11' + len(g13).to_bytes(3, 'little'))
+    for p in range(0, len(g13), 8):
+        lit.append(0); lit += g13[p:p + 8]
+
+    def with13(stored13):
+        """built_o with entry 13 replaced by the given stored bytes, table field kept."""
+        t = bufcheck._table(built_o)
+        ext = bufcheck._extents(t, len(built_o))
+        a, b = ext[13]
+        out = bytearray(built_o[:a]) + stored13
+        shift = len(out) - b
+        out += built_o[b:]
+        for i, (o, s) in enumerate(t):
+            if o > a:
+                struct.pack_into('<I', out, i * 8, o + shift)
+        return bytes(out)
+
+    must_raise('entry 13 stored literal-only (%d bytes, fan %d)' % (len(lit), fan_s13), lambda: bufcheck.check_opening_card(with13(bytes(lit)), fan_o))
+    real = lz11.compress(g13)
+    print('  entry 13 padded to exactly the fan\'s stored size passes:',
+          bufcheck.check_opening_card(with13(real + bytes(fan_s13 - len(real))), fan_o))
+    must_raise('entry 13 one byte over the fan\'s stored size',
+               lambda: bufcheck.check_opening_card(with13(real + bytes(fan_s13 - len(real) + 1)), fan_o))
+    must_raise('entry 13 decoded one byte longer', lambda: bufcheck.check_opening_card(
+        oc.rebuild(built_o, {13: g13 + b'\0'}, lz=(13,)), fan_o))
+    bad = bytearray(g13)
+    bad[0:4] = b'XXXX'
+    must_raise('entry 13 no longer an RGCN', lambda: bufcheck.check_opening_card(oc.rebuild(built_o, {13: bytes(bad)}, lz=(13,)), fan_o))
+    must_raise('entry 13 stored uncompressed', lambda: bufcheck.check_opening_card(oc.rebuild(built_o, {13: g13}), fan_o))
+    p14 = oc.entry(built_o, 14)[0]
+    must_raise('entry 14 stored as LZ11', lambda: bufcheck.check_opening_card(oc.rebuild(built_o, {14: p14}, lz=(14,)), fan_o))
+    c12 = bytearray(oc.entry(built_o, 12)[0])
+    c12[-1] ^= 1
+    must_raise('entry 12 (cells) changed', lambda: bufcheck.check_opening_card(oc.rebuild(built_o, {12: bytes(c12)}, lz=(12,)), fan_o))
+    a11 = bytearray(oc.entry(built_o, 11)[0])
+    a11[-1] ^= 1
+    must_raise('entry 11 (animation) changed', lambda: bufcheck.check_opening_card(oc.rebuild(built_o, {11: bytes(a11)}, lz=(11,)), fan_o))
+    to = bufcheck._table(built_o)
+    bad = bytearray(built_o)
+    struct.pack_into('<I', bad, 13 * 8 + 4, to[13][1] + 4)
+    must_raise('entry 13 table size +4', lambda: bufcheck.check_opening_card(bytes(bad), fan_o))
     print('all negative tests raised, boundary cases passed')
 
 

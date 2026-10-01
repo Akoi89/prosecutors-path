@@ -33,10 +33,10 @@ def title_dir(dumpdir):
 
 def required(dumpdir):
     """Files apply() needs; build.py checks these under --skip-extract."""
-    import cg_art, mindchess
+    import cg_art, mindchess, opening_card
     t = title_dir(dumpdir)
     return ([os.path.join(t, LOGO_PNG)] + [os.path.join(t, 'fonts', n + '.otf') for n in FONTS]
-            + cg_art.required(dumpdir) + mindchess.required(dumpdir))
+            + cg_art.required(dumpdir) + mindchess.required(dumpdir) + opening_card.required(dumpdir))
 
 
 def extract(bdir, dumpdir):
@@ -53,6 +53,8 @@ def extract(bdir, dumpdir):
     cg_art.extract(bdir, dumpdir)
     import mindchess
     mindchess.extract(bdir, dumpdir)
+    import opening_card
+    opening_card.extract(bdir, dumpdir)
     return t
 
 
@@ -111,6 +113,15 @@ def apply(dumpdir, rom_path, log=print, version=None, any_rom=False):
         rom = title_logo.splice(rom, 'jpn/' + name, open(path, 'rb').read())
     for l in lines:
         log(l.strip())
+
+    # 2b) the cake-show logo card in the same file (jpn/opening_local.bin entries 13/14):
+    #     Capcom's English logo from the Collection over the fan's card, in the card's
+    #     palette, hash-guarded (see tools/opening_card.py); after the splash card above,
+    #     which rewrites entry 0 of the same file
+    import opening_card
+    rom, op_changed = opening_card.apply_to_rom(rom, dumpdir, log, any_rom)
+    if not op_changed:
+        log('opening card: not redrawn (see reason above)')
 
     # 3) Logic keyword cards: Capcom's short names rendered into the fan's card images
     import logic_names, logic_cards

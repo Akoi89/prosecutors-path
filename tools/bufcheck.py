@@ -4,10 +4,11 @@
 The port's data can outgrow a fixed buffer in the game without any visible
 error at build time. playtest/SOLVE_buffers.md traced every loader and text
 buffer in the engine; none overflows today, and checks a to e keep it that
-way (f is the Logic keyword cards, g the bag model texture, h the room names). They read jpn/spt.bin, jpn/idlocal.bin,
-com/cutdata.bin, jpn/logic_keyword_local.bin and jpn/modelitemlocal.bin out of the finished ROM (after
-the last step that writes any of them), compare idlocal, the logic cards and the model file with the
-fan's, and RAISE BufCheckError naming the entry and the
+way (f is the Logic keyword cards, g the bag model texture, h the room names, i the opening card).
+They read jpn/spt.bin, jpn/idlocal.bin, com/cutdata.bin, jpn/logic_keyword_local.bin,
+jpn/modelitemlocal.bin, jpn/cutobj_local.bin and jpn/opening_local.bin out of the finished ROM (after
+the last step that writes any of them), compare idlocal, the logic cards, the model file, cutobj_local
+and the opening file with the fan's, and RAISE BufCheckError naming the entry and the
 numbers. Every check raises an exception (so it also runs under python -O).
 
 a. spt need. The field engine loads a script entry into a fixed 0x2000-byte
@@ -52,6 +53,12 @@ h. room names. Entries 321, 324 and 327 of jpn/idlocal.bin and entry 10 of
    the fan's size, their stream header must agree with the table, and each must be stored in no
    more bytes than the fan's entry; every other cutobj_local entry must be byte for byte the
    fan's.
+i. opening card. jpn/opening_local.bin entries 13 (RGCN, which opening_card.py redraws) and 14
+   (RLCN) are read by the sprite bundle loader into a buffer of the table's decoded size, through
+   a temporary copy of the stored entry. Every table field must be the fan's (decoded sizes and
+   compression flags), entry 13 must be an LZ11 stream decoding to an RGCN of that size and be
+   stored in no more bytes than the fan's, entry 14 must stay uncompressed, and every other entry
+   except 0 (the splash title tiles title_text.py rewrites) must decode to the fan's bytes.
 """
 import os
 import struct
@@ -80,6 +87,8 @@ LOGIC_PUNCT_SLOTS = (40, 56, 59, 60, 117, 120)
 LOGIC_PUNCT_ENTRIES = tuple(sorted([k + 1 for k in LOGIC_PUNCT_SLOTS] + [k + 135 for k in LOGIC_PUNCT_SLOTS]))
 ROOM_IDLOCAL = (321, 324, 327)
 ROOM_CUTOBJ = 10
+OPENING_GFX, OPENING_PAL = 13, 14
+OPENING_FREE = (0,)            # the splash title tiles, rewritten by title_text.py
 
 OPEN = (0xE100, 0xE101)
 CLOSE = (0xE102, 0xE104)
@@ -367,6 +376,51 @@ def check_rooms(built_idl, fan_idl, built_co, fan_co):
     return out
 
 
+def check_opening_card(built, fan):
+    """Check i on the built and the fan's jpn/opening_local.bin bytes.
+    -> (decoded size, stored size, fan's stored size) of entry 13."""
+    pt, ft = _table(built), _table(fan)
+    if len(pt) != len(ft):
+        raise BufCheckError('opening_local has %d entries, the fan has %d' % (len(pt), len(ft)))
+    if OPENING_PAL >= len(pt):
+        raise BufCheckError('opening_local has no entry %d' % OPENING_PAL)
+    pe, fe = _extents(pt, len(built)), _extents(ft, len(fan))
+
+    def blob(d, t, e, i):
+        raw = d[e[i][0]:e[i][1]]
+        if t[i][1] & 0x80000000:
+            return _decode(raw, 'opening_local entry %d' % i)
+        return raw[:t[i][1] & 0x7FFFFFFF]
+
+    for i in range(len(pt)):
+        if pt[i][1] != ft[i][1]:
+            raise BufCheckError('opening_local entry %d: table field %#x, the fan\'s %#x' % (i, pt[i][1], ft[i][1]))
+        if i in OPENING_FREE + (OPENING_GFX, OPENING_PAL) or not ft[i][0]:
+            continue
+        if blob(built, pt, pe, i) != blob(fan, ft, fe, i):
+            raise BufCheckError('opening_local entry %d is not the fan\'s data' % i)
+    size = pt[OPENING_GFX][1] & 0x7FFFFFFF
+    if not pt[OPENING_GFX][1] & 0x80000000:
+        raise BufCheckError('opening_local entry %d is expected to be an LZ11 stream' % OPENING_GFX)
+    stored = built[pe[OPENING_GFX][0]:pe[OPENING_GFX][1]]
+    fan_stored = fe[OPENING_GFX][1] - fe[OPENING_GFX][0]
+    if _stream_size(stored) != size:
+        raise BufCheckError('opening_local entry %d: stream declares %d bytes, table says %d'
+                            % (OPENING_GFX, _stream_size(stored), size))
+    g = _decode(stored, 'opening_local entry %d' % OPENING_GFX)
+    if len(g) != size:
+        raise BufCheckError('opening_local entry %d decodes to %d bytes, table says %d' % (OPENING_GFX, len(g), size))
+    if g[:4] != b'RGCN' or struct.unpack_from('<I', g, 8)[0] != size:
+        raise BufCheckError('opening_local entry %d is not an RGCN of its own size' % OPENING_GFX)
+    if len(stored) > fan_stored:
+        raise BufCheckError('opening_local entry %d is stored in %d bytes, over the fan\'s %d'
+                            % (OPENING_GFX, len(stored), fan_stored))
+    p = blob(built, pt, pe, OPENING_PAL)
+    if pt[OPENING_PAL][1] & 0x80000000 or p[:4] != b'RLCN' or len(p) != (ft[OPENING_PAL][1] & 0x7FFFFFFF):
+        raise BufCheckError('opening_local entry %d is not an uncompressed RLCN of the fan\'s size' % OPENING_PAL)
+    return size, len(stored), fan_stored
+
+
 def check_cutdata(cd):
     """Check e. -> (records, decoded size) of slot 47."""
     t = _table(cd)
@@ -549,11 +603,17 @@ def run(rom_path, dumpdir):
         fan_co = f.read()
     h = check_rooms(rom_file(rom, 'jpn/idlocal.bin'), fan, rom_file(rom, 'jpn/cutobj_local.bin'), fan_co)
     hs = ', '.join('%s %d decodes %d, stored %d of the fan\'s %d' % ((k[0], k[1]) + v) for k, v in sorted(h.items()))
+    with open(os.path.join(dumpdir, 'ds_fan', 'jpn', 'opening_local.bin'), 'rb') as f:
+        fan_opening = f.read()
+    i_size, i_stored, i_fan = check_opening_card(rom_file(rom, 'jpn/opening_local.bin'), fan_opening)
     return ('%s; (f) logic cards: %d checked, every OBJ inside the RGCN bytes, cards with OBJs past the '
             'declared data (rewritten, no fan tail): %s, %d punctuation-matched name cards rewritten; (g) modelitemlocal entry %d decodes to %d bytes like '
             "the fan's, stored %d of the fan's %d, the other entries are the fan's bytes; "
-            "(h) room names: %s, the other cutobj_local entries are the fan's bytes"
-            % (line, n, ps, n_named, MODEL_ENTRY, g_size, g_stored, g_fan, hs))
+            "(h) room names: %s, the other cutobj_local entries are the fan's bytes; "
+            "(i) opening_local entry %d decodes to %d bytes like the fan's, stored %d of the fan's %d, "
+            "every table field the fan's"
+            % (line, n, ps, n_named, MODEL_ENTRY, g_size, g_stored, g_fan, hs,
+               OPENING_GFX, i_size, i_stored, i_fan))
 
 
 if __name__ == '__main__':
