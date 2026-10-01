@@ -409,9 +409,9 @@ WEDGE_LABELS = [
     ("Master's", "Tangaroa's", (11, 42, 63, 72), 7, LIT_WEDGE, 'l'),
     ("Dover's", "Frost's", (111, 140, 63, 72), 12, DIM_WEDGE, 'l'),
 ]
-# THE one switch for the Tangaroa's wedge layout (see TANGAROA_OPTIONS). A
-# placeholder until the primary has judged the renders.
-TANGAROA_OPTION = 'B'
+# THE one switch for the Tangaroa's wedge layout (see TANGAROA_OPTIONS), other options stay selectable;
+# decided: G' (the squeezed letters pulled 1 px, the dome label moved 1 px right).
+TANGAROA_OPTION = "G'"
 
 
 def old_label(grid, box, ink, text):
