@@ -4,7 +4,7 @@
 The port's data can outgrow a fixed buffer in the game without any visible
 error at build time. playtest/SOLVE_buffers.md traced every loader and text
 buffer in the engine; none overflows today, and checks a to e keep it that
-way (f is the Logic keyword cards). They read jpn/spt.bin, jpn/idlocal.bin,
+way (f is the Logic keyword cards, g the bag model texture). They read jpn/spt.bin, jpn/idlocal.bin,
 com/cutdata.bin and jpn/logic_keyword_local.bin out of the finished ROM (after the last step that writes any of them), compare
 idlocal with the fan's, and RAISE BufCheckError naming the entry and the
 numbers. Every check raises an exception (so it also runs under python -O).
@@ -39,6 +39,9 @@ f. logic keyword cards. Cards 242, 244 and 246 (banners) have six 32x16 OBJs, 15
    data; the game shows those bytes. Read from the built jpn/logic_keyword_local.bin: every
    card's OBJs must lie inside the bytes the RGCN part holds, and a card whose OBJs reach
    past the declared data must have been rewritten, with a tail different from the fan's.
+g. bag model texture. Entry 1 of jpn/modelitemlocal.bin (the BTX0 with texture bag_01, which
+   bag_tex.py redraws) must decode to the fan's size, be stored in no more bytes than the
+   fan's, and every other entry must be the fan's bytes.
 """
 import os
 import struct
@@ -59,6 +62,7 @@ IDLOCAL_25_STORED_MAX = 16 * 1024
 CUT_SLOT = 47
 CUT_MAX_RECORDS = 16
 CUT_MAX_DSIZE = 1604
+MODEL_ENTRY = 1
 
 OPEN = (0xE100, 0xE101)
 CLOSE = (0xE102, 0xE104)
@@ -263,6 +267,50 @@ def check_idlocal(port, fan):
     return len(pt), changed
 
 
+def _extents(t, total):
+    """{entry: (start, end)} of every slot of a table, each ending where the next
+    one in file order begins."""
+    order = sorted(range(len(t)), key=lambda k: t[k][0])
+    return {k: (t[k][0], t[order[j + 1]][0] if j + 1 < len(order) else total) for j, k in enumerate(order)}
+
+
+def check_model_item(built, fan):
+    """Check g. jpn/modelitemlocal.bin holds the bag model's textures; entry 1 (BTX0, bag_01)
+    carries the redrawn plan paper. The loader sizes its buffer from the table, so the entry
+    must decode to exactly the fan's size, be stored in no more bytes than the fan's, and
+    still be the same BTX0; every other entry must be byte for byte the fan's.
+    -> (decoded size, stored size, fan's stored size)."""
+    pt, ft = _table(built), _table(fan)
+    if len(pt) != len(ft):
+        raise BufCheckError('modelitemlocal has %d entries, the fan has %d' % (len(pt), len(ft)))
+    if MODEL_ENTRY >= len(pt):
+        raise BufCheckError('modelitemlocal has no entry %d' % MODEL_ENTRY)
+    pe, fe = _extents(pt, len(built)), _extents(ft, len(fan))
+    for i in range(len(pt)):
+        if pt[i][1] != ft[i][1]:
+            raise BufCheckError('modelitemlocal entry %d: table field %#x, the fan\'s %#x' % (i, pt[i][1], ft[i][1]))
+        if i != MODEL_ENTRY and built[pe[i][0]:pe[i][1]] != fan[fe[i][0]:fe[i][1]]:
+            raise BufCheckError('modelitemlocal entry %d is not the fan\'s bytes' % i)
+    psize = pt[MODEL_ENTRY][1] & 0x7FFFFFFF
+    if not pt[MODEL_ENTRY][1] & 0x80000000:
+        raise BufCheckError('modelitemlocal entry %d is expected to be an LZ11 stream' % MODEL_ENTRY)
+    stored = built[pe[MODEL_ENTRY][0]:pe[MODEL_ENTRY][1]]
+    fan_stored = fe[MODEL_ENTRY][1] - fe[MODEL_ENTRY][0]
+    if _stream_size(stored) != psize:
+        raise BufCheckError('modelitemlocal entry %d: stream declares %d bytes, table says %d'
+                            % (MODEL_ENTRY, _stream_size(stored), psize))
+    blob = _decode(stored, 'modelitemlocal entry %d' % MODEL_ENTRY)
+    if len(blob) != psize:
+        raise BufCheckError('modelitemlocal entry %d decodes to %d bytes, table says %d'
+                            % (MODEL_ENTRY, len(blob), psize))
+    if blob[:4] != b'BTX0' or struct.unpack_from('<I', blob, 8)[0] != psize:
+        raise BufCheckError('modelitemlocal entry %d is not a BTX0 of its own size' % MODEL_ENTRY)
+    if len(stored) > fan_stored:
+        raise BufCheckError('modelitemlocal entry %d is stored in %d bytes, over the fan\'s %d'
+                            % (MODEL_ENTRY, len(stored), fan_stored))
+    return psize, len(stored), fan_stored
+
+
 def check_cutdata(cd):
     """Check e. -> (records, decoded size) of slot 47."""
     t = _table(cd)
@@ -385,8 +433,13 @@ def run(rom_path, dumpdir):
         fan_logic = f.read()
     n, past = check_logic_cards(rom_file(rom, 'jpn/logic_keyword_local.bin'), fan_logic)
     ps = ', '.join('%d (%d->%d bytes)' % (k, v[0], v[1]) for k, v in sorted(past.items())) or 'none'
+    with open(os.path.join(dumpdir, 'ds_fan', 'jpn', 'modelitemlocal.bin'), 'rb') as f:
+        fan_model = f.read()
+    g_size, g_stored, g_fan = check_model_item(rom_file(rom, 'jpn/modelitemlocal.bin'), fan_model)
     return ('%s; (f) logic cards: %d checked, every OBJ inside the RGCN bytes, cards with OBJs past the '
-            'declared data (rewritten, no fan tail): %s' % (line, n, ps))
+            'declared data (rewritten, no fan tail): %s; (g) modelitemlocal entry %d decodes to %d bytes like '
+            "the fan's, stored %d of the fan's %d, the other entries are the fan's bytes"
+            % (line, n, ps, MODEL_ENTRY, g_size, g_stored, g_fan))
 
 
 if __name__ == '__main__':

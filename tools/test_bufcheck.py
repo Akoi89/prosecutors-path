@@ -170,6 +170,28 @@ def main(rom_path, dumpdir='dump'):
     parts = L.sub_split(L.table(built)[243])
     parts[2] = parts[2][:0x30 + 1280]
     must_raise('card 243 RGCN part cut to 1280 tile bytes (OBJs reach 1536)', lambda: bufcheck.check_logic_cards(_swap(built, 243, L.sub_join(parts)), fan_l))
+    print('g. bag model texture (jpn/modelitemlocal.bin entry 1)')
+    from choice_strips import rebuild
+    built_m = bufcheck.rom_file(rom, 'jpn/modelitemlocal.bin')
+    fan_m = open(os.path.join(dumpdir, 'ds_fan', 'jpn', 'modelitemlocal.bin'), 'rb').read()
+    print('  clean:', bufcheck.check_model_item(built_m, fan_m))
+    print('  fan file as it is:', bufcheck.check_model_item(fan_m, fan_m))
+    tm = bufcheck._table(fan_m)
+    blob1 = lz11.decompress(fan_m[tm[1][0]:bufcheck._extents(tm, len(fan_m))[1][1]])
+    must_raise('entry 1 stored literal-only (bigger than the fan\'s)',
+               lambda: bufcheck.check_model_item(rebuild(fan_m, {1: blob1}), fan_m))
+    must_raise('entry 1 decoded one byte longer',
+               lambda: bufcheck.check_model_item(rebuild(fan_m, {1: blob1 + b'\0'}, lz=(1,)), fan_m))
+    bad = bytearray(blob1)
+    bad[0:4] = b'XXXX'
+    must_raise('entry 1 no longer a BTX0', lambda: bufcheck.check_model_item(rebuild(fan_m, {1: bytes(bad)}, lz=(1,)), fan_m))
+    blob0 = lz11.decompress(fan_m[tm[0][0]:bufcheck._extents(tm, len(fan_m))[0][1]])
+    must_raise('entry 0 changed', lambda: bufcheck.check_model_item(rebuild(fan_m, {0: blob0[:-1] + b'\x01'}, lz=(0,)), fan_m))
+    bad = bytearray(fan_m)
+    struct.pack_into('<I', bad, 8 + 4, tm[1][1] + 4)
+    must_raise('entry 1 table size +4', lambda: bufcheck.check_model_item(bytes(bad), fan_m))
+    must_raise('one entry short', lambda: bufcheck.check_model_item(
+        struct.pack('<I', 8 * (len(tm) - 1)) + fan_m[4:(len(tm) - 1) * 8] + fan_m[len(tm) * 8:], fan_m))
     print('all negative tests raised, boundary cases passed')
 
 

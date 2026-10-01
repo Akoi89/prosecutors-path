@@ -174,6 +174,15 @@ def apply(dumpdir, rom_path, log=print, version=None):
     log('close-up artwork with official names: %d shipped pictures, %d TV zoom frames derived'
         % (sum(1 for e in arepl if e in cg_art.FINAL), sum(1 for e in arepl if e in cg_art.TV_FRAMES)))
 
+    # 7b) the plan paper inside the bag model (jpn/modelitemlocal.bin entry 1, texture
+    #     bag_01): the same picture as artwork 8, squashed onto a 3D paper, redrawn
+    #     with the shipped picture's names in the changed texels only, in the
+    #     texture's own palette (see tools/bag_tex.py)
+    import bag_tex
+    rom, bag_changed = bag_tex.apply_to_rom(rom, dumpdir, log)
+    if not bag_changed:
+        log('bag texture: not redrawn (see reason above)')
+
     # 8) hotfix: the Coroner's Findings "point at the burn mark" prompt (com/cutdata.bin
     #    slot 47, cut 208) - derive its hit-area rectangles from txtcut's own layout of
     #    the re-wrapped document instead of the JP-retail box our lettering no longer

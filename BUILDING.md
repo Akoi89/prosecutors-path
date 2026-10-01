@@ -58,6 +58,7 @@ python -m PyInstaller --onefile --name gk2port \
   --add-data "$PWD/tools/txtcut_condensed.json;." \
   --add-data "$PWD/tools/map_font.json;." \
   --add-data "$PWD/tools/cg_art_reg.json;." \
+  --add-data "$PWD/tools/bag_tex_reg.json;." \
   --add-data "$PWD/tools/logic_fan_text.json;." \
   --add-data "$PWD/tools/button_icons.json;." \
   --add-data "$PWD/tools/cg_art_final;cg_art_final" \

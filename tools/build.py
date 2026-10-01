@@ -186,7 +186,7 @@ def selftest():
     # __file__: in a frozen build that is the bundle root. v1.6.0 shipped
     # without them and crashed at the description step.
     tools_dir = sys._MEIPASS if FROZEN else os.path.dirname(os.path.abspath(__file__))
-    for f in ('desc_font.json', 'select_strips.json', 'txtcut_font.json', 'txtcut_condensed.json', 'map_font.json', 'cg_art_reg.json',
+    for f in ('desc_font.json', 'select_strips.json', 'txtcut_font.json', 'txtcut_condensed.json', 'map_font.json', 'cg_art_reg.json', 'bag_tex_reg.json',
               'logic_fan_text.json', 'button_icons.json',
               'cg_art_final/008.png', 'cg_art_final/018.png', 'cg_art_final/118.png',
               'cg_art_final/140.png', 'cg_art_final/260.png', 'cg_art_final/268.png'):
@@ -198,7 +198,7 @@ def selftest():
     # missing them looks perfectly healthy until someone points it at the game.
     for mod in ('UnityPy', 'UnityPy.UnityPyBoost', 'lz4.block', 'brotli', 'PIL.Image', 'numpy',
                 'spt', 'dstext', 'inject', 'locate', 'ndsx', 'names', 'plates', 'buttons',
-                'lz11', 'nitro', 'txtcut', 'cg_names', 'cg_art', 'loc_dump', 'title_assets', 'voices',
+                'lz11', 'nitro', 'txtcut', 'cg_names', 'cg_art', 'bag_tex', 'loc_dump', 'title_assets', 'voices',
                 'compact', 'mindchess', 'mc_wait', 'mindchess_recn', 'rnan25', 'linefix', 'last_rows', 'rewrite', 'relaid_rows',
                 'condense_rows', 'skipguard', 'sentence_breaks', 'e11c', 'rowsplit', 'cutdata_hotfix',
                 'bufcheck'):
