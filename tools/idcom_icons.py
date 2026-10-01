@@ -41,7 +41,7 @@ Container policy: everything is written IN PLACE. The container's table, every o
 entry and every offset stay byte for byte the fan's; an icon's entry keeps its
 decoded size and is stored as a real LZ11 stream (tools/lz11.py) that must fit in
 the bytes the fan's entry held (padded with zeros), so no buffer the game sized
-from the fan's table can be outgrown. tools/bufcheck.py (check h) verifies all of
+from the fan's table can be outgrown. tools/bufcheck.py (check j) verifies all of
 that on the built ROM.
 
 patch() guards on the sha256 of the fan's six decoded entries and raises if any

@@ -44,7 +44,7 @@ What this module does, at build time, from the player's own Collection:
      these entries through its sprite bundle loader, which allocates the
      decoded size from the archive table and decompresses through a temporary
      copy of the stored entry, so the stored size only sets that transient
-     buffer. tools/bufcheck.py check (h) holds the decoded sizes and caps the
+     buffer. tools/bufcheck.py check (i) holds the decoded sizes and caps the
      stored size.
 
 patch() guards on the sha256 of the fan's decoded entries 11-14 and on the
