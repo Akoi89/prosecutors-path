@@ -4,11 +4,12 @@
 The port's data can outgrow a fixed buffer in the game without any visible
 error at build time. playtest/SOLVE_buffers.md traced every loader and text
 buffer in the engine; none overflows today, and checks a to e keep it that
-way (f is the Logic keyword cards, g the bag model texture, h the room names, i the opening card).
-They read jpn/spt.bin, jpn/idlocal.bin, com/cutdata.bin, jpn/logic_keyword_local.bin,
-jpn/modelitemlocal.bin, jpn/cutobj_local.bin and jpn/opening_local.bin out of the finished ROM (after
-the last step that writes any of them), compare idlocal, the logic cards, the model file, cutobj_local
-and the opening file with the fan's, and RAISE BufCheckError naming the entry and the
+way (f is the Logic keyword cards, g the bag model texture, h the room names, i the opening card,
+j the evidence icons). They read jpn/spt.bin, jpn/idlocal.bin, com/cutdata.bin,
+jpn/logic_keyword_local.bin, jpn/modelitemlocal.bin, jpn/cutobj_local.bin, jpn/opening_local.bin and
+com/idcom.bin out of the finished ROM (after the last step that writes any of them), compare idlocal,
+the logic cards, the model file, cutobj_local, the opening file and idcom with the fan's, and RAISE
+BufCheckError naming the entry and the
 numbers. Every check raises an exception (so it also runs under python -O).
 
 a. spt need. The field engine loads a script entry into a fixed 0x2000-byte
@@ -59,6 +60,13 @@ i. opening card. jpn/opening_local.bin entries 13 (RGCN, which opening_card.py r
    compression flags), entry 13 must be an LZ11 stream decoding to an RGCN of that size and be
    stored in no more bytes than the fan's, entry 14 must stay uncompressed, and every other entry
    except 0 (the splash title tiles title_text.py rewrites) must decode to the fan's bytes.
+j. evidence icons. com/idcom.bin entries 281, 573 and 575 (the business card and the victim's
+   letter, redrawn by idcom_icons.py, with their palette entries 280, 572 and 574) are written in
+   place: the file is as long as the fan's, its whole table is the fan's, every other entry is
+   the fan's bytes, each icon decodes to the fan's size and its LZ11 stream fits in the bytes the
+   fan's entry held (so it is stored in no more than the fan's), only the tile data of an icon
+   and only the 16 colours of a palette differ from the fan's, and no pixel is index 0 (the
+   transparent key, which would punch a hole in the sprite).
 """
 import os
 import struct
@@ -89,6 +97,7 @@ ROOM_IDLOCAL = (321, 324, 327)
 ROOM_CUTOBJ = 10
 OPENING_GFX, OPENING_PAL = 13, 14
 OPENING_FREE = (0,)            # the splash title tiles, rewritten by title_text.py
+ICON_ENTRIES = {281: 280, 573: 572, 575: 574}      # icon entry -> its palette entry
 
 OPEN = (0xE100, 0xE101)
 CLOSE = (0xE102, 0xE104)
@@ -566,6 +575,94 @@ def check_logic_names(built, fan):
     return len(LOGIC_PUNCT_ENTRIES)
 
 
+def _stream_len(st, size, what):
+    """Bytes of `st` an LZ11 stream actually uses to decode `size` bytes (smallest prefix that decodes)."""
+    lo, hi = 4, len(st)
+    try:
+        ok = len(lz11.decompress(st)) == size
+    except (IndexError, ValueError):
+        ok = False
+    if not ok:
+        raise BufCheckError('%s: the LZ11 stream does not decode to %d bytes inside its %d stored bytes'
+                            % (what, size, len(st)))
+    while lo < hi:
+        mid = (lo + hi) // 2
+        try:
+            good = len(lz11.decompress(st[:mid])) == size
+        except (IndexError, ValueError):
+            good = False
+        if good:
+            hi = mid
+        else:
+            lo = mid + 1
+    return lo
+
+
+def _tile_span(dec, what):
+    """(start, end) of the RGCN tile data inside a decoded icon entry."""
+    if len(dec) < 0x20:
+        raise BufCheckError('%s is %d bytes, too short for an icon' % (what, len(dec)))
+    g = struct.unpack_from('<3I', dec, 0)[2]
+    if dec[g:g + 4] != b'RGCN':
+        raise BufCheckError('%s has no RGCN part at %#x' % (what, g))
+    body = g + 16 + 8
+    dsize, doff = struct.unpack_from('<II', dec, body + 16)
+    return body + doff, body + doff + dsize
+
+
+def check_idcom_icons(built, fan):
+    """Check j on the built and the fan's com/idcom.bin bytes.
+    -> {icon entry: (decoded size, stream bytes used, fan's stored bytes)}."""
+    import numpy as np
+    import choice_strips as cs
+    if len(built) != len(fan):
+        raise BufCheckError('idcom.bin is %d bytes, the fan\'s %d (the icons are written in place)'
+                            % (len(built), len(fan)))
+    if built[:struct.unpack_from('<I', fan, 0)[0]] != fan[:struct.unpack_from('<I', fan, 0)[0]]:
+        raise BufCheckError('idcom.bin table differs from the fan\'s')
+    t = _table(fan)
+    ext = _extents(t, len(fan))
+    touched = set(ICON_ENTRIES) | set(ICON_ENTRIES.values())
+    for i in range(len(t)):
+        a, b = ext[i]
+        if i not in touched and built[a:b] != fan[a:b]:
+            raise BufCheckError('idcom.bin entry %d is not the fan\'s bytes' % i)
+    out = {}
+    for e, pe in sorted(ICON_ENTRIES.items()):
+        what = 'idcom.bin entry %d' % e
+        a, b = ext[e]
+        if not t[e][1] & 0x80000000:
+            raise BufCheckError('%s is expected to be an LZ11 stream' % what)
+        size = t[e][1] & 0x7FFFFFFF
+        st, fst = built[a:b], fan[a:b]
+        if _stream_size(st) != size:
+            raise BufCheckError('%s: stream declares %d bytes, table says %d' % (what, _stream_size(st), size))
+        used = _stream_len(st, size, what)
+        dec = lz11.decompress(st)
+        fdec = lz11.decompress(fst)
+        if len(dec) != len(fdec):
+            raise BufCheckError('%s decodes to %d bytes, the fan\'s to %d' % (what, len(dec), len(fdec)))
+        if used > len(fst):
+            raise BufCheckError('%s is stored in %d bytes, over the fan\'s %d' % (what, used, len(fst)))
+        s0, s1 = _tile_span(dec, what)
+        if (s0, s1) != _tile_span(fdec, what):
+            raise BufCheckError('%s: the tile data moved' % what)
+        if dec[:s0] != fdec[:s0] or dec[s1:] != fdec[s1:]:
+            raise BufCheckError('%s differs from the fan\'s outside its tile data' % what)
+        if (np.array(cs.grid(dec), np.uint8) == 0).any():
+            raise BufCheckError('%s draws index 0, the transparent key' % what)
+        pa, pb = ext[pe]
+        pw, pf = built[pa:pb], fan[pa:pb]
+        if len(pw) != 90 or pw[:4] != b'RLCN':
+            raise BufCheckError('idcom.bin palette entry %d is not the fan\'s 90-byte RLCN' % pe)
+        ttlp = pf.find(b'TTLP')
+        c0 = ttlp + 8 + 16
+        if pw[:c0 + 2] != pf[:c0 + 2] or pw[c0 + 32:] != pf[c0 + 32:]:
+            raise BufCheckError('idcom.bin palette entry %d differs from the fan\'s outside colours 1-15' % pe)
+        out[e] = (len(dec), used, len(fst))
+    return out
+
+
 def rom_file(rom, path):
     """One file's bytes out of a ROM image."""
     from inject import file_id
@@ -606,14 +703,19 @@ def run(rom_path, dumpdir):
     with open(os.path.join(dumpdir, 'ds_fan', 'jpn', 'opening_local.bin'), 'rb') as f:
         fan_opening = f.read()
     i_size, i_stored, i_fan = check_opening_card(rom_file(rom, 'jpn/opening_local.bin'), fan_opening)
+    with open(os.path.join(dumpdir, 'ds_fan', 'com', 'idcom.bin'), 'rb') as f:
+        fan_idcom = f.read()
+    j_icons = check_idcom_icons(rom_file(rom, 'com/idcom.bin'), fan_idcom)
+    js = ', '.join('%d decodes to %d like the fan, stream %d of the fan\'s %d' % ((k,) + v) for k, v in sorted(j_icons.items()))
     return ('%s; (f) logic cards: %d checked, every OBJ inside the RGCN bytes, cards with OBJs past the '
             'declared data (rewritten, no fan tail): %s, %d punctuation-matched name cards rewritten; (g) modelitemlocal entry %d decodes to %d bytes like '
             "the fan's, stored %d of the fan's %d, the other entries are the fan's bytes; "
             "(h) room names: %s, the other cutobj_local entries are the fan's bytes; "
             "(i) opening_local entry %d decodes to %d bytes like the fan's, stored %d of the fan's %d, "
-            "every table field the fan's"
+            "every table field the fan's; "
+            "(j) idcom.bin written in place, table and every other entry the fan's, icons: %s"
             % (line, n, ps, n_named, MODEL_ENTRY, g_size, g_stored, g_fan, hs,
-               OPENING_GFX, i_size, i_stored, i_fan))
+               OPENING_GFX, i_size, i_stored, i_fan, js))
 
 
 if __name__ == '__main__':

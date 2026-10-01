@@ -3,7 +3,7 @@
     python tools/test_bufcheck.py <built rom> [dump folder]
 
 Reads the three built files out of the ROM, shows the unmodified blobs pass,
-then feeds each of checks a-e a mutated copy (in memory only) and requires a
+then feeds each of checks a-h a mutated copy (in memory only) and requires a
 BufCheckError. Prints the message of each. Raises if any mutation is accepted
 or the clean blobs are refused.
 """
@@ -310,6 +310,60 @@ def main(rom_path, dumpdir='dump'):
     bad = bytearray(built_o)
     struct.pack_into('<I', bad, 13 * 8 + 4, to[13][1] + 4)
     must_raise('entry 13 table size +4', lambda: bufcheck.check_opening_card(bytes(bad), fan_o))
+    print('j. evidence icons (com/idcom.bin entries 281, 573, 575 and their palettes)')
+    built_ic = bufcheck.rom_file(rom, 'com/idcom.bin')
+    fan_ic = open(os.path.join(dumpdir, 'ds_fan', 'com', 'idcom.bin'), 'rb').read()
+    print('  clean:', bufcheck.check_idcom_icons(built_ic, fan_ic))
+    print('  fan file as it is (no icon redrawn):', bufcheck.check_idcom_icons(fan_ic, fan_ic))
+    tic = bufcheck._table(fan_ic)
+    eic = bufcheck._extents(tic, len(fan_ic))
+
+    def put(container, e, raw):
+        """container with entry e's slot overwritten in place by `raw` (zero padded to the slot)."""
+        a, b = eic[e]
+        if len(raw) > b - a:
+            raise SystemExit("test setup: %d bytes do not fit entry %d's %d" % (len(raw), e, b - a))
+        out = bytearray(container)
+        out[a:b] = raw + bytes(b - a - len(raw))
+        return bytes(out)
+
+    def dec(container, e):
+        return lz11.decompress(container[eic[e][0]:eic[e][1]])
+
+    must_raise('file one byte longer', lambda: bufcheck.check_idcom_icons(built_ic + bytes(1), fan_ic))
+    bad = bytearray(built_ic)
+    struct.pack_into('<I', bad, 281 * 8 + 4, tic[281][1] + 4)
+    must_raise('entry 281 table size +4', lambda: bufcheck.check_idcom_icons(bytes(bad), fan_ic))
+    bad = bytearray(built_ic)
+    bad[eic[0][0]] ^= 1
+    must_raise('entry 0 (another entry) changed', lambda: bufcheck.check_idcom_icons(bytes(bad), fan_ic))
+    d575 = dec(built_ic, 575)
+    must_raise('icon 575 stream cut short (does not decode inside its slot)', lambda: bufcheck.check_idcom_icons(
+        put(built_ic, 575, built_ic[eic[575][0]:eic[575][1]][:300]), fan_ic))
+    must_raise('icon 575 decoded one byte longer (stream header disagrees)', lambda: bufcheck.check_idcom_icons(
+        put(built_ic, 575, lz11.compress(d575 + bytes(1))), fan_ic))
+    bad = bytearray(d575)
+    bad[5] ^= 0xFF
+    must_raise('icon 575 cell data changed (outside the tile data)', lambda: bufcheck.check_idcom_icons(
+        put(built_ic, 575, lz11.compress(bytes(bad))), fan_ic))
+    s0, s1 = bufcheck._tile_span(d575, 'test')
+    bad = bytearray(d575)
+    for k in range(s0, s0 + 32):
+        bad[k] = 0
+    must_raise('icon 575 first tile all index 0 (transparent holes)', lambda: bufcheck.check_idcom_icons(
+        put(built_ic, 575, lz11.compress(bytes(bad))), fan_ic))
+    pal = built_ic[eic[574][0]:eic[574][1]]
+    bad = bytearray(pal)
+    bad[0x10] ^= 1
+    must_raise('palette 574 header byte changed', lambda: bufcheck.check_idcom_icons(put(built_ic, 574, bytes(bad)), fan_ic))
+    bad = bytearray(pal)
+    bad[0x28] ^= 1
+    must_raise('palette 574 key colour changed', lambda: bufcheck.check_idcom_icons(put(built_ic, 574, bytes(bad)), fan_ic))
+    bad = bytearray(pal)
+    bad[0x28 + 32] ^= 1
+    must_raise('palette 574 trailer changed', lambda: bufcheck.check_idcom_icons(put(built_ic, 574, bytes(bad)), fan_ic))
+    must_raise('icon 281 stream is garbage', lambda: bufcheck.check_idcom_icons(
+        put(built_ic, 281, b'\x11' + bytes(40)), fan_ic))
     print('all negative tests raised, boundary cases passed')
 
 

@@ -33,10 +33,11 @@ def title_dir(dumpdir):
 
 def required(dumpdir):
     """Files apply() needs; build.py checks these under --skip-extract."""
-    import cg_art, mindchess, opening_card
+    import cg_art, mindchess, opening_card, idcom_icons
     t = title_dir(dumpdir)
     return ([os.path.join(t, LOGO_PNG)] + [os.path.join(t, 'fonts', n + '.otf') for n in FONTS]
-            + cg_art.required(dumpdir) + mindchess.required(dumpdir) + opening_card.required(dumpdir))
+            + cg_art.required(dumpdir) + mindchess.required(dumpdir) + opening_card.required(dumpdir)
+            + idcom_icons.required(dumpdir))
 
 
 def extract(bdir, dumpdir):
@@ -55,6 +56,8 @@ def extract(bdir, dumpdir):
     mindchess.extract(bdir, dumpdir)
     import opening_card
     opening_card.extract(bdir, dumpdir)
+    import idcom_icons
+    idcom_icons.extract(bdir, dumpdir)
     return t
 
 
@@ -202,6 +205,15 @@ def apply(dumpdir, rom_path, log=print, version=None, any_rom=False):
     rom, bag_changed = bag_tex.apply_to_rom(rom, dumpdir, log, any_rom)
     if not bag_changed:
         log('bag texture: not redrawn (see reason above)')
+
+    # 7c) the business card and the victim's letter evidence icons (com/idcom.bin entries
+    #     281, 573, 575): Capcom's English item textures registered onto the fan icon's
+    #     framing, downscaled and quantised into the fan's own entries, written in place
+    #     (see tools/idcom_icons.py)
+    import idcom_icons
+    rom, icons_changed = idcom_icons.apply_to_rom(rom, dumpdir, log, any_rom)
+    if not icons_changed:
+        log('evidence icons: not redrawn (see reason above)')
 
     # 8) hotfix: the Coroner's Findings "point at the burn mark" prompt (com/cutdata.bin
     #    slot 47, cut 208) - derive its hit-area rectangles from txtcut's own layout of
