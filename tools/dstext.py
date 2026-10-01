@@ -792,9 +792,48 @@ def _scream_word(val):
     return bool(val) and all(_scream_letter(u) or u in (0xFF01, 0xFF1F) for u in val)
 
 
+def _balance_cuts(lw, punct, first_px, nrows):
+    """Letter ordinals where rows 1.. begin when the letters (widths lw; punct marks
+    !/?) are spread over nrows rows as evenly as the 240 px limit allows: the smallest
+    row capacity C that fits them in nrows rows (the first row already holds first_px
+    of earlier words). A row that holds a !/? run starts with at least two letters
+    before it. None when that cannot be done in nrows rows."""
+    m = len(lw)
+    total = sum(lw)
+    lo = max(-(-(total + first_px) // nrows), first_px + lw[0])
+    for cap in range(lo, LINE_PX + 1):
+        cuts, px = [], first_px
+        for i, w in enumerate(lw):
+            if i and px + w > cap:
+                cuts.append(i); px = 0
+            px += w
+        if len(cuts) + 1 != nrows:
+            continue
+        fixed, prev = [], 0
+        for k, j in enumerate(cuts):
+            nxt = cuts[k + 1] if k + 1 < len(cuts) else m
+            q = j
+            while q < nxt and not punct[q]:
+                q += 1
+            if q < nxt and q - j < 2:
+                j -= 2 - (q - j)
+            if j <= prev:
+                break
+            fixed.append(j); prev = j
+        else:
+            starts = [0] + fixed
+            ends = fixed + [m]
+            sums = [sum(lw[a:b]) + (first_px if r == 0 else 0)
+                    for r, (a, b) in enumerate(zip(starts, ends))]
+            if max(sums) <= LINE_PX and all(b > a for a, b in zip(starts, ends)):
+                return fixed
+    return None
+
+
 def _fill_run(prefix, run):
     """Lay one scream (words and control codes, no spaces) out as a single run of
-    letters that fills each row to the last letter that fits. Control codes stay in
+    letters, over the fewest rows that hold it, spread evenly over them (a row is a
+    forced break, not a wrap). Control codes stay in
     front of the letter they precede, in the same order. A row never ends between a
     letter and the !/? that follows it. The run starts on the row `prefix` left off
     on, after the space that was pending there. Returns tokens whose pieces are cut
@@ -815,7 +854,8 @@ def _fill_run(prefix, run):
     if cells and cells + gap + W(chr(letters[0])) > LINE_PX:
         cells, gap = 0, 0
     rows, codes = [[]], []
-    rowpx, rowletters = cells + gap, 0
+    first_px = cells + gap
+    rowpx, rowletters = first_px, 0
     PUNCT_U = (0xFF01, 0xFF1F)
     for it in items:
         if it[0] == 'c':
@@ -847,8 +887,31 @@ def _fill_run(prefix, run):
         rowpx += w
         rowletters += 1
     rows[-1].extend(codes)
+    # The rows above are the fewest that hold the scream (greedy). Spread the same
+    # letters evenly over that many rows so no row is a widow; where that cannot be
+    # done in as few rows, keep the greedy rows.
+    balanced = False
+    if len(rows) > 1:
+        lw = [W(chr(it[1])) for it in items if it[0] == 'u']
+        punct = [it[1] in PUNCT_U for it in items if it[0] == 'u']
+        cuts = _balance_cuts(lw, punct, first_px, len(rows))
+        if cuts is not None:
+            rows, codes, k = [[]], [], 0
+            for it in items:
+                if it[0] == 'c':
+                    codes.append(it)
+                    continue
+                if k in cuts:
+                    rows.append([])
+                rows[-1].extend(codes); codes = []
+                rows[-1].append(it)
+                k += 1
+            rows[-1].extend(codes)
+            balanced = True
     out = []
-    for row in rows:
+    for ri, row in enumerate(rows):
+        if balanced and ri:
+            out.append(('br', None))        # the row ends here, whatever room is left
         piece = []
         for it in row:
             if it[0] == 'u':
@@ -930,7 +993,8 @@ def refill_units(units):
     for kind, val, ln, sp in placed:
         while ln > row:
             row += 1; out.append(0x0A)
-        out.extend(val)
+        if kind != 'br':
+            out.extend(val)
     return out
 
 
@@ -954,12 +1018,15 @@ def _split_rows(tokens, placed, nlines, nb):
         while (idx > 0 and tokens[idx - 1][0] == 'c'
                and not any(v in STYLE_CLOSERS for v in tokens[idx - 1][1])):
             idx -= 1
-        cuts.append(idx)
-    if cuts != sorted(set(cuts)) or (cuts and cuts[0] <= 0):
+        end = idx
+        while end > 0 and tokens[end - 1][0] == 'br':
+            end -= 1                    # the forced break is replaced by the box break
+        cuts.append((end, idx))
+    if [c[1] for c in cuts] != sorted(set(c[1] for c in cuts)) or (cuts and cuts[0][0] <= 0):
         return None
     parts, prev = [], 0
-    for c in cuts:
-        parts.append(tokens[prev:c]); prev = c
+    for end, start in cuts:
+        parts.append(tokens[prev:end]); prev = start
     parts.append(tokens[prev:])
     return parts
 
@@ -1009,9 +1076,9 @@ def selfcheck_scream_newlines():
     cut = on.index(0xFF2F)          # the first scream letter (O)
     if on[:cut] != off[:off.index(0xFF2F)]:
         bad.append('text before a scream moved when the rule fired')
-    # a scream with control codes inside fills every row but the last, codes kept in order
+    # a scream with control codes inside is spread evenly over the fewest rows, no widow, codes kept in order
     code = 0xE1D1
-    sc = u('NOOOOOOO') + [code] + [0x4F] * 30 + [0x0A] + [0x4F] * 10
+    sc = u('NOOOOOOO') + [code] + [0x4F] * 30 + [0x0A] + [0x4F] * 5
     rows, row = [], []
     for v in cv(sc):
         if v == 0x0A:
@@ -1023,8 +1090,10 @@ def selfcheck_scream_newlines():
     px = lambda r: sum(W(chr(v)) for v in letters(r))
     if len(rows) < 2 or any(px(r) > LINE_PX for r in rows):
         bad.append('a scream row is over the line limit')
-    elif any(px(rows[i]) + W(chr(letters(rows[i + 1])[0])) <= LINE_PX for i in range(len(rows) - 1)):
-        bad.append('a scream row is not filled to the last letter that fits')
+    elif len(rows) != -(-px([v for r in rows for v in r]) // LINE_PX):
+        bad.append('a scream needs more rows than the fewest that hold it')
+    elif max(px(r) for r in rows) - min(px(r) for r in rows) > W(chr(0xFF2F)):
+        bad.append('scream rows are not evenly spread (a widow row)')
     flat = [v for r in rows for v in r]
     if flat.count(code) != 1 or flat.index(code) != 8 + 0:
         bad.append('a control code inside a scream moved')
