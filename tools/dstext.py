@@ -696,6 +696,9 @@ def _line_width(seq):
 # of three or more identical letters, either case. Across every newline the build
 # converts, that selects only screams and growls ("OOOO|OOOO", "RRRRGGGGHHHH|GGGHRHRR");
 # "too" / "often", "chess" / "set" and "Hmmm" / "That" have no such run on both sides.
+# This is proven on this script's newlines only, not in general: pairs such as
+# "Shhh" / "Hmmm" or "Zzz" / "zzz" would also be joined. Re-check the hit list if the
+# input text changes.
 #
 # WHAT HAPPENS. The newline is dropped (no break, no space), so the scream is one run.
 # Only the message boxes that hold such a newline are laid out again; every other box
