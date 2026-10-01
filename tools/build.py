@@ -33,7 +33,7 @@ ISSUES = 'https://github.com/Akoi89/prosecutors-path/issues'
 # the box is broken instead of running off the edge - the whole script moves).
 # NOTE this hash is VERSION-SPECIFIC: title_assets paints 'v' + VERSION onto the
 # title screen, so bumping VERSION alone changes the ROM. Move both together.
-REFERENCE_ROM_SHA256 = '7a13e4b7d6b40ded6230d111ed181a42feed499bf8604f794e4c32d4b07e1194'
+REFERENCE_ROM_SHA256 = 'a411e3f08019e6227aa30fd4188f3ab26f9b67aebea24f001965bb7f1875d35a'
 
 # Bundle name prefixes -> where their TextAssets go. Addressables appends a content
 # hash to every bundle, so these must be matched by prefix, never by full name.
