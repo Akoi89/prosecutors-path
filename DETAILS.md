@@ -142,10 +142,10 @@ records kept as fan - would lose a message box: 3
 records kept as fan - official-only control code: 21
 kept fan text - string count mismatch:  3
 kept fan text - control-code shape off:  8
-nameplates redrawn with official names:      147
+nameplates redrawn with official names:      148
 title screen: official logo 248x116 at (4,30), 439/768 tiles, 222 colours
-logic keyword cards: 97 of 133 slots named officially, 194 card images rewritten
-choice strips redrawn with official text: 297 (48 condensed, 20 at a smaller size, 0 without English)
+logic keyword cards: 103 of 133 slots named officially, 206 card images rewritten
+choice strips redrawn with official text: 297 (48 condensed, 17 at a smaller size, 0 without English)
 voices: 20 slots in Capcom's audio (18 English shouts, 2 sound effects), sound archive 11066644 -> 11283308 bytes
 ```
 
@@ -244,11 +244,23 @@ and then step down a size, as the episode titles do.
 
 `tools/names.py` holds the map and rewrites only strings that are byte-identical to the
 fan ROM's, so official text is never touched: 64 whole rows in the current build, more
-rows renamed line by line where a whole-row rename would not fit, plus 147 nameplates
-redrawn. Since 1.5.1 no line in the game keeps a fan character name: the five that the
+rows renamed line by line where a whole-row rename would not fit, plus 148 nameplates
+and title strips redrawn. Since 1.5.1 no line in the game keeps a fan character name: the five that the
 official name pushed past their box carry hand-shortened lines (`ROWFIX` in `names.py`),
 and a scan of the built ROM finds zero fan names in kept-fan text. See the width guard
 under [Guards](#guards). `tools/plates.py` does the graphics.
+
+**Other pictures the fan lettered with a name** (since 1.11.1). Comparing the fan ROM with
+the retail Japanese ROM entry by entry gives exactly the pictures the fan edited, and each
+one was checked for a fan name. These turned up and are fixed at build time from your own
+files: the cake-show logo on the Episode 3 opening card, which is Capcom's own "Samson &
+Judy's / Bake 'n' Bop!" logo (`tools/opening_card.py`); the room names on the cake-contest
+map pieces (`tools/room_names.py`); the business card and victim's letter evidence pictures
+(`tools/idcom_icons.py`); six Logic keyword cards (`tools/logic_names.py`); and one Court
+Record title that was still Japanese, now "Promise Notebook" (`tools/plates.py`).
+BUILD_NOTES.md has the method and the buffer checks for each. Two Japanese map pieces in a
+later chapter remain, an office label and a corridor label, because Capcom's Collection has
+no English version of that map.
 
 ---
 
@@ -466,8 +478,8 @@ same thing:
   and renders the official name in the fan team's own pixel lettering, cut from the same file at
   build time by `tools/logic_font.py`, on the fan's own text-free card: up to three lines on the
   card and one on the banner. Two names too wide for any banner carry a shorter form there.
-  97 of the 133 slots have an official name; the rest (30 unused dummies, 6 real keywords
-  with no Collection counterpart) keep the fan lettering. Redrawing the fan's own card text
+  103 of the 133 slots have an official name (97 until 1.11.1, when matching with punctuation
+  ignored found six more); the rest, the 30 unused dummy slots, keep the fan lettering. Redrawing the fan's own card text
   with the same code returns 75 of its 101 cards and 83 of its 93 banners pixel for pixel,
   background and outline included, and the 17 cards and 18 banners whose official name is
   the fan's own wording come out byte-identical to the fan's.
@@ -528,16 +540,19 @@ python audits/audit_fixtures.py         # prove the audits can actually fail
 | `ctrl_args.py` | Regenerates `dump/ctrl_args.json`; `--check` diffs a fresh derivation against it |
 | `inject.py` | Mapping, structural guards, ROM rebuild |
 | `loc_patch.py` | Evidence, profiles and Logic cards from the Unity Localization tables |
-| `logic_names.py` | Maps each DS Logic keyword slot to Capcom's official short name |
+| `logic_names.py` | Maps each DS Logic keyword slot to Capcom's official short name; since 1.11.1 the description match ignores punctuation as well as spaces, which adds six names |
 | `logic_cards.py` | Renders those names into the Logic card and banner images; since 1.11.0 it also rewrites a banner's whole stored extent, so leftover fan letters past the declared data cannot show |
 | `voices.py` | Capcom's English shouts from the Collection into the DS sound archive |
 | `names.py` | The fan→official character-name map, applied only to strings that kept fan text |
-| `plates.py` | Redraws the nameplate and title-card graphics in the fan's own pixel font |
+| `plates.py` | Redraws the nameplate and title-card graphics in the fan's own pixel font; since 1.11.1 it also draws the "Promise Notebook" strip, whose fan original is still Japanese, guarded by the strip's own pixels (`RETAIL_JAPANESE`) |
 | `choice_strips.py` | Sets Capcom's option text on the 297 choice/topic button plates; `select_strips.json` is the plate→string pairing |
 | `txtcut.py` | Renders Capcom's close-up text screens (reports, letters, notes) into the 39 full-screen images the fan drew, in the fan's own pixel face harvested into `txtcut_font.json`; `txtcut_condensed.json` holds the six reviewed edits |
 | `cg_names.py` | Re-letters the fan character names drawn into the room map and the two log tables with the official ones; `map_font.json` is the fan's small map face |
 | `cg_art.py` | Writes the six shipped close-up pictures in `cg_art_final/` (briefing diagrams, cake placards, TV logo, movie poster, magazine) into the ROM and derives the TV logo's 60 zoom frames from the TV picture; `cg_art_reg.json` holds the measured framing of each zoom frame inside Capcom's picture |
 | `bag_tex.py` | Puts Capcom's Rook and Knight into the security plan paper of the 3D purse model (texture `bag_01` in `jpn/modelitemlocal.bin`, 1.11.1): redraws only the changed letters inside a mask, keeps the texture's palette, tone and grain, and repacks the entry smaller than the fan's; `bag_tex_reg.json` is the measured fit between the close-up picture and the texture, and `bag_tex_register.py` (development only, needs scipy) is what measured it |
+| `room_names.py` | Re-letters the room names on the cake-contest map pieces (`jpn/cutobj_local.bin` entry 10, `jpn/idlocal.bin` 321, 324 and 327) with Capcom's Gusto's, Scone's, Tangaroa's and Frost's, in faces cut from the fan's own labels at build time; `TANGAROA_OPTION` picks the layout of the one name that does not fit its wedge (1.11.1) |
+| `opening_card.py` | Puts Capcom's English cake-show logo on the Episode 3 opening card (`jpn/opening_local.bin` 13 and 14), keeps the fan's art outside the lettering, matches the overlay frames, and extracts three Collection files into `dump/title/opening` (1.11.1) |
+| `idcom_icons.py` | Capcom's business card and victim's letter pictures for `com/idcom.bin` 281, 573 and 575, registered onto the fan's icons and written in place; `idcom_icons_reg.json` is the measured fit and `idcom_icons_register.py` (development only, needs scipy) is what measured it (1.11.1) |
 | `build_map.py` / `map_ids.py` | Fuzzy n-gram matching of DS entries to Collection files |
 | `lz11.py` / `nitro.py` | Nintendo LZ11 (`lz11.compress` is a real optimal-parse encoder since 1.11.0, used for the Mind Chess banner) and NCGR/NCLR/NSCR/NCER/NANR |
 | `episode_titles.py` | The official episode names in the save-screen strings (on since 1.5.0) |
@@ -548,7 +563,7 @@ python audits/audit_fixtures.py         # prove the audits can actually fail
 | `rowsplit.py` | Splits any script row whose entry would overrun the engine's fixed 0x2000 load buffer into two chained rows, cutting only at a box end, with every word kept (the 1.11.0 Case 4 crash fix) |
 | `rowfold.py` | Folds those split rows back through the build's split manifest so the audits and `coverage.py` see the fan's row layout |
 | `e11c.py` | Puts back the fan's `{E11C}` touch-tap on/off commands the port had dropped, and removes three it had added (hash-guarded rows) |
-| `bufcheck.py` | Build-time checks that no script entry, text box, examine row, graphics entry, cutdata slot or Logic banner exceeds what its loader can hold; run by every build |
+| `bufcheck.py` | Build-time checks that no script entry, text box, examine row, graphics entry, cutdata slot or Logic banner exceeds what its loader can hold; run by every build. Since 1.11.1 it also checks the room labels, the opening card, the evidence icons and the Promise Notebook strip |
 | `desc_overflow.py` | Lists every condensed description four ways from your own extracted data |
 
 ---
@@ -613,7 +628,7 @@ only works if someone reads the wall.
 
 So treat the guards as a record of what has actually gone wrong rather than proof that
 nothing else will, and treat the code as reviewable rather than authoritative. It is about
-18,390 lines across 67 modules, plus 15 audit scripts (the 14 audits and the harness that tests them), MIT licensed, and it ships as source precisely so you do
+22,500 lines across 72 modules, plus 15 audit scripts (the 14 audits and the harness that tests them), MIT licensed, and it ships as source precisely so you do
 not have to take any of the above on faith. Read it before you trust it with a ROM you
 care about, and recompute anything here that matters to you.
 

@@ -23,8 +23,9 @@ in Capcom's style, where Capcom had nothing that fit, are reported on their own 
 counted as neither. 1.10.0 said 98.8%.
 
 The cast uses Capcom's names throughout, including the ones that are graphics: the
-nameplates, the evidence and profile cards, the episode-select buttons, the splash cards
-and the title screen are all redrawn at build time.
+nameplates, the evidence and profile cards, the episode-select buttons, the splash cards,
+the title screen, the room names on the cake-contest maps and the cake-show logo on the
+Episode 3 opening card are all redrawn or swapped in at build time.
 
 > ### Playtesters wanted
 >
@@ -68,11 +69,14 @@ list it falls on, send it anyway.
 - **"Gavelle" has no accent in a few places.** The Case 4 visitor log, Organizer
   descriptions and Mind Chess spell it without the grave, because the lettering there has no
   accented letters. In dialogue it is Gavèlle as before.
+- **Two map pieces in a later chapter are still in Japanese.** An office label and a
+  corridor label on one map were never translated by the fan patch, and Capcom's
+  Collection has no English version of that map to take them from.
 - **On real hardware, dialogue that turns into strings of accented letters is the game's
   anti-piracy check.** Current versions of TWiLight Menu++ and the DSpico's Pico Loader
   handle it for this patch, and I tested both. If you see it, update your loader or switch
   to one of those. I also booted test builds of 1.11.0 into the first case on a DSi (through
-  TWiLight Menu++) and on a DSPico, and the 1.11.0 release build boots on both. {{HW_BOOT}} Nothing deeper has been tried on hardware, and no
+  TWiLight Menu++) and on a DSPico, and the 1.11.0 release build boots on both. The 1.11.1 release build boots on both as well. Nothing deeper has been tried on hardware, and no
   original DS has been tried at all.
 
 ## What you need
@@ -102,10 +106,10 @@ else either fails to decode or boots to a black screen. Check the result:
 gk2port-windows-x64.exe --verify "GK2 (Official English, DS port).nds"
 ```
 
-A correct output ROM is {{ROM_SIZE}} bytes, sha256
-{{ROM_SHA256}}. The patch itself is
-{{XDELTA_SIZE}} bytes, sha256 {{XDELTA_SHA256}}. The bundled `GK2-v1.11.1.zip` is
-{{ZIP_SIZE}} bytes, sha256 {{ZIP_SHA256}}.
+A correct output ROM is 50,609,764 bytes, sha256
+a411e3f08019e6227aa30fd4188f3ab26f9b67aebea24f001965bb7f1875d35a. The patch itself is
+3,937,394 bytes, sha256 17e5e8120db58339d5475b8f5362ed5b2f7f466a5596f3c9b06e726f4a138cc4. The bundled `GK2-v1.11.1.zip` is
+4,094,338 bytes, sha256 4f935a4188dd903e257f57b7a95b38d4037de5b800f23ba2a0d2a8dde1270be9.
 
 **Or build it yourself** from your own copy of the Collection, if you'd rather the
 localization came out of your files than out of one someone uploaded. Full steps are in
@@ -129,7 +133,7 @@ theirs. Without it there's nothing to inject into.
 On top of that, this project replaces their script with Capcom's official one and does the
 work that swap takes: reverse-engineering the game's script commands so Capcom's text runs
 on the DS engine, redrawing the lettered artwork (nameplates, evidence and Logic cards,
-choice buttons, banners, close-up documents, the title logo) from fonts harvested at build
+choice buttons, banners, close-up documents, room maps, the title logo, the cake-show logo) from fonts harvested at build
 time, bringing in Capcom's voiced shouts, restoring the DS's own staging, and fixing the
 freezes and crashes a different script exposes.
 
@@ -159,7 +163,7 @@ been tested, it's only been run.
 The tooling was written with **LLM assistance**: Claude, driven through Claude Code, over a
 series of sessions. That's stated plainly rather than buried. What ships is Capcom's own
 script, art and recordings plus the fan team's assets; nothing in the ROM is generated
-text. The code is about 18,390 lines across 67 modules, plus 15 audit scripts (the 14 audits and the harness that tests them), MIT licensed, and it ships as source
+text. The code is about 22,500 lines across 72 modules, plus 15 audit scripts (the 14 audits and the harness that tests them), MIT licensed, and it ships as source
 precisely so you don't have to take any of that on faith.
 
 Every hang but one was found by **playing the game**, not by an offline check (the Case 4
@@ -183,7 +187,8 @@ hadn't crossed, the 1.7.0 tag is the last one before it.
 
 Building requires your own legally-obtained copy of both games. Don't redistribute the
 output: it contains Capcom's copyrighted localization, and since 1.5.0 their logo art, two
-of their fonts and twenty of their audio clips, alongside the fan translation's
+of their fonts and twenty of their audio clips, and since 1.11.1 their cake-show logo and two
+evidence pictures, alongside the fan translation's
 assets.
 
 The releases also carry an `.xdelta` from the fan ROM to the built one, and that delta *is*

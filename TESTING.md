@@ -29,16 +29,42 @@ For 1.11.1, the purse paper was checked on a running game: the rig played a new 
 through the first investigation to the Episode 1 trash can, opened the purse and looked
 at the paper in the examine view, and its legend and handwriting read Rook and Knight
 with no Rooke or Knightley left. The handwriting is small and soft at DS size, so a few
-words were settled by their length against the 1.11.0 texture, side by side. That capture
-was taken on the first build of the new texture; the shipped one differs only in how
-the erased letters' patches are toned, which I checked by rendering. The scream rows were
-measured: every row of the thirteen changed strings is within the 240-pixel box, no row
-of one or two letters is left in them, and the audits give the same results as on
-1.11.0. The scream screens in the emulator: {{SCREAM_RIG}}
+words were settled by their length against the 1.11.0 texture, side by side. That check was
+repeated on a release candidate whose paper data is the same as the shipped one (title v1.11.1): the legend and handwriting
+read Rook and Knight, nothing of the old names is left, and the erased spots look like the
+paper around them.
+
+The scream rows were measured: every row of the changed strings is within the 240-pixel
+box (the widest is 226), no row of one or two letters is left in the boxes that were
+re-laid, and the audits give the same results as on 1.11.0. The last scream change covers
+long screams that had no line break in Capcom's script: 17 boxes in 12 strings, such as
+one in Wang's breakdown that showed a row of 21 letters over a row of 7 and now shows two
+rows of 14. In the emulator, Wang's breakdown at the end of Episode 1 was recorded on an
+earlier 1.11.1 candidate: all eight scream boxes showed even rows with no gaps, matching
+the expected layout. The last change re-laid three of those eight boxes afterwards, so
+those three were checked by decoding the built ROM and by rendering them with the game's
+font, not by a new recording. The four strings with joined hyphen words were checked by
+rendering their boxes with the game's font, not in the emulator.
+
+The picture fixes were checked this way. On a running game, from saves and with the title
+reading v1.11.1, I checked the purse paper, Wang's breakdown (on the earlier candidate
+above), the Episode 3 opening card and the victim's letter in the Court Record, and two of the
+cake-contest room maps (Tangaroa's Room and Scone's Room). The four-room map and one
+cutscene label set were not reached and were checked by decoding.
+The opening card shows "Samson & Judy's", "Bake 'n' Bop!" and "Your 3 PM Cakestravaganza"
+in Capcom's lettering, with the fan's characters, cake and whisk as expected; at DS size
+"PM" reads close to "DM", as it does in Capcom's own picture. In the Court Record the title
+bar reads "Victim's Letter" and the card in the picture reads roughly "Ms. Rosie Ringer",
+a smudge at DS size, as the fan's picture was. Not seen on a running game: the business
+card and the Promise Notebook title (as far as decoding goes, no script on the DS adds
+either one to the Court Record, so they may never appear) and the Logic card "Mr. Saint's
+big moment" (the right chapter was reached, the card was not). The rest I checked by
+decoding the built ROM entry by entry against the fan's and against what the build
+produced, and by rendering each changed picture beside the fan's.
 
 On hardware, 1.4.4 booted and reached gameplay from a DSPico flashcart on a 3DS, and test
 builds of 1.11.0 booted into the first case on a DSi through TWiLight Menu++ and on a
-DSPico, and the 1.11.0 release build boots on both. For 1.11.1: {{HW_BOOT}} Nothing deeper
+DSPico, and the 1.11.0 release build boots on both. For 1.11.1: The 1.11.1 release build boots on both as well. Nothing deeper
 has been tried on real hardware, and no original DS has been tried at all.
 
 If the game ever hangs mid-scene, your save isn't damaged, since text is read-only data.
