@@ -260,14 +260,25 @@ for _code, _positions in DS_VALUE_ARGS.items():
 # preserves - restoring it here would fight the Collection's own voice
 # direction rather than fix a staging fault. See _restore_index_args' own
 # exclusions list above for the same reasoning stated for INDEX_ARGS.
-STAGING_CODES = (0xE13A, 0xE13B, 0xE16F, 0xE114, 0xE15B, 0xE150)
+#
+# {E14A} (first argument: the character) and {E14B} (its only argument: the
+# character) are in the table since a tester reported (issue 3, 2026-10-01)
+# that Case 3 hung at the start of Edgeworth's ice-block memory. Entry 185
+# string 1 had its two walk-ins {E114} for characters 11 and 65 removed (the
+# fan and the retail Japanese have neither) but kept their companions
+# {E14A}/{E14B}, so the {E14B}(65) wait, on a character that is never placed
+# in Episode 3, never ended. Restoring the fan's subsequence of both codes
+# makes a companion go with its walk-in. The same rule also drops a stray
+# {E14A}(46) the Collection added to entry 183 string 11 (the fan and the
+# retail Japanese carry only 31 and 29 there).
+STAGING_CODES = (0xE13A, 0xE13B, 0xE16F, 0xE114, 0xE15B, 0xE150, 0xE14A, 0xE14B)
 
 # The character commands among STAGING_CODES carry the character id as their
 # FIRST argument; {E15B} (camera) has no character. _restore_staging aligns
 # occurrences on (code, character id) for the former and (code,) for the
 # latter, so a run of "char 5 twice then char 32 twice" is never matched
 # against "char 32 twice then char 5 twice" just because the codes agree.
-_STAGING_CHAR_CODES = (0xE13A, 0xE13B, 0xE16F, 0xE114, 0xE150)
+_STAGING_CHAR_CODES = (0xE13A, 0xE13B, 0xE16F, 0xE114, 0xE150, 0xE14A, 0xE14B)
 
 
 def _staging_key(code, args):

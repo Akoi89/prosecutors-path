@@ -552,6 +552,25 @@ def break_indexarg_e200(rom):
     return bytes(out), 1
 
 
+def break_dangling_wait(rom):
+    """Point DS[185] str 1's first {E14B} at character 99 - a wait on a
+    character the string never placed, the issue 3 freeze shape (Case 3,
+    {E14B}(65) with no walk-in for 65; see audit_dangling_wait.py). On a fixed
+    build that wait is {E14B}(0), right after {E16F}(0,...); 99 has no
+    placement anywhere, and the fan has no such wait, so the audit must exit 1.
+    One unit, same width. Applied to whichever ROM the harness is given; the
+    ROM must be a FIXED build (a pre-fix ROM already fails the audit clean)."""
+    a, b = spt_span(rom)
+    cont = bytes(rom[a:b])
+    o, s = struct.unpack_from('<II', cont, 185 * 8)
+    off = _find_code_offset(cont[o:o + s], a + o, 1, 0xE14B, 0) if s else None
+    if off is None:
+        return bytes(rom), 0
+    out = bytearray(rom)
+    out[off:off + 2] = enc(99)
+    return bytes(out), 1
+
+
 def break_staging(rom):
     """Set DS[99] str 5's SECOND {E15B}'s x argument back to 192 - the real
     Case 2 camera fault a tester reported: a scene
@@ -891,6 +910,7 @@ FIXTURES = [
     ('audit_choicearg.py', "drop DS[92] str 18's {E187} target-string index by one (the region_align skew)", break_choicearg_target, 'rom'),
     ('audit_indexargs.py', "decrement DS[92] str 1's first {E11F} argument position 1 by one (the rebuttal statement-index fault)", break_indexarg_e11f, 'rom'),
     ('audit_indexargs.py', "decrement DS[11] str 3's first {E200} argument position 1 by one (62 -> 61: the Mind Chess option would read a dev placeholder)", break_indexarg_e200, 'rom'),
+    ('audit_dangling_wait.py', "point DS[185] str 1's first {E14B} at character 99, one the string never placed (the issue 3 Case 3 freeze shape)", break_dangling_wait, 'rom'),
     ('audit_staging.py', "set DS[99] str 5's second {E15B} x argument back to 192 (the Case 2 camera fault)", break_staging, 'rom'),
     ('audit_staging.py', "move one staging command into the wrong box in a string whose box-end count still matches the fan", break_staging_placement, 'rom'),
     ('audit_staging.py', "move one staging command from after some text to before any text in its own box (same subsequence, same box)", break_staging_point, 'rom'),
@@ -952,7 +972,7 @@ def main():
             shutil.copyfile(rowfold.manifest_path(clean_path), _mf)
         if script in ('audit_indexargs.py', 'audit_zeros.py', 'audit_staging.py',
                       'audit_widgets.py', 'measure_linewidth.py', 'audit_tails.py',
-                      'audit_hotspots.py'):
+                      'audit_hotspots.py', 'audit_dangling_wait.py'):
             # should-fix 2: an audit that already fails on the clean ROM would
             # make the ordinary text-diff test trivially pass. Require the
             # clean ROM to exit 0 (nothing wrong) and the broken copy to
