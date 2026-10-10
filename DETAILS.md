@@ -113,8 +113,8 @@ gk2port-windows-x64.exe --fan-rom "GK2 (AAI2 Final v2).nds" --skip-extract
 The wizard notices this by itself: if `dump/` is already there and the Collection isn't
 installed any more, it says so and carries on.
 
-That needs the fan ROM and `dump/` (~70 MB: the script dumps plus the title assets and
-voice clips pulled from the Collection) and nothing else. Verified byte-identical to
+That needs the fan ROM and `dump/` (about 187 MB, 186,956,489 bytes by `du -sb`: the script
+dumps plus the title assets and voice clips pulled from the Collection) and nothing else. Verified byte-identical to
 a full run.
 
 Or run the injection alone:
@@ -262,7 +262,7 @@ map pieces (`tools/room_names.py`); the business card and victim's letter eviden
 (`tools/idcom_icons.py`); six Logic keyword cards (`tools/logic_names.py`); and one Court
 Record title that was still Japanese, now "Promise Notebook" (`tools/plates.py`).
 BUILD_NOTES.md has the method and the buffer checks for each. The office label and the corridor label of one later map
-piece (`jpn/idlocal.bin` 349) stayed Japanese in 1.11.1, because Capcom's Collection has no English
+piece (`jpn/idlocal.bin` 349; entry 348, which the 1.11.1 notes name beside it, is a cell bank with no lettering) stayed Japanese in 1.11.1, because Capcom's Collection has no English
 version of that map; since 1.11.2 `tools/plan_labels.py` letters them in the fan's own face from
 Capcom's captions for the room and its word for a corridor.
 
@@ -436,7 +436,7 @@ What remains fan (~5.7% of the script):
   supplies the words, and the fan line proves what fits. Nothing is paraphrased where a
   deletion will do, names and facts are kept, and hedges are kept ("appears to", "I have my
   doubts"). The edits ship as word-index operations over the official text
-  (`tools/condense_generated.py`, produced by `rig/desc_fit.py` from a reviewed list), so no
+  (`tools/condense_generated.py`, produced by `tools/desc_fit.py` from a reviewed list), so no
   Capcom text sits in the repo, and each entry carries a result hash: a Collection whose
   wording differs falls back to the fan line instead of applying a stale edit. To check
   them, `python tools/desc_overflow.py OUT.txt` lists every affected row four ways

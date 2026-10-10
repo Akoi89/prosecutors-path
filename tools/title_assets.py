@@ -266,9 +266,10 @@ def apply(dumpdir, rom_path, log=print, version=None, any_rom=False):
     if not changed:
         log('map pieces and plans: not redrawn (see reason above)')
 
-    # 7h) the plans of the prison and the detention center (jpn/upcut_local.bin 36, 40, 48, 52, 78,
-    #     80, 82) in Capcom's wording, in the fan's own lettering; after the last step that writes
-    #     upcut_local; its entries are its own (see tools/plan_labels.py)
+    # 7h) the plans in Capcom's wording, in the fan's own lettering (jpn/upcut_local.bin 36, 40, 48, 52,
+    #     78, 80, 82: the prison and the detention center; 102: the Zodiac Hall plan; 114: the Zodiac
+    #     Hall leaflet, swapped whole from Capcom's picture; 116: the information board's temperatures);
+    #     after the last step that writes upcut_local; its entries are its own (see tools/plan_labels.py)
     import plan_labels
     rom, plans_changed = plan_labels.apply_upcut_to_rom(rom, dumpdir, log, any_rom)
     if not plans_changed:

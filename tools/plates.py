@@ -666,7 +666,7 @@ class Titles(object):
         g = self._grid(i)
         # Guard: the strip we are about to overwrite must be the one this row
         # describes, or a wrong official name lands on the wrong card. The
-        # readings were verified two ways (rig/audit_titles.py): every strip
+        # readings were verified two ways (an audit of every title strip): every strip
         # re-read by template-matching the harvested glyphs, and the dozen the
         # segmenter cannot split - the long titles the fan hand-squeezed - read
         # by eye. Letter-count is the check that survives both cases; a strip

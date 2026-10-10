@@ -754,7 +754,7 @@ def break_zero_text(rom):
     audit_zeros.py must go on accepting). audit_zeros.py walks every string
     arity-aware and flags a literal 0x0000 in text position before the
     string's declared end - the DS engine's own end-of-string marker
-    (DELTA 5, fan_tone/E04X_FINDINGS.md) - so planting one here, with no fan
+    (DELTA 5) - so planting one here, with no fan
     zero anywhere nearby to excuse it, is exactly the defect it exists to
     catch. Same width, nothing else moves. No-ops (returns 0) if the site
     already holds 0, so the harness never reports a byte-identical write as a

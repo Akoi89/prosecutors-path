@@ -74,7 +74,7 @@ def apply(norm_ja, eng):
 
 
 # The 108 descriptions and Logic cards condensed in 1.5.0 live in a generated
-# table (rig/desc_fit.py emits it from the reviewed condensed text). Same shape:
+# table (tools/desc_fit.py emits it from the reviewed condensed text). Same shape:
 # word-index edits over the OFFICIAL text, keyed by the Japanese source hash,
 # guarded by a result hash. The three hand-written entries above take precedence.
 try:

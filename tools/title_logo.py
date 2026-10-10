@@ -16,7 +16,7 @@ Constraints kept identical to the original so no header sizes move:
     stored-literal LZ11, raw blobs go back raw
 
 Two things that black-screen the game on boot, both found by bisecting with
-rig/title_bisect.py: writing the palette back RAW while its slot still carries
+a private bisection script: writing the palette back RAW while its slot still carries
 the compressed flag (the game LZ-decompresses garbage), and nothing else - a
 plain repack, and new tiles + map, both boot fine.
 

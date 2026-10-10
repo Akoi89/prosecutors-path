@@ -55,7 +55,7 @@ CTRL = lambda v: 0xE000 <= v <= 0xF8FF
 # question, then {E108 32} {E106} {E101} {E107 3}, then a two-line sentence, and the
 # screen showed one box where the second sentence ran straight on from the question
 # mark on the same line and was cut off mid-word at the box edge, losing two words.
-# Proof rig/proof/e107/CUTOFF_fender_everythin_box.png. The fan's own line at that
+# Proof: a photograph taken on the rig. The fan's own line at that
 # site is a single box too, which is the tell: the fan AUTHORED for this behaviour.
 # {E106} STAYS IN THIS SET, and the reason is specific: tools/loc_patch.py:205
 # preserves a string's trailing box-end with
@@ -1861,7 +1861,7 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
             # mark on the same line and was cut off mid-word at the box edge, two
             # words simply gone. A tester independently
             # reported the same fault class in entry 80. Proof in
-            # rig/proof/e107/CUTOFF_fender_everythin_box.png.
+            # a photograph taken on the rig.
             #
             # The rule is narrow on purpose. It fires only where this {E107} is
             # OPENING a box, meaning no text has been laid into the current box
@@ -1892,7 +1892,7 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
                 # flushes, so a location/date card can arrive glued onto the
                 # end of the prose that precedes it. A card has always
                 # shipped in its own box and is photographed rendering
-                # correctly that way (rig/proof); nothing establishes the
+                # correctly that way (photographed on the rig); nothing establishes the
                 # engine draws one correctly glued to preceding text, so give
                 # it its own box on purpose rather than let it fall wherever
                 # pagination happens to land.

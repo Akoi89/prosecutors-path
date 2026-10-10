@@ -3,7 +3,7 @@
     python tools/test_bufcheck.py <built rom> [dump folder]
 
 Reads the three built files out of the ROM, shows the unmodified blobs pass,
-then feeds each of checks a-h a mutated copy (in memory only) and requires a
+then feeds each of checks a to q and s (there is no r) a mutated copy (in memory only) and requires a
 BufCheckError. Prints the message of each. Raises if any mutation is accepted
 or the clean blobs are refused.
 """

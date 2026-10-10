@@ -47,7 +47,7 @@ PITCH, PARA_GAP, TITLE_GAP = 13, 6, 18
 INDENT_PX = 3                # per leading ASCII space in Capcom's row
 BULLETS = ('■', '•', '*')
 
-# DS entry -> gk2_txtcut_en row (TXTCUT_MAPPING.md)
+# DS entry -> gk2_txtcut_en row
 ROWS = {28: 3, 34: 5, 72: 0, 74: 1, 76: 2, 98: 15, 108: 16, 110: 17, 112: 18, 120: 19,
         122: 20, 124: 21, 126: 22, 128: 23, 212: 25, 222: 27, 228: 28, 240: 31, 248: 32,
         250: 33, 254: 35, 256: 36, 258: 37, 266: 6, 270: 7, 284: 8, 286: 9, 288: 10,

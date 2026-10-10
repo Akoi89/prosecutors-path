@@ -79,8 +79,8 @@ RECUT_SHIFTED = True
 
 # Block (c) below (the DSONLY set, inside `if KEEP_DSONLY_GATE:` in main()) keeps the fan's string whenever
 # the converted string carries fewer {E041}/{E042} than the fan's. Investigation
-# 2026-09-21 (fan_tone/E04X_FINDINGS.md, independently refuted in
-# fan_tone/E04X_REFUTATION.md: verdict ACCEPT) read the arm9 script interpreter
+# 2026-09-21 (a written investigation, independently
+# reviewed: verdict ACCEPT) read the arm9 script interpreter
 # (0x0200DCE0) and renderer (0x02078784, runs at 0x01FFCxxx from the ITCM autoload)
 # and found E040-E043 are absolute colour setters with no state, no wait and no
 # callback - not open/close pairs, so "fewer than the fan" is not "unbalanced". The
@@ -90,9 +90,8 @@ RECUT_SHIFTED = True
 # _has_foreign and tools/buttons.py now catch that. A throwaway ROM built with this
 # gate off (port/out/EXPERIMENT_nodsonly.nds, not reproducible from any tree on
 # disk) measured 98.8% coverage against the shipped 93.8%, ran Episode 1 past the
-# Gourd Lake handoff twice from independent cold boots with no hang
-# (fan_tone/RIG_NODSONLY.md), and survived a six-attack Fable adversarial pass
-# (fan_tone/E04X_ATTACK.md) plus the refuter's ACCEPT. Set True to restore the old
+# Gourd Lake handoff twice from independent cold boots with no hang,
+# and survived a six-attack Fable adversarial pass plus the refuter's ACCEPT. Set True to restore the old
 # behaviour; the block itself is kept, not deleted, so the gate can be turned back
 # on without reconstructing it.
 KEEP_DSONLY_GATE = False
@@ -1091,14 +1090,14 @@ def _restore_staging(conv, ds):
 
 # Box-end codes for the seam-cue rule below - deliberately NOT inject.py's own
 # BOXEND (which also holds {E185}/{E081}, used for the box-count fingerprint):
-# this is rig/seam_cues.py's narrower set, the definition the DELTA 2 spec names
+# this is the seam-cue analysis's narrower set, the definition the DELTA 2 spec names
 # ("after the last E102/E104/E106 or text unit").
 _SEAM_BOXEND = {0xE102, 0xE104, 0xE106}
 
 
 def _seam_cmds(u):
     """(start_index, code_or_None, args_tuple) per unit, arity-aware exactly like
-    _code_positions/rig/seam_cues.py's cmds() - a plain text or data unit (outside
+    _code_positions and the seam-cue analysis's cmds() - a plain text or data unit (outside
     0xE000-0xF8FF, which includes a stray non-argument {00}) comes back as
     (k, None, None), never mistaken for a code."""
     out, k = [], 0
@@ -1116,7 +1115,7 @@ def _seam_cmds(u):
 
 def _trailing_start(u):
     """Raw index where u's trailing control block begins: right after the last
-    box-end/text/{E107} reset. Matches rig/seam_cues.py's trailing(); slicing
+    box-end/text/{E107} reset. Matches the seam-cue analysis's trailing(); slicing
     u[_trailing_start(u):] gives that block's raw units."""
     start = 0
     for k, v, a in _seam_cmds(u):
@@ -1127,7 +1126,7 @@ def _trailing_start(u):
 
 def _leading_end(u):
     """Raw index where u's leading control block ends: at the first text unit
-    or {E107}. Matches rig/seam_cues.py's leading(); u[:_leading_end(u)] is that
+    or {E107}. Matches the seam-cue analysis's leading(); u[:_leading_end(u)] is that
     block's raw units."""
     for k, v, a in _seam_cmds(u):
         if v is None or v == 0xE107:
@@ -1139,7 +1138,7 @@ def _after_last_boxend(u):
     """Raw index right after u's LAST {E102}/{E104}/{E106}, or 0 if it has none.
     Deliberately narrower than _trailing_start: it does NOT reset on a plain
     text/data unit. _trailing_start exists to DETECT the seam-cue trigger
-    (matching rig/seam_cues.py, where a stray unit correctly breaks the block
+    (matching the seam-cue analysis, where a stray unit correctly breaks the block
     so the trigger is not confused by noise elsewhere in the string); this is
     for the verbatim COPY the fix actually makes, which must not lose units
     that a stray unit happens to sit next to. Bug this replaced: entry 95's
@@ -1160,8 +1159,8 @@ def _restore_seam_cues(conv, ds):
     box-end and its {E081} tail; the converter instead moves the Collection's
     equivalents to the head of the NEXT string. Flagged by the 2026-08-23 review
     ("PLAYTEST THESE FIVE: DS[27], [70], [80], [95], [221]") and never playtested;
-    measured whole-game on check_idxargs_d1.nds (rig/seam_cues.py, then filtered to
-    true relocations by rig/seam_reloc.py): exactly three seams -
+    measured whole-game on check_idxargs_d1.nds (by the seam-cue analysis, then filtered to
+    true relocations): exactly three seams -
       entry  95 seam 16|17  moved {E11B}<55,18> (with {E100}<01>{E121} in front of
               it: the fan's dispatcher, a conditional jump on flag 55, ends up
               stranded mid-string in ours, after {E121} - the last unit of its
@@ -1540,7 +1539,7 @@ def main(base=None, out=None):
                 k += 1
         return False
     def _has_zero_in_text(u):
-        """The zero-unit guard (fan_tone/E04X_FINDINGS.md section 4, condition 1,
+        """The zero-unit guard (section 4, condition 1 of the DSONLY investigation,
         added alongside lifting the DSONLY gate above): a 0x0000 unit in TEXT
         position - never inside a code's own arguments, which this walk skips over
         ARGS-aware, exactly like _has_foreign - is the DS script interpreter's own

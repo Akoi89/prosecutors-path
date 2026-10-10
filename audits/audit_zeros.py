@@ -7,7 +7,7 @@ The DS engine walks a string with its own arity table (arm9 0x0200DD10-DDFA):
 a control code's own argument units are skipped over, but the first plain
 0x0000 unit it meets ends the string right there, and everything after it
 never runs. tools/inject.py's `_has_zero_in_text` guard (added in DELTA 5,
-fan_tone/E04X_FINDINGS.md section 4) checks a converted string for exactly
+section 4 of the DSONLY investigation) checks a converted string for exactly
 this BEFORE it is accepted, and keeps the fan's version if it finds one - but
 that guard only runs on the main per-string conversion path. The DELTA 5
 refuter found two paths that ship Capcom text without ever calling it:

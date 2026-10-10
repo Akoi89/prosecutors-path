@@ -14,7 +14,7 @@ Collection pictures and the fan patch's DS pictures, reviewed at DS size, and
 ship as finished 256x192 pictures in tools/cg_art_final/. The build pastes
 them verbatim. The 60 zoom frames are derived here from the TV master: each
 frame's screen glass is the master scaled into the rectangle the frame's
-registration gives (tools/cg_art_reg.json, from rig/cg_register.py), pasted
+registration gives (tools/cg_art_reg.json), pasted
 over the fan frame, and softened to match the fan frame's own sharpness.
 
 Each picture owns its 256-colour palette, so every entry is re-quantised and
@@ -154,7 +154,7 @@ _TV = {}
 
 def tv_reg(entry):
     """[s, ox, oy, blur, ncc]: DS pixel (x, y) of this frame sits at official
-    (ox + s*x, oy + s*y) in cut02_037. From rig/cg_register.py."""
+    (ox + s*x, oy + s*y) in cut02_037. From tools/cg_art_reg.json."""
     if not _TV:
         _TV.update(json.load(open(REG_JSON)))
     return _TV[str(entry)]

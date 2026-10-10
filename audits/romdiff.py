@@ -6,7 +6,7 @@ The release flow has always done this read-back by hand ("read back against
 both ROMs' filename tables and compares every file by content, so a change that
 was meant to touch one file can be shown to touch exactly that one.
 
-    python sweep/romdiff.py <old.nds> <new.nds>
+    python audits/romdiff.py <old.nds> <new.nds>
 
 Reports files that differ, that only one side has, and the count that match.
 Reads only; writes nothing.
