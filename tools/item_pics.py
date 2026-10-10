@@ -428,13 +428,19 @@ PLAQUES = (
     dict(rects=((160, 176, 215, 191), (166, 176, 197, 191)), grow=1, feather=2,              # The Light of Life
          draw=dict(box=(164, 175, 199, 192), lines=('The Light', 'of Life'))),
     dict(rects=((52, 121, 84, 131), (45, 121, 94, 131)), grow=1, feather=2,                  # Angel Beset by Thorns
-         draw=dict(box=(29, 121, 110, 131), bevel=1, lines=('Angel Beset by Thorns',))),
+         draw=dict(box=(45, 115, 94, 131), bevel=1, lines=('Angel Beset', 'by Thorns'))),
 )
 # The plaques are painted, not averaged: Capcom's lettering is a hairline about three and a half pixels tall, which an
 # area average turns into a smear. The plaque is redrawn as Capcom's plaque (a light bevel along the top, a smooth brown
 # face that is lighter on the left, a darker edge, a shade along the bottom; the colours are fitted to Capcom's own
 # plaque with its lettering masked out and snapped to the picture's palette) and its words are set in tools/plaque_face.py
 # (one pixel strokes, light on the face), each line centred.
+# The frame plaque ("Angel Beset by Thorns") is set in two lines, 'Angel Beset' / 'by Thorns' (38 and 32 px, 12 rows with
+# the descenders), on a plaque as wide as Capcom's (49 px, x 45..93, the same centre). Two lines need 16 rows (bevel 1, a
+# row of margin, the 12 row block, a row of margin, the bottom edge), so the plaque is grown upward from Capcom's bottom
+# edge: it covers rows 115..130, the lower part of the frame's moulding rail (rows 115 to 120) and Capcom's old rows 121 to
+# 130, and the carving and the finial below row 131 stay. Its redraw rects are Capcom's and the fan's plaque only, so
+# everything outside the box and the feather band is the fan's picture.
 PLAQUE_INK = (239.0, 231.0, 208.0)
 PLAQUE_PITCH = 6
 

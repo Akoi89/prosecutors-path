@@ -202,7 +202,7 @@ RELETTERED = {
     104: [(40, 80, 96, 98),
           (56, 173, 114, 192), (70, 173, 111, 192), (68, 172, 112, 192),
           (157, 173, 218, 192), (163, 173, 200, 192), (161, 172, 202, 192),
-          (49, 118, 87, 134), (42, 118, 97, 134), (26, 118, 113, 134)],
+          (49, 118, 87, 134), (42, 118, 97, 134), (42, 112, 97, 134)],
     # tools/bigg_building.py: the city map's "Grand Tower" label becomes "Bigg Building";
     # tools/city_labels.py: the map's other labels take Capcom's wording
     280: [(60, 100, 130, 126),                 # the tower's label
