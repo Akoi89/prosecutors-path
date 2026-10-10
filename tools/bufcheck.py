@@ -5,7 +5,8 @@ The port's data can outgrow a fixed buffer in the game without any visible
 error at build time. playtest/SOLVE_buffers.md traced every loader and text
 buffer in the engine; none overflows today, and checks a to e keep it that
 way (f is the Logic keyword cards, g the bag model texture, h the room names, i the opening card,
-j the evidence icons, k the nameplates). They read jpn/spt.bin, jpn/idlocal.bin, com/cutdata.bin,
+j the evidence icons, k the nameplates, l the marker letters, o the Bigg Building pictures).
+They read jpn/spt.bin, jpn/idlocal.bin, com/cutdata.bin,
 jpn/logic_keyword_local.bin, jpn/modelitemlocal.bin, jpn/cutobj_local.bin, jpn/opening_local.bin and
 com/idcom.bin out of the finished ROM (after the last step that writes any of them), compare idlocal,
 the logic cards, the model file, cutobj_local, the opening file and idcom with the fan's, and RAISE
@@ -56,8 +57,9 @@ g. bag model texture. Entry 1 of jpn/modelitemlocal.bin (the BTX0 with texture b
 h. room names. Entries 321, 324 and 327 of jpn/idlocal.bin and entry 10 of
    jpn/cutobj_local.bin (tools/room_names.py re-letters them in place) must decode to exactly
    the fan's size, their stream header must agree with the table, and each must be stored in no
-   more bytes than the fan's entry; every other cutobj_local entry must be byte for byte the
-   fan's.
+   more bytes than the fan's entry; every cutobj_local entry outside CUTOBJ_CHANGED (2 4 6 8 10 16 18
+   20 22 24 26: the room names, Bigg Building, the city map patches and the marker letters) must be byte
+   for byte the fan's.
 i. opening card. jpn/opening_local.bin entries 13 (RGCN, which opening_card.py redraws) and 14
    (RLCN) are read by the sprite bundle loader into a buffer of the table's decoded size, through
    a temporary copy of the stored entry. Every table field must be the fan's (decoded sizes and
@@ -77,6 +79,18 @@ k. nameplates. The 28 redrawn dialogue nameplates (idlocal entries of plates.PLA
    and are stored in no more bytes than the fan's slot, except the entries of PLATE_STORED_OVER, which
    are measured, listed, and bounded by that number and by the literal-only form (the form the
    1.11.1 plates shipped in, 708 bytes). Every other nameplate slot (27-86) is the fan's bytes.
+l. marker letters. jpn/cutobj_local.bin entries MARKER_CUTOBJ (tools/marker_letters.py: the letter in
+   the round character markers) keep the fan's table field, are real LZ11 streams that decode to the
+   fan's size and are stored in no more bytes than the fan's entry; in the entries that only this step
+   changes, every byte before and after the 4bpp tile data is the fan's and the tile data is as long
+   as the fan's; every cutobj_local entry outside CUTOBJ_CHANGED (2 4 6 8 10 16 18 20 22 24 26: the room
+   names' entry 10, the city map's entries 18 and 26, and the marker letters' ten) is the fan's bytes.
+o. Bigg Building. jpn/idlocal.bin entries BIGG_IDLOCAL, jpn/upcut_local.bin entries BIGG_UPCUT and
+   jpn/cutobj_local.bin entries BIGG_CUTOBJ and PATCH_CUTOBJ (tools/bigg_building.py: the tower's name on the place
+   cards, the city map and the cross-section pictures; tools/city_labels.py, tools/city_patches.py: Capcom's
+   wording on the city map, its highlight patches, the room label and the 50th floor strip) keep the fan's table field, are real LZ11
+   streams that decode to the fan's size and are stored in no more bytes than the fan's entry; the
+   other cutobj_local entries are the fan's bytes except the ones in CUTOBJ_CHANGED (2 4 6 8 10 16 18 20 22 24 26).
 """
 import os
 import struct
@@ -106,6 +120,12 @@ LOGIC_PUNCT_SLOTS = (40, 56, 59, 60, 117, 120)
 LOGIC_PUNCT_ENTRIES = tuple(sorted([k + 1 for k in LOGIC_PUNCT_SLOTS] + [k + 135 for k in LOGIC_PUNCT_SLOTS]))
 ROOM_IDLOCAL = (321, 324, 327)
 ROOM_CUTOBJ = 10
+BIGG_IDLOCAL = (328, 331, 334, 337, 340, 343)
+BIGG_UPCUT = (208, 244, 246, 264, 278, 280, 282)
+BIGG_CUTOBJ = 26
+MARKER_CUTOBJ = (2, 4, 6, 8, 10, 16, 20, 22, 24, 26)      # entries whose marker letters marker_letters.py redraws
+PATCH_CUTOBJ = 18                                      # the city map's highlight patches (tools/city_patches.py)
+CUTOBJ_CHANGED = tuple(sorted(set((ROOM_CUTOBJ, BIGG_CUTOBJ, PATCH_CUTOBJ) + MARKER_CUTOBJ)))
 OPENING_GFX, OPENING_PAL = 13, 14
 OPENING_FREE = (0,)            # the splash title tiles, rewritten by title_text.py
 ICON_ENTRIES = {281: 280, 573: 572, 575: 574}      # icon entry -> its palette entry
@@ -410,8 +430,84 @@ def check_rooms(built_idl, fan_idl, built_co, fan_co):
             out[(name, i)] = (size, len(stored), fan_stored)
         if name == 'cutobj_local':
             for i in range(len(pt)):
-                if i != ROOM_CUTOBJ and built[pe[i][0]:pe[i][1]] != fan[fe[i][0]:fe[i][1]]:
+                if i not in CUTOBJ_CHANGED and built[pe[i][0]:pe[i][1]] != fan[fe[i][0]:fe[i][1]]:
                     raise BufCheckError('cutobj_local entry %d is not the fan\'s bytes' % i)
+    return out
+
+
+def check_bigg(built_idl, fan_idl, built_up, fan_up, built_co, fan_co):
+    """Check k. -> {('idlocal', 328): (decoded, stored, fan stored), ...}."""
+    out = {}
+    for name, built, fan, entries in (('idlocal', built_idl, fan_idl, BIGG_IDLOCAL),
+                                      ('upcut_local', built_up, fan_up, BIGG_UPCUT),
+                                      ('cutobj_local', built_co, fan_co, (BIGG_CUTOBJ, PATCH_CUTOBJ))):
+        pt, ft = _table(built), _table(fan)
+        if len(pt) != len(ft):
+            raise BufCheckError('%s has %d entries, the fan has %d' % (name, len(pt), len(ft)))
+        pe, fe = _extents(pt, len(built)), _extents(ft, len(fan))
+        for i in entries:
+            if i >= len(pt):
+                raise BufCheckError('%s has no entry %d' % (name, i))
+            if pt[i][1] != ft[i][1]:
+                raise BufCheckError('%s entry %d: table field %#x, the fan\'s %#x' % (name, i, pt[i][1], ft[i][1]))
+            size = pt[i][1] & 0x7FFFFFFF
+            if not pt[i][1] & 0x80000000:
+                raise BufCheckError('%s entry %d is expected to be an LZ11 stream' % (name, i))
+            stored = built[pe[i][0]:pe[i][1]]
+            fan_stored = fe[i][1] - fe[i][0]
+            if _stream_size(stored) != size:
+                raise BufCheckError('%s entry %d: stream declares %d bytes, table says %d'
+                                    % (name, i, _stream_size(stored), size))
+            got = len(_decode(stored, '%s entry %d' % (name, i)))
+            if got != size:
+                raise BufCheckError('%s entry %d decodes to %d bytes, table says %d' % (name, i, got, size))
+            if len(stored) > fan_stored:
+                raise BufCheckError('%s entry %d is stored in %d bytes, over the fan\'s %d'
+                                    % (name, i, len(stored), fan_stored))
+            out[(name, i)] = (size, len(stored), fan_stored)
+        if name == 'cutobj_local':
+            for i in range(len(pt)):
+                if i not in CUTOBJ_CHANGED and built[pe[i][0]:pe[i][1]] != fan[fe[i][0]:fe[i][1]]:
+                    raise BufCheckError('cutobj_local entry %d is not the fan\'s bytes' % i)
+    return out
+
+
+def check_markers(built_co, fan_co):
+    """Check l. -> {('cutobj_local', 2): (decoded, stored, fan stored), ...}."""
+    import room_names as rn
+    pt, ft = _table(built_co), _table(fan_co)
+    if len(pt) != len(ft):
+        raise BufCheckError('cutobj_local has %d entries, the fan has %d' % (len(pt), len(ft)))
+    pe, fe = _extents(pt, len(built_co)), _extents(ft, len(fan_co))
+    out = {}
+    for i in MARKER_CUTOBJ:
+        if i >= len(pt):
+            raise BufCheckError('cutobj_local has no entry %d' % i)
+        if pt[i][1] != ft[i][1]:
+            raise BufCheckError('cutobj_local entry %d: table field %#x, the fan\'s %#x' % (i, pt[i][1], ft[i][1]))
+        size = pt[i][1] & 0x7FFFFFFF
+        if not pt[i][1] & 0x80000000:
+            raise BufCheckError('cutobj_local entry %d is expected to be an LZ11 stream' % i)
+        stored = built_co[pe[i][0]:pe[i][1]]
+        fan_stored = fe[i][1] - fe[i][0]
+        if _stream_size(stored) != size:
+            raise BufCheckError('cutobj_local entry %d: stream declares %d bytes, table says %d' % (i, _stream_size(stored), size))
+        dec = _decode(stored, 'cutobj_local entry %d' % i)
+        if len(dec) != size:
+            raise BufCheckError('cutobj_local entry %d decodes to %d bytes, table says %d' % (i, len(dec), size))
+        if len(stored) > fan_stored:
+            raise BufCheckError('cutobj_local entry %d is stored in %d bytes, over the fan\'s %d' % (i, len(stored), fan_stored))
+        if i not in (ROOM_CUTOBJ, BIGG_CUTOBJ):
+            fdec = _decode(fan_co[fe[i][0]:fe[i][1]], 'fan cutobj_local entry %d' % i)
+            o = struct.unpack_from('<3I', fdec, 0)
+            b = rn.Bundle(fdec[o[0]:o[1]], fdec[o[2]:])
+            lo, hi = o[2] + b.tile_off, o[2] + b.tile_off + b.tile_len
+            if dec[:lo] != fdec[:lo] or dec[hi:] != fdec[hi:]:
+                raise BufCheckError('cutobj_local entry %d differs from the fan\'s outside its tile data' % i)
+        out[('cutobj_local', i)] = (size, len(stored), fan_stored)
+    for i in range(len(pt)):
+        if i not in CUTOBJ_CHANGED and built_co[pe[i][0]:pe[i][1]] != fan_co[fe[i][0]:fe[i][1]]:
+            raise BufCheckError('cutobj_local entry %d is not the fan\'s bytes' % i)
     return out
 
 
@@ -788,16 +884,26 @@ def run(rom_path, dumpdir):
           "%d over it (%s), the other plate slots are the fan's bytes"
           % (len(k_plates), len(k_plates) - len(k_over), len(k_over),
              ', '.join('%d: %d of %d' % (i, k_plates[i][1], k_plates[i][2]) for i in k_over) or 'none'))
+    with open(os.path.join(dumpdir, 'ds_fan', 'jpn', 'upcut_local.bin'), 'rb') as f:
+        fan_up = f.read()
+    k_ent = check_bigg(rom_file(rom, 'jpn/idlocal.bin'), fan, rom_file(rom, 'jpn/upcut_local.bin'), fan_up,
+                       rom_file(rom, 'jpn/cutobj_local.bin'), fan_co)
+    obs = ', '.join('%s %d decodes %d, stored %d of the fan\'s %d' % ((k[0], k[1]) + v) for k, v in sorted(k_ent.items()))
+    l_ent = check_markers(rom_file(rom, 'jpn/cutobj_local.bin'), fan_co)
+    cutchg = '(%s)' % ' '.join(str(e) for e in CUTOBJ_CHANGED)
+    ls = ', '.join('entry %d decodes %d, stored %d of the fan\'s %d' % ((k[1],) + v) for k, v in sorted(l_ent.items()))
     return ('%s; (f) logic cards: %d checked, every OBJ inside the RGCN bytes, cards with OBJs past the '
             'declared data (rewritten, no fan tail): %s, %d punctuation-matched name cards rewritten; (g) modelitemlocal entry %d decodes to %d bytes like '
             "the fan's, stored %d of the fan's %d, the other entries are the fan's bytes; "
-            "(h) room names: %s, the other cutobj_local entries are the fan's bytes; "
+            "(h) room names: %s, the cutobj_local entries outside %s are the fan's bytes; "
             "(i) opening_local entry %d decodes to %d bytes like the fan's, stored %d of the fan's %d, "
             "every table field the fan's; "
             "(j) idcom.bin written in place, table and every other entry the fan's, icons: %s; "
-            "(k) nameplates: %s"
-            % (line, n, ps, n_named, MODEL_ENTRY, g_size, g_stored, g_fan, hs,
-               OPENING_GFX, i_size, i_stored, i_fan, js, ks))
+            "(k) nameplates: %s; "
+            "(l) marker letters (cutobj_local), tile data only in the entries no other step changes: %s; "
+            "(o) Bigg Building: %s, the cutobj_local entries outside %s are the fan's bytes"
+            % (line, n, ps, n_named, MODEL_ENTRY, g_size, g_stored, g_fan, hs, cutchg,
+               OPENING_GFX, i_size, i_stored, i_fan, js, ks, ls, obs, cutchg))
 
 
 if __name__ == '__main__':

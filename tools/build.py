@@ -201,7 +201,7 @@ def selftest():
                 'lz11', 'nitro', 'txtcut', 'cg_names', 'cg_art', 'bag_tex', 'opening_card', 'idcom_icons', 'loc_dump', 'title_assets', 'voices',
                 'compact', 'mindchess', 'mc_wait', 'room_names', 'mindchess_recn', 'rnan25', 'linefix', 'last_rows', 'rewrite', 'relaid_rows',
                 'condense_rows', 'skipguard', 'sentence_breaks', 'e11c', 'rowsplit', 'cutdata_hotfix',
-                'bufcheck'):
+                'marker_letters', 'bufcheck'):
         try:
             __import__(mod)
             print('  import %-29s ok' % mod)

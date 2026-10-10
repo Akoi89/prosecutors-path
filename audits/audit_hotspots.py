@@ -193,6 +193,32 @@ def check_text_prompt(ours, log):
     return fail
 
 
+# Pictures whose lettering the port re-letters on purpose (tools/bigg_building.py: the city map's
+# "Grand Tower" label becomes "Bigg Building"; tools/city_labels.py: the map's other labels take Capcom's
+# wording). The image may differ from the fan's only inside these boxes (x0, y0, x1, y1, end exclusive),
+# one per label (the labels that touch share a box), the palette entry and the cutdata slot not at all.
+RELETTERED = {280: [(60, 100, 130, 126),                 # the tower's label
+                    (28, 15, 80, 81),                    # Twilight Station -> Sunset Station, Sunset Ave -> Dusk Street
+                    (133, 31, 191, 50),                  # Earl Bright City Hall -> Sunrise Hall
+                    (185, 58, 242, 77),                  # Dawn Waste Center -> Daybreak Dump
+                    (201, 91, 254, 110),                 # Sunshine Warehouse -> Sunshine Depot
+                    (0, 108, 62, 118),                   # Dawning St -> Dawn Street
+                    (2, 133, 62, 162),                   # Dusk Waste Management -> Sundown Sanitation Plant
+                    (75, 143, 180, 172)]}                # Prime Mall -> Day's End Mall, Rising Sun Park -> Mornington Park
+
+
+def _only_inside(ours_img, fan_img, boxes):
+    """True if the two RGCN blobs differ only at pixels inside one of the boxes (raw 8bpp screen, 32 tiles wide)."""
+    import gfx_views
+    a, b = gfx_views.raw_grid(ours_img), gfx_views.raw_grid(fan_img)
+    if a.shape != b.shape:
+        return False
+    if boxes and isinstance(boxes[0], int):
+        boxes = [boxes]
+    ys, xs = (a != b).nonzero()
+    return all(any(x0 <= x < x1 and y0 <= y < y1 for x0, y0, x1, y1 in boxes) for y, x in zip(ys, xs))
+
+
 def check_picture_prompts(ours, fan, log):
     fail = []
     ours_local = txtcut.table(read_file(ours, 'jpn/upcut_local.bin'))
@@ -201,13 +227,17 @@ def check_picture_prompts(ours, fan, log):
     fan_cut = txtcut.table(read_file(fan, 'com/cutdata.bin'))
     for local, slot in sorted(PICTURE_PROMPTS.items()):
         img_ok = ours_local[local] == fan_local[local] and ours_local[local + 1] == fan_local[local + 1]
+        note = ''
+        if not img_ok and local in RELETTERED and ours_local[local + 1] == fan_local[local + 1] \
+                and _only_inside(ours_local[local], fan_local[local], RELETTERED[local]):
+            img_ok, note = True, ' (re-lettered inside %s only)' % (RELETTERED[local],)
         cut_ok = ours_cut[slot] == fan_cut[slot]
         if not img_ok:
             fail.append('local image %d changed from the fan\'s (image bytes)' % local)
         if not cut_ok:
             fail.append('cutdata slot %d (local image %d) changed from the fan\'s' % (slot, local))
         log('local %3d slot %2d: image %s, hitboxes %s' % (
-            local, slot, 'OK' if img_ok else 'CHANGED', 'OK' if cut_ok else 'CHANGED'))
+            local, slot, ('OK' if img_ok else 'CHANGED') + note, 'OK' if cut_ok else 'CHANGED'))
     return fail
 
 

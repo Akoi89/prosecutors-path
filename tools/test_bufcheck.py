@@ -450,6 +450,87 @@ def main(rom_path, dumpdir='dump'):
     finally:
         bufcheck.PLATE_STORED_OVER.clear(); bufcheck.PLATE_STORED_OVER.update(saved_over)
     print('  PASSED  entry %d at exactly its listed %d bytes' % (e_over, ext_over), bufcheck.check_plates(idl, fan)[e_over])
+    print('o. Bigg Building (idlocal 328 331 334 337 340 343, upcut_local 208 244 246 264 278 280 282, cutobj_local 26)')
+    built_u = bufcheck.rom_file(rom, 'jpn/upcut_local.bin')
+    fan_u = open(os.path.join(dumpdir, 'ds_fan', 'jpn', 'upcut_local.bin'), 'rb').read()
+    built_i = bufcheck.rom_file(rom, 'jpn/idlocal.bin')
+    built_c = bufcheck.rom_file(rom, 'jpn/cutobj_local.bin')
+    fan_c = open(os.path.join(dumpdir, 'ds_fan', 'jpn', 'cutobj_local.bin'), 'rb').read()
+    from choice_strips import Idlocal
+    print('  clean:', bufcheck.check_bigg(built_i, fan, built_u, fan_u, built_c, fan_c))
+    print('  fan files as they are:', bufcheck.check_bigg(fan, fan, fan_u, fan_u, fan_c, fan_c))
+    bi, bu, bc = Idlocal(built_i), Idlocal(built_u), Idlocal(built_c)
+    for e in bufcheck.BIGG_IDLOCAL:
+        raw = bi.blob(e)
+        must_raise('idlocal %d stored literal-only (bigger than the fan\'s)' % e,
+                   lambda: bufcheck.check_bigg(rebuild(built_i, {e: raw}), fan, built_u, fan_u, built_c, fan_c))
+        must_raise('idlocal %d decoded one byte longer' % e,
+                   lambda: bufcheck.check_bigg(rebuild(built_i, {e: raw + b'\0'}, lz=(e,)), fan, built_u, fan_u, built_c, fan_c))
+    for e in bufcheck.BIGG_UPCUT:
+        raw = bu.blob(e)
+        must_raise('upcut_local %d stored literal-only (bigger than the fan\'s)' % e,
+                   lambda: bufcheck.check_bigg(built_i, fan, rebuild(built_u, {e: raw}), fan_u, built_c, fan_c))
+        must_raise('upcut_local %d decoded one byte longer' % e,
+                   lambda: bufcheck.check_bigg(built_i, fan, rebuild(built_u, {e: raw + b'\0'}, lz=(e,)), fan_u, built_c, fan_c))
+    raw = bc.blob(bufcheck.BIGG_CUTOBJ)
+    must_raise('cutobj_local 26 stored literal-only',
+               lambda: bufcheck.check_bigg(built_i, fan, built_u, fan_u, rebuild(built_c, {26: raw}), fan_c))
+    must_raise('cutobj_local 26 decoded one byte longer',
+               lambda: bufcheck.check_bigg(built_i, fan, built_u, fan_u, rebuild(built_c, {26: raw + b'\0'}, lz=(26,)), fan_c))
+    raw = bc.blob(bufcheck.PATCH_CUTOBJ)
+    must_raise('cutobj_local 18 stored literal-only',
+               lambda: bufcheck.check_bigg(built_i, fan, built_u, fan_u, rebuild(built_c, {18: raw}), fan_c))
+    must_raise('cutobj_local 18 decoded one byte longer',
+               lambda: bufcheck.check_bigg(built_i, fan, built_u, fan_u, rebuild(built_c, {18: raw + b'\0'}, lz=(18,)), fan_c))
+    tcc = bufcheck._table(built_c)
+    other = bc.blob(0)
+    must_raise('cutobj_local entry 0 changed',
+               lambda: bufcheck.check_bigg(built_i, fan, built_u, fan_u,
+                                           rebuild(built_c, {0: other[:-1] + bytes([other[-1] ^ 1])}, lz=(0,)), fan_c))
+    bad = bytearray(built_c)
+    struct.pack_into('<I', bad, 26 * 8 + 4, tcc[26][1] + 4)
+    must_raise('cutobj_local 26 table size +4', lambda: bufcheck.check_bigg(built_i, fan, built_u, fan_u, bytes(bad), fan_c))
+    bad = bytearray(built_i)
+    ti = bufcheck._table(built_i)
+    struct.pack_into('<I', bad, 340 * 8 + 4, ti[340][1] & 0x7FFFFFFF)       # compressed flag cleared
+    must_raise('idlocal 340 table says stored raw', lambda: bufcheck.check_bigg(bytes(bad), fan, built_u, fan_u, built_c, fan_c))
+    tuc = bufcheck._table(built_u)
+    bad = bytearray(built_u)
+    struct.pack_into('<I', bad, 264 * 8 + 4, tuc[264][1] + 4)
+    must_raise('upcut_local 264 table size +4', lambda: bufcheck.check_bigg(built_i, fan, bytes(bad), fan_u, built_c, fan_c))
+    short = bytearray(built_u)
+    ext = bufcheck._extents(tuc, len(built_u))[264]
+    short[ext[0] + 40:ext[1]] = bytes(ext[1] - ext[0] - 40)
+    must_raise('upcut_local 264 stream cut short', lambda: bufcheck.check_bigg(built_i, fan, bytes(short), fan_u, built_c, fan_c))
+    must_raise('cutobj_local one entry short', lambda: bufcheck.check_bigg(
+        built_i, fan, built_u, fan_u,
+        struct.pack('<I', 8 * (len(tcc) - 1)) + built_c[4:(len(tcc) - 1) * 8] + built_c[len(tcc) * 8:], fan_c))
+    print('l. marker letters (jpn/cutobj_local.bin %s)' % ' '.join(str(e) for e in bufcheck.MARKER_CUTOBJ))
+    print('  clean:', bufcheck.check_markers(built_c, fan_c))
+    print('  fan file as it is:', bufcheck.check_markers(fan_c, fan_c))
+    for e in bufcheck.MARKER_CUTOBJ:
+        raw = bc.blob(e)
+        must_raise('cutobj_local %d stored literal-only (bigger than the fan\'s)' % e,
+                   lambda: bufcheck.check_markers(rebuild(built_c, {e: raw}), fan_c))
+        must_raise('cutobj_local %d decoded one byte longer' % e,
+                   lambda: bufcheck.check_markers(rebuild(built_c, {e: raw + b'\0'}, lz=(e,)), fan_c))
+        bad = bytearray(built_c)
+        struct.pack_into('<I', bad, e * 8 + 4, tcc[e][1] + 4)
+        must_raise('cutobj_local %d table size +4' % e, lambda: bufcheck.check_markers(bytes(bad), fan_c))
+    # a marker entry that only this step changes: a byte outside the tile data (the first cell list byte after the header)
+    e = 22
+    raw = bytearray(bc.blob(e))
+    o = struct.unpack_from('<3I', raw, 0)
+    raw[o[0] + 0x20] ^= 1
+    must_raise('cutobj_local 22 cell data changed', lambda: bufcheck.check_markers(rebuild(built_c, {e: bytes(raw)}, lz=(e,)), fan_c))
+    raw = bytearray(bc.blob(e))
+    raw[o[2] + 4] ^= 1
+    must_raise('cutobj_local 22 tile bank header changed', lambda: bufcheck.check_markers(rebuild(built_c, {e: bytes(raw)}, lz=(e,)), fan_c))
+    other = bc.blob(0)
+    must_raise('cutobj_local entry 0 changed',
+               lambda: bufcheck.check_markers(rebuild(built_c, {0: other[:-1] + bytes([other[-1] ^ 1])}, lz=(0,)), fan_c))
+    must_raise('cutobj_local one entry short', lambda: bufcheck.check_markers(
+        struct.pack('<I', 8 * (len(tcc) - 1)) + built_c[4:(len(tcc) - 1) * 8] + built_c[len(tcc) * 8:], fan_c))
     print('all negative tests raised, boundary cases passed')
 
 

@@ -33,11 +33,11 @@ def title_dir(dumpdir):
 
 def required(dumpdir):
     """Files apply() needs; build.py checks these under --skip-extract."""
-    import cg_art, mindchess, opening_card, idcom_icons
+    import cg_art, mindchess, opening_card, idcom_icons, bigg_ground, marker_letters
     t = title_dir(dumpdir)
     return ([os.path.join(t, LOGO_PNG)] + [os.path.join(t, 'fonts', n + '.otf') for n in FONTS]
             + cg_art.required(dumpdir) + mindchess.required(dumpdir) + opening_card.required(dumpdir)
-            + idcom_icons.required(dumpdir))
+            + idcom_icons.required(dumpdir) + bigg_ground.required(dumpdir) + marker_letters.required(dumpdir))
 
 
 def extract(bdir, dumpdir):
@@ -58,6 +58,10 @@ def extract(bdir, dumpdir):
     opening_card.extract(bdir, dumpdir)
     import idcom_icons
     idcom_icons.extract(bdir, dumpdir)
+    import bigg_ground
+    bigg_ground.extract(bdir, dumpdir)
+    import marker_letters
+    marker_letters.extract(bdir, dumpdir)
     return t
 
 
@@ -214,6 +218,33 @@ def apply(dumpdir, rom_path, log=print, version=None, any_rom=False):
     rom, icons_changed = idcom_icons.apply_to_rom(rom, dumpdir, log, any_rom)
     if not icons_changed:
         log('evidence icons: not redrawn (see reason above)')
+
+    # 7d) the tower's name on the pictures the fan lettered "Grand Tower": Capcom's "Bigg Building" on
+    #     the city map (jpn/upcut_local.bin 264, 280), the cross-section titles (upcut_local 208, 244,
+    #     246, 278, 282; jpn/cutobj_local.bin 26) and the place cards (jpn/idlocal.bin 328, 331, 334,
+    #     337, 340, 343), in the fan's own faces; after room_names (4d), which cuts letters from idlocal
+    #     340, and after the last step that writes upcut_local (see tools/bigg_building.py)
+    import bigg_building
+    rom, bigg_changed = bigg_building.apply_to_rom(rom, dumpdir, log, any_rom)
+    if not bigg_changed:
+        log('bigg building: not redrawn (see reason above)')
+
+    # 7e) the letters in the round character markers of the floor plans and maps (jpn/cutobj_local.bin):
+    #     where the fan's marker carries the initial of its own name and Capcom's picture of the same
+    #     marker carries another, Capcom's letter, in the sprite's own face (see tools/marker_letters.py);
+    #     after 7d, which changes entry 26
+    import marker_letters
+    rom, markers_changed = marker_letters.apply_to_rom(rom, dumpdir, log, any_rom)
+    if not markers_changed:
+        log('marker letters: not redrawn (see reason above)')
+
+    # 7f) Capcom's wording on the other labels of the city map (jpn/upcut_local.bin 264, 280), the room
+    #     label of the cross-section pictures (upcut_local 244, 246, 278) and the 50th floor place strip
+    #     (jpn/idlocal.bin 328), in the fan's faces; after 7d (see tools/city_labels.py)
+    import city_labels
+    rom, labels_changed = city_labels.apply_to_rom(rom, dumpdir, log, any_rom)
+    if not labels_changed:
+        log('city labels: not redrawn (see reason above)')
 
     # 8) hotfix: the Coroner's Findings "point at the burn mark" prompt (com/cutdata.bin
     #    slot 47, cut 208) - derive its hit-area rectangles from txtcut's own layout of
