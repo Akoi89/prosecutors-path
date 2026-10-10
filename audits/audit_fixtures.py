@@ -775,8 +775,9 @@ def break_zero_text(rom):
 
 def _repack_idlocal(D, repl):
     """Rebuild the idlocal container with entries in `repl` (index -> decompressed
-    bytes) stored as literal-only LZ11 - the same shape plates.Plates.rebuild
-    writes, so the fixture differs from a real build only in the pixels."""
+    bytes) stored as literal-only LZ11 - the shape plates.Plates.rebuild gives the
+    title strips (the nameplates are real LZ11 since the nameplate rework), so the
+    fixture differs from a real build only in the pixels and the storage form."""
     n = struct.unpack_from('<I', D, 0)[0] // 8
     ents = [struct.unpack_from('<II', D, i * 8) for i in range(n)]
     order = sorted(range(n), key=lambda i: ents[i][0])

@@ -5,7 +5,7 @@ The port's data can outgrow a fixed buffer in the game without any visible
 error at build time. playtest/SOLVE_buffers.md traced every loader and text
 buffer in the engine; none overflows today, and checks a to e keep it that
 way (f is the Logic keyword cards, g the bag model texture, h the room names, i the opening card,
-j the evidence icons). They read jpn/spt.bin, jpn/idlocal.bin, com/cutdata.bin,
+j the evidence icons, k the nameplates). They read jpn/spt.bin, jpn/idlocal.bin, com/cutdata.bin,
 jpn/logic_keyword_local.bin, jpn/modelitemlocal.bin, jpn/cutobj_local.bin, jpn/opening_local.bin and
 com/idcom.bin out of the finished ROM (after the last step that writes any of them), compare idlocal,
 the logic cards, the model file, cutobj_local, the opening file and idcom with the fan's, and RAISE
@@ -71,6 +71,12 @@ j. evidence icons. com/idcom.bin entries 281, 573 and 575 (the business card and
    fan's entry held (so it is stored in no more than the fan's), only the tile data of an icon
    and only the 16 colours of a palette differ from the fan's, and no pixel is index 0 (the
    transparent key, which would punch a hole in the sprite).
+k. nameplates. The 28 redrawn dialogue nameplates (idlocal entries of plates.PLATES, stored as real LZ11,
+   not the literal-only form of 1.11.1) keep the fan's decoded size (the table field is the fan's), are LZ11 streams that
+   declare and decode to that size, differ from the fan's decoded entry only inside the tile data,
+   and are stored in no more bytes than the fan's slot, except the entries of PLATE_STORED_OVER, which
+   are measured, listed, and bounded by that number and by the literal-only form (the form the
+   1.11.1 plates shipped in, 708 bytes). Every other nameplate slot (27-86) is the fan's bytes.
 """
 import os
 import struct
@@ -103,6 +109,14 @@ ROOM_CUTOBJ = 10
 OPENING_GFX, OPENING_PAL = 13, 14
 OPENING_FREE = (0,)            # the splash title tiles, rewritten by title_text.py
 ICON_ENTRIES = {281: 280, 573: 572, 575: 574}      # icon entry -> its palette entry
+
+PLATE_FIRST, PLATE_LAST = 27, 86
+# nameplates whose real LZ11 stream cannot fit the fan's slot (dense ink compresses worse than the
+# fan's drawing): entry -> the most stored bytes it may take. The slots are 192-256 bytes; these five
+# exceed theirs by 4 to 8 bytes (50 Carcerato 232 of 224, 51 Laguarde 228 of 224, 55 Shaun 200 of
+# 192, 63 Excelsius 228 of 224, 66 Ringer 200 of 192). The 1.11.1 plates were all stored literal-only
+# at 708 bytes and ran, so every one of these is far inside the proven form.
+PLATE_STORED_OVER = {50: 232, 51: 228, 55: 200, 63: 228, 66: 200}
 
 OPEN = (0xE100, 0xE101)
 CLOSE = (0xE102, 0xE104)
@@ -679,6 +693,51 @@ def check_idcom_icons(built, fan):
     return out
 
 
+def check_plates(built, fan):
+    """Check k on the built and the fan's jpn/idlocal.bin bytes.
+    -> {entry: (decoded size, stored extent, fan's extent)} for the redrawn plates."""
+    from plates import PLATES
+    from nitro import ncgr
+    pt, ft = _table(built), _table(fan)
+    if len(pt) != len(ft):
+        raise BufCheckError('idlocal has %d entries, the fan has %d' % (len(pt), len(ft)))
+    pe, fe = _extents(pt, len(built)), _extents(ft, len(fan))
+    out = {}
+    for i in range(PLATE_FIRST, PLATE_LAST + 1):
+        what = 'nameplate %d' % i
+        stored, fstored = built[pe[i][0]:pe[i][1]], fan[fe[i][0]:fe[i][1]]
+        if i not in PLATES:
+            if stored != fstored:
+                raise BufCheckError("%s is not the fan's bytes (only plates.PLATES may change)" % what)
+            continue
+        if pt[i][1] != ft[i][1]:
+            raise BufCheckError("%s: table field %#x, the fan's %#x" % (what, pt[i][1], ft[i][1]))
+        size = pt[i][1] & 0x7FFFFFFF
+        if not pt[i][1] & 0x80000000:
+            raise BufCheckError('%s is expected to be an LZ11 stream' % what)
+        if _stream_size(stored) != size:
+            raise BufCheckError('%s: stream declares %d bytes, table says %d' % (what, _stream_size(stored), size))
+        _stream_len(stored, size, what)
+        dec, fdec = lz11.decompress(stored), lz11.decompress(fstored)
+        if len(dec) != len(fdec):
+            raise BufCheckError("%s decodes to %d bytes, the fan's to %d" % (what, len(dec), len(fdec)))
+        tiles = ncgr(fdec)[0]
+        pos = fdec.find(tiles)
+        if pos <= 0 or dec[:pos] != fdec[:pos] or dec[pos + len(tiles):] != fdec[pos + len(tiles):]:
+            raise BufCheckError("%s differs from the fan's outside its tile data" % what)
+        extent, fextent = pe[i][1] - pe[i][0], fe[i][1] - fe[i][0]
+        limit = PLATE_STORED_OVER.get(i, fextent)
+        if limit < fextent or limit > _lz11_literal_bound(size):
+            raise BufCheckError("%s: PLATE_STORED_OVER allows %d, outside the fan's %d .. literal-only %d"
+                                % (what, limit, fextent, _lz11_literal_bound(size)))
+        if extent > limit:
+            raise BufCheckError("%s is stored in %d bytes, over its %d (the fan's slot is %d)" % (what, extent, limit, fextent))
+        out[i] = (len(dec), extent, fextent)
+    if set(out) != set(PLATES):
+        raise BufCheckError('nameplates checked %s, expected %s' % (sorted(out), sorted(PLATES)))
+    return out
+
+
 def rom_file(rom, path):
     """One file's bytes out of a ROM image."""
     from inject import file_id
@@ -723,15 +782,22 @@ def run(rom_path, dumpdir):
         fan_idcom = f.read()
     j_icons = check_idcom_icons(rom_file(rom, 'com/idcom.bin'), fan_idcom)
     js = ', '.join('%d decodes to %d like the fan, stream %d of the fan\'s %d' % ((k,) + v) for k, v in sorted(j_icons.items()))
+    k_plates = check_plates(rom_file(rom, 'jpn/idlocal.bin'), fan)
+    k_over = sorted(i for i, v in k_plates.items() if v[1] > v[2])
+    ks = ("%d redrawn nameplates decode to the fan's size and differ only in tile data, %d stored inside the fan's slot, "
+          "%d over it (%s), the other plate slots are the fan's bytes"
+          % (len(k_plates), len(k_plates) - len(k_over), len(k_over),
+             ', '.join('%d: %d of %d' % (i, k_plates[i][1], k_plates[i][2]) for i in k_over) or 'none'))
     return ('%s; (f) logic cards: %d checked, every OBJ inside the RGCN bytes, cards with OBJs past the '
             'declared data (rewritten, no fan tail): %s, %d punctuation-matched name cards rewritten; (g) modelitemlocal entry %d decodes to %d bytes like '
             "the fan's, stored %d of the fan's %d, the other entries are the fan's bytes; "
             "(h) room names: %s, the other cutobj_local entries are the fan's bytes; "
             "(i) opening_local entry %d decodes to %d bytes like the fan's, stored %d of the fan's %d, "
             "every table field the fan's; "
-            "(j) idcom.bin written in place, table and every other entry the fan's, icons: %s"
+            "(j) idcom.bin written in place, table and every other entry the fan's, icons: %s; "
+            "(k) nameplates: %s"
             % (line, n, ps, n_named, MODEL_ENTRY, g_size, g_stored, g_fan, hs,
-               OPENING_GFX, i_size, i_stored, i_fan, js))
+               OPENING_GFX, i_size, i_stored, i_fan, js, ks))
 
 
 if __name__ == '__main__':

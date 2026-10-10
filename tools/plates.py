@@ -2,8 +2,8 @@
 """Redraw the dialogue nameplates with Capcom's official character names.
 
 The 60 nameplates are graphics: jpn/idlocal.bin entries 27-86, each an LZ11'd
-RGCN of 18 tiles = one 144x8 strip. Every plate is identical except a centred
-43px text field (columns 52-94, bar fill palette index 6, text index 4). The
+RGCN of 18 tiles = one 144x8 strip. Every plate is identical except its text, which
+sits on the bar's fill (columns 51-92, palette index 6; text is index 4). The
 official localization renamed most of the cast, and this port's dialogue is
 98.4% Capcom's - so a plate saying "Ray" under a line that says "Fender" was
 the loudest inconsistency left.
@@ -12,7 +12,8 @@ The FONT here is the fan patch's own: glyphs are harvested at build time from
 the user's plates themselves (each plate's name is known, so its letters can
 be cut apart), which also means no fan-drawn graphics ship with this tool -
 only the official names (Capcom's, as plain words) and a few hand-drawn
-fallback glyphs for letters the fan set lacks. Plates whose name the official
+fallback glyphs for letters the fan set lacks. Long names use the fan's own
+narrower faces (see NARROW_SOURCES and THIN_CUTS). Plates whose name the official
 localization kept are left byte-identical. See gk2_common_nametag_en for the
 official names; the fan->official pairing was verified string-by-string
 against both scripts (tools/names.py carries the same map for dialogue).
@@ -40,7 +41,12 @@ PLATES = {36:'Gavèlle',37:'Eustace',38:'Fender',41:'Hart',43:'Wang',44:'Knight'
           63:'Excelsius',64:'Niedler',65:'Rook',66:'Ringer',67:'Aldown',
           73:'Gallery',74:'Cameraman',77:'Azea',79:'Man in Black',84:'Stand Owner'}
 
-FIELD_A, FIELD_B = 52, 95
+# The visible bar is columns 51-92 (42 px of fill); columns 50 and 93 are its darker border. Text is
+# centred on the fill like the fan's own plates (an odd leftover pixel goes to the left margin, as it
+# does on the fan's) and never leaves it: the build raises instead of drawing on the border.
+FILL_A, FILL_B = 51, 93          # FILL_B is exclusive
+WIDTH = FILL_B - FILL_A          # 42
+CLEAR_A, CLEAR_B = 48, 96        # the fan's old text is cleared anywhere in the 48-px bar piece
 TEXT, FILL = 4, 6
 
 def _rows(*rr):
@@ -54,31 +60,50 @@ HAND = {
     'x': [(0,0,1,0,0,1,0,0),(0,0,0,1,1,0,0,0),(0,0,0,1,1,0,0,0),(0,0,1,0,0,1,0,0)],
 }
 
-# condensed variants (1px narrower) for names that cannot fit the 43px field
-CONDENSED = {
+# ---------------------------------------------------------------------------
+# Long names do not fit the fan's normal letters, so the plates come in three tiers, all built from
+# the fan's own letters:
+#   normal  the harvested face (4-7 px letters), 1-3 px between letters;
+#   narrow  the fan's own long-name face (its Announcer and Bodyguard plates, 3-4 px letters, 1 px apart),
+#           with the fan's 7 px T trimmed to a 5 px bar (one outer column off each end) so its bar
+#           and stem weigh what the 4 px letters do;
+#   thin    3 px lowercase, for the three names that fit nothing wider (Cameraman, Man in Black,
+#           Stand Owner). Every letter is cut from a fan plate; where the fan has only a 4-px
+#           letter whose middle columns repeat, one repeated column is dropped (so the strokes are
+#           the fan's). Only M (5 px), O (3 px), S (3 px) and the lowercase a and c, which have no such source,
+#           are drawn, at native size, seven rows for capitals like the fan's, on its baseline.
+NARROW_SOURCES = ((82, 'Announcer'), (75, 'Bodyguard'))
+# (fan plate, its reading, letters taken from it)
+THIN_CUTS = ((82, 'Announcer', 'er'), (39, 'von Karma', 'n'), (84, 'Shopkeeper', 'k'),
+             (36, 'Courtney', 't'), (52, 'Sahwit', 'w'))
+# (fan plate, its reading, letter, how many repeated columns to drop)
+THIN_SQUEEZE = ((75, 'Bodyguard', 'B', 1), (75, 'Bodyguard', 'd', 1), (36, 'Courtney', 'C', 2))
+THIN_DRAWN = {
     'M': _rows('#...#','##.##','#.#.#','#...#','#...#','#...#','#...#'),
+    'O': _rows('.#.','#.#','#.#','#.#','#.#','#.#','.#.'),
+    # the fan's S with a column dropped has one-pixel hooks top and bottom and wobbles; flat strokes read as an S
+    'S': _rows('.##','#..','#..','.#.','..#','..#','##.'),
     'a': _rows('','','.##','..#','###','#.#','.##'),
-    'n': _rows('','','##.','#.#','#.#','#.#','#.#'),
-    'i': _rows('#','','#','#','#','#','#'),
-    'B': _rows('##.','#.#','##.','#.#','#.#','##.'),
-    'l': _rows('#','#','#','#','#','#','#'),
     'c': _rows('','','.##','#..','#..','#..','.##'),
-    'k': _rows('#..','#..','#.#','##.','#.#','#.#','#.#'),
-    'S': _rows('.##','#..','.#.','..#','..#','##.'),
-    't': _rows('.#.','.#.','###','.#.','.#.','.#.','.##'),
-    'd': _rows('..#','..#','.##','#.#','#.#','#.#','.##'),
-    'O': _rows('.##.','#..#','#..#','#..#','#..#','.##.'),
-    'w': _rows('','','#.#.#','#.#.#','#.#.#','#.#.#','.#.#.'),
-    'e': _rows('','','.##','#.#','###','#..','.##'),
-    'r': _rows('','','#.#','##.','#..','#..','#..'),
-    'C': _rows('.##','#..','#..','#..','#..','.##'),
-    'o': _rows('','','.#.','#.#','#.#','#.#','.#.'),
-    'm': _rows('','','####.','#.#.#','#.#.#','#.#.#','#.#.#'),
-    'g': _rows('','','.##','#.#','#.#','.##','..#','##.'),
-    'u': _rows('','','#.#','#.#','#.#','#.#','.##'),
-    'L': _rows('#..','#..','#..','#..','#..','###'),
-    'T': _rows('###','.#.','.#.','.#.','.#.','.#.'),
 }
+THIN_SHARED = 'ilm'      # identical in the normal face (1, 1 and 5 px)
+
+# fan plates read for the thin and narrow faces only (kept apart from FAN_NAMES so the normal face is unchanged)
+FAN_NAMES_THIN = {39: 'von Karma', 84: 'Shopkeeper'}
+
+# spacing: 1 px between letters, 3 px between words (the fan's own word gap, seen on von Karma,
+# de Killer and TV Crew). A tier stops at WIDTH, the fan's own limit (its Edgeworth, Forensics,
+# Bodyguard and Announcer plates fill it exactly). The thin tier asks for one px of margin on each
+# side first (ink <= WIDTH - 2) by narrowing the later word gaps from 3 to 2; where even that
+# cannot be done it takes the full WIDTH with word gap 2. THIN_EXCEPTIONS records the plates that
+# end up with a word gap below 3, which the audit allows.
+WORD_GAP = 3
+# plates allowed a word gap below WORD_GAP, with the reason (audits/audit_plates.py reads this)
+# entry -> (the exact word gaps the plate must have, why); the audit requires an exact match
+THIN_EXCEPTIONS = {79: ([3, 2], 'Man in Black: word gaps 3 and 2 (ink 40) keep 1 px of margin on both sides'),
+                   84: ([2], 'Stand Owner: word gap 2 (ink 42, margin 0/0); a gap of 3 would need 43 px')}
+TRACKING = ((3, 30), (2, 37), (1, WIDTH))     # (letter gap, longest ink) for the normal face, the fan's habit
+TRACKED = True
 
 
 class Plates(object):
@@ -152,32 +177,129 @@ class Plates(object):
                 e[1][0] = 1; e[2][1] = 1
             self.glyphs['è'] = [tuple(c) for c in e]
 
-    def _render_cols(self, name, gap, condensed, space):
-        src = dict(self.glyphs)
-        if condensed: src.update(CONDENSED)
-        cols = []
-        for ch in name:
-            if ch == ' ':
-                cols += [tuple([0] * 8)] * space
-                continue
-            cols += src[ch] + [tuple([0] * 8)] * gap
-        while cols and not any(cols[-1]): cols.pop()
+    # -- the fan's own faces, cut from its plates at build time -----------------------------------
+    def _cut(self, idx, name):
+        """[(letter, columns)] of fan plate idx, or [] when its ink does not split into exactly
+        the letters of `name` (a plate that is not the fan's, or whose letters touch)."""
+        key = (idx, name)
+        cache = self.__dict__.setdefault('_cutcache', {})
+        if key not in cache:
+            try:
+                g = self._grid(idx)
+            except Exception:
+                g = None
+            out = []
+            if g is not None:
+                W = len(g[0])
+                txt = [any(g[y][x] == TEXT for y in range(8)) for x in range(W)]
+                runs, st = [], None
+                for x in range(W):
+                    if txt[x] and st is None: st = x
+                    if not txt[x] and st is not None: runs.append((st, x)); st = None
+                if st is not None: runs.append((st, W))
+                letters = [c for c in name if c != ' ']
+                if len(runs) == len(letters):
+                    out = [(ch, [tuple(1 if g[y][x] == TEXT else 0 for y in range(8)) for x in range(a, b)])
+                           for (a, b), ch in zip(runs, letters)]
+            cache[key] = out
+        return cache[key]
+
+    def _letter(self, idx, name, ch):
+        for c, cols in self._cut(idx, name):
+            if c == ch:
+                return cols
+        raise ValueError('fan plate %d does not read %r (no clean letter %r): is this the AAI2 Final v2 ROM?' % (idx, name, ch))
+
+    @staticmethod
+    def _squeeze(cols, k, what):
+        """Drop k columns that exactly repeat the one before them (the later one of each pair)."""
+        cols = list(cols)
+        for _ in range(k):
+            for i in range(len(cols) - 1):
+                if cols[i] == cols[i + 1]:
+                    del cols[i + 1]
+                    break
+            else:
+                raise ValueError('the fan %s has no repeated column to drop' % what)
         return cols
+
+    def faces(self):
+        """(normal, narrow, thin): letter -> columns."""
+        if '_faces' not in self.__dict__:
+            normal = dict(self.glyphs)
+            narrow = dict(normal)
+            seen = set()
+            for idx, nm in NARROW_SOURCES:
+                for ch, cols in self._cut(idx, nm):
+                    if ch not in seen:
+                        seen.add(ch)
+                        narrow[ch] = cols
+            t = normal.get('T')
+            if not t or len(t) != 7 or t[0] != t[1] or t[-1] != t[-2]:
+                raise ValueError("the fan's T is not the 7 px bar with a repeated end column the narrow T is cut from")
+            narrow['T'] = list(t[1:-1])
+            thin = {ch: normal[ch] for ch in THIN_SHARED}
+            for idx, nm, letters in THIN_CUTS:
+                for ch in letters:
+                    thin[ch] = self._letter(idx, nm, ch)
+            for idx, nm, ch, k in THIN_SQUEEZE:
+                thin[ch] = self._squeeze(self._letter(idx, nm, ch), k, '%s of %s' % (ch, nm))
+            for ch, cols in THIN_DRAWN.items():
+                thin.setdefault(ch, cols)
+            self._faces = (normal, narrow, thin)
+        return self._faces
+
+    @staticmethod
+    def _pack(words, face, gap, wgaps):
+        """Columns of a name: its words in `face`, `gap` blank columns between letters, wgaps[i]
+        blank columns between word i and word i+1."""
+        z = tuple([0] * 8)
+        cols = []
+        for i, w in enumerate(words):
+            for k, ch in enumerate(w):
+                if ch not in face:
+                    raise ValueError('no letter %r for the plate text %r' % (ch, ' '.join(words)))
+                cols += list(face[ch])
+                if k < len(w) - 1: cols += [z] * gap
+            if i < len(words) - 1: cols += [z] * wgaps[i]
+        return cols
+
+    def layout(self, name):
+        """-> (columns, tier, word gaps). Tiers are tried in order and the first that fits WIDTH wins."""
+        words = name.split(' ')
+        nw = len(words) - 1
+        normal, narrow, thin = self.faces()
+        steps = TRACKING if TRACKED else ((1, WIDTH),)
+        for gap, lim in steps:
+            cols = self._pack(words, normal, gap, [WORD_GAP] * nw)
+            if len(cols) <= lim:
+                return cols, 'normal', [WORD_GAP] * nw
+        cols = self._pack(words, narrow, 1, [WORD_GAP] * nw)
+        if len(cols) <= WIDTH:
+            return cols, 'narrow', [WORD_GAP] * nw
+        # thin: first look for a margin of 1 px on both sides, narrowing the LAST word gaps first
+        for limit in (WIDTH - 2, WIDTH):
+            for narrowed in range(0, nw + 1):
+                wg = [WORD_GAP] * (nw - narrowed) + [WORD_GAP - 1] * narrowed
+                cols = self._pack(words, thin, 1, wg)
+                if len(cols) <= limit:
+                    return cols, 'thin', wg
+        raise ValueError('%s: %d px does not fit the %d px bar in any tier' % (name, len(cols), WIDTH))
 
     def compose(self, idx, name):
         g = self._grid(idx)
         for y in range(8):
-            for x in range(FIELD_A, FIELD_B):
+            for x in range(CLEAR_A, CLEAR_B):
                 if g[y][x] == TEXT: g[y][x] = FILL
-        for gap, cond, sp in ((1, False, 2), (1, True, 1), (0, False, 2), (0, True, 1)):
-            cols = self._render_cols(name, gap, cond, sp)
-            if len(cols) <= FIELD_B - FIELD_A: break
-        else:
-            raise ValueError('%s: %dpx > %d' % (name, len(cols), FIELD_B - FIELD_A))
-        x0 = FIELD_A + (FIELD_B - FIELD_A - len(cols)) // 2
+        cols, tier, wg = self.layout(name)
+        x0 = FILL_A + (WIDTH - len(cols) + 1) // 2
+        if x0 < FILL_A or x0 + len(cols) > FILL_B:
+            raise ValueError('%s: text would leave the bar (%d px at column %d)' % (name, len(cols), x0))
         for i, col in enumerate(cols):
             for y in range(8):
                 if col[y]: g[y][x0 + i] = TEXT
+        self.placed = getattr(self, 'placed', {})
+        self.placed[idx] = (name, tier, wg, len(cols), x0 - FILL_A, FILL_B - x0 - len(cols))
         return g
 
     def _encode(self, idx, g):
@@ -216,9 +338,10 @@ class Plates(object):
                 raw = repl[i]
                 if i in LZ_STORED:
                     # real LZ11 (tools/lz11.py), not the literal-only form: the same decoded
-                    # size, a stream under a third of the literal-only one. It does not fit the
-                    # fan's own slot (410 bytes against 352), so later entries move; bufcheck d
-                    # bounds it by the literal-only size the other redrawn strips already ship
+                    # size, a stream under a third of the literal-only one. bufcheck k bounds a
+                    # nameplate by the fan's own slot (a few dense ones exceed it by a few bytes
+                    # and are listed there); bufcheck d bounds the Promise Notebook strip (410
+                    # bytes against 352) by its literal-only size
                     from lz11 import compress
                     stored = compress(raw)
                     size = len(raw); comp = 0x80000000
@@ -246,9 +369,13 @@ RETAIL_JAPANESE = {
  172: ("約束ノート", '90c1d4f09cc259606871114ad69b337f2a50d9a980632ea4d7560fcf3e3cf847'),
 }
 
-# Title strips whose entry is stored as a real LZ11 stream instead of the literal-only form
-# the other redrawn strips use (smaller, same decoded size).
-LZ_STORED = (172,)
+# Entries stored as real LZ11 instead of the literal-only form the other redrawn strips use (same
+# decoded size, a stream under a third of it): the Promise Notebook title strip and every redrawn
+# nameplate. 23 of the 28 plates then fit inside the fan's own slot; five (50, 51, 55, 63, 66) are 4 to
+# 8 bytes over it, which real LZ11 cannot avoid for dense ink. bufcheck.PLATE_STORED_OVER lists them
+# with their limits: the loader reads the stored extent into a temporary buffer that is freed, and the
+# destination is sized to the decoded size, which is the fan's for every plate (bufcheck k).
+LZ_STORED = (172,) + tuple(sorted(PLATES))
 
 # ---------------------------------------------------------------------------
 # Evidence/profile TITLE strips: 128x16 graphics embedded in the same file's

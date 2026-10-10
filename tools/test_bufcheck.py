@@ -390,6 +390,66 @@ def main(rom_path, dumpdir='dump'):
     must_raise('palette 574 trailer changed', lambda: bufcheck.check_idcom_icons(put(built_ic, 574, bytes(bad)), fan_ic))
     must_raise('icon 281 stream is garbage', lambda: bufcheck.check_idcom_icons(
         put(built_ic, 281, b'\x11' + bytes(40)), fan_ic))
+    print('k. nameplates (idlocal entries of plates.PLATES, real LZ11, fan slot or the listed excess)')
+    from plates import PLATES
+    from choice_strips import rebuild as idl_rebuild
+    print('  clean:', len(bufcheck.check_plates(idl, fan)), 'plates; fan file as it is:', len(bufcheck.check_plates(fan, fan)), 'plates')
+    tk = bufcheck._table(idl)
+    ek = bufcheck._extents(tk, len(idl))
+
+    def kgrow(container, e, n):
+        """container with entry e's slot n bytes longer (zero tail), later offsets moved."""
+        tt = bufcheck._table(container)
+        ex = bufcheck._extents(tt, len(container))
+        out = bytearray(container[:ex[e][1]]) + bytes(n) + container[ex[e][1]:]
+        for j in range(len(tt)):
+            if tt[j][0] >= ex[e][1]:
+                struct.pack_into('<I', out, j * 8, tt[j][0] + n)
+        return bytes(out)
+
+    def kraw(e):
+        return lz11.decompress(idl[ek[e][0]:ek[e][1]])
+
+    e_in, e_over = 41, 50          # Hart (fits its slot, 184 of 192), Carcerato (listed over: 232 of 224)
+    ext_in, ext_over = ek[e_in][1] - ek[e_in][0], ek[e_over][1] - ek[e_over][0]
+    print('  entry %d stored %d of the fan\'s slot; entry %d stored %d, allowed %d' % (
+        e_in, ext_in, e_over, ext_over, bufcheck.PLATE_STORED_OVER[e_over]))
+    must_raise('entry %d (Hart) stored literal-only (708 bytes)' % e_in,
+               lambda: bufcheck.check_plates(idl_rebuild(idl, {e_in: kraw(e_in)}), fan))
+    must_raise('entry 63 (Excelsius, listed over) stored literal-only', lambda: bufcheck.check_plates(idl_rebuild(idl, {63: kraw(63)}), fan))
+    must_raise('entry %d slot 12 bytes longer (over the fan\'s 192)' % e_in, lambda: bufcheck.check_plates(kgrow(idl, e_in, 12), fan))
+    must_raise('entry %d slot 4 bytes over its listed %d' % (e_over, bufcheck.PLATE_STORED_OVER[e_over]),
+               lambda: bufcheck.check_plates(kgrow(idl, e_over, 4), fan))
+    d1 = bytearray(kraw(e_in))
+    must_raise('entry %d decoded one byte longer' % e_in, lambda: bufcheck.check_plates(idl_rebuild(idl, {e_in: bytes(d1) + b'\0'}, lz=(e_in,)), fan))
+    bad = bytearray(idl)
+    struct.pack_into('<I', bad, e_in * 8 + 4, tk[e_in][1] & 0x7FFFFFFF)
+    must_raise('entry %d no longer flagged as an LZ11 stream' % e_in, lambda: bufcheck.check_plates(bytes(bad), fan))
+    bad = bytearray(idl)
+    struct.pack_into('<I', bad, e_in * 8 + 4, tk[e_in][1] + 8)
+    must_raise('entry %d table size +8' % e_in, lambda: bufcheck.check_plates(bytes(bad), fan))
+    hd = bytearray(d1)
+    hd[5] ^= 0xFF
+    must_raise('entry %d changed outside its tile data' % e_in, lambda: bufcheck.check_plates(idl_rebuild(idl, {e_in: bytes(hd)}, lz=(e_in,)), fan))
+    short = bytearray(idl)
+    short[ek[e_in][0] + 40:ek[e_in][1]] = bytes(ext_in - 40)
+    must_raise('entry %d stream cut short' % e_in, lambda: bufcheck.check_plates(bytes(short), fan))
+    must_raise('entry 27 (Edgeworth, not redrawn) changed', lambda: bufcheck.check_plates(idl_rebuild(idl, {27: lz11.decompress(idl[ek[27][0]:ek[27][1]])[:-1] + b'\1'}, lz=(27,)), fan))
+    must_raise('entry 27 (not redrawn) stored literal-only', lambda: bufcheck.check_plates(idl_rebuild(idl, {27: lz11.decompress(idl[ek[27][0]:ek[27][1]])}), fan))
+    saved_over = dict(bufcheck.PLATE_STORED_OVER)
+    try:
+        bufcheck.PLATE_STORED_OVER[e_in] = 2000
+        must_raise('PLATE_STORED_OVER allowing more than the literal-only form', lambda: bufcheck.check_plates(idl, fan))
+        bufcheck.PLATE_STORED_OVER[e_in] = 100
+        must_raise('PLATE_STORED_OVER allowing less than the fan\'s slot', lambda: bufcheck.check_plates(idl, fan))
+        del bufcheck.PLATE_STORED_OVER[e_in]
+        bufcheck.PLATE_STORED_OVER[e_over] = ext_over - 4
+        must_raise('entry %d listed with a limit below what it stores' % e_over, lambda: bufcheck.check_plates(idl, fan))
+        bufcheck.PLATE_STORED_OVER.clear()
+        must_raise('PLATE_STORED_OVER emptied (the over-slot plates are no longer allowed)', lambda: bufcheck.check_plates(idl, fan))
+    finally:
+        bufcheck.PLATE_STORED_OVER.clear(); bufcheck.PLATE_STORED_OVER.update(saved_over)
+    print('  PASSED  entry %d at exactly its listed %d bytes' % (e_over, ext_over), bufcheck.check_plates(idl, fan)[e_over])
     print('all negative tests raised, boundary cases passed')
 
 

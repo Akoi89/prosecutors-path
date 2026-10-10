@@ -212,7 +212,8 @@ nameplate above it said *Ray* and the Organizer said *Raymond Shields*.
 All three now agree. The text is the easy part; the other two are **graphics**:
 
 - **28 dialogue nameplates**: `jpn/idlocal.bin` entries 27-86, one LZ11'd 144×8 tile
-  strip each, with a 43-pixel text field.
+  strip each; the text sits on a 42-pixel bar and is redrawn in the fan's own letters
+  (three faces, see BUILD_NOTES), centred like the fan's plates.
 - **119 evidence and profile title cards**: 128×16 strips inside that same file's
   sprite bundles, drawn as four 32×16 OAM objects.
 - **297 choice and topic buttons**: the option plates of every choice menu and
@@ -224,7 +225,9 @@ All three now agree. The text is the easy part; the other two are **graphics**:
 Neither can be swapped as text, so they are **redrawn at build time in the fan patch's
 own pixel font**, which the tool recovers from your own ROM, by cutting the letters out
 of the cards whose wording it already knows. Nothing but Capcom's names and a handful of
-hand-drawn glyphs for letters the fan set never used ships in this repository.
+hand-drawn glyphs ships in this repository: a few letters the fan set never used and, on the
+nameplates, the thin face's M, O, S, a and c, which are drawn versions of letters the fan uses in
+its wider faces.
 
 The fan→official mapping was derived from the two scripts rather than from memory: for
 every line present in both translations, fan names were paired with the official names in
@@ -563,7 +566,7 @@ python audits/audit_fixtures.py         # prove the audits can actually fail
 | `rowsplit.py` | Splits any script row whose entry would overrun the engine's fixed 0x2000 load buffer into two chained rows, cutting only at a box end, with every word kept (the 1.11.0 Case 4 crash fix) |
 | `rowfold.py` | Folds those split rows back through the build's split manifest so the audits and `coverage.py` see the fan's row layout |
 | `e11c.py` | Puts back the fan's `{E11C}` touch-tap on/off commands the port had dropped, and removes three it had added (hash-guarded rows) |
-| `bufcheck.py` | Build-time checks that no script entry, text box, examine row, graphics entry, cutdata slot or Logic banner exceeds what its loader can hold; run by every build. Since 1.11.1 it also checks the room labels, the opening card, the evidence icons and the Promise Notebook strip |
+| `bufcheck.py` | Build-time checks that no script entry, text box, examine row, graphics entry, cutdata slot or Logic banner exceeds what its loader can hold; run by every build. Since 1.11.1 it also checks the room labels, the opening card, the evidence icons and the Promise Notebook strip, and (check k) the 28 nameplates |
 | `desc_overflow.py` | Lists every condensed description four ways from your own extracted data |
 
 ---
