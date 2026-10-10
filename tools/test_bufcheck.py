@@ -39,6 +39,29 @@ def swap_entry(spt, i, new):
     return build_archive(ents)
 
 
+def pad_slot(container, e, n):
+    """The container with n zero bytes added to the end of entry e's slot (later offsets moved), the stream untouched."""
+    t = bufcheck._table(container)
+    end = bufcheck._extents(t, len(container))[e][1]
+    out = bytearray(container[:end] + bytes(n) + container[end:])
+    for i, (off, size) in enumerate(t):
+        if off >= end:
+            struct.pack_into('<I', out, i * 8, off + n)
+    return bytes(out)
+
+
+def must_raise_for(name, fn, what):
+    """Like must_raise, and the message has to name `what` (the entry that is wrong)."""
+    try:
+        fn()
+    except BufCheckError as e:
+        if what not in str(e) or 'over its bound' not in str(e):
+            raise SystemExit('FAILED: %s raised for another reason or entry: %s' % (name, e))
+        print('  RAISED  %-52s %s' % (name, str(e)[:110]))
+        return
+    raise SystemExit('FAILED: %s was accepted' % name)
+
+
 def must_raise(name, fn, expect):
     """fn must raise BufCheckError whose message contains `expect` (so a test meant for one check cannot pass because
     another check fired first)."""
@@ -698,6 +721,127 @@ def main(rom_path, dumpdir='dump'):
     tb = bufcheck._table(built_il)
     struct.pack_into('<I', bad, 357 * 8 + 4, tb[357][1] + 4)
     must_raise('entry 357 table size +4', lambda: bufcheck.check_menu_button(bytes(bad), fan_il), expect='table field')
+    # the names below were set by the room names section in the leftovers track; the sections merged before this one
+    # reuse some of them (ci is the menu button's idlocal there), so set them again
+    built_i = bufcheck.rom_file(rom, 'jpn/idlocal.bin')
+    built_c = bufcheck.rom_file(rom, 'jpn/cutobj_local.bin')
+    fan_c = open(os.path.join(dumpdir, 'ds_fan', 'jpn', 'cutobj_local.bin'), 'rb').read()
+    bi, ci = Idlocal(built_i), Idlocal(built_c)
+    ti = bufcheck._table(built_i)
+    print('p. map pieces and plans in Capcom\'s wording (jpn/idlocal.bin %s)' % ', '.join(str(e) for e in bufcheck.PLAN_IDLOCAL))
+    print('  clean:', bufcheck.check_plans(built_i, fan))
+    print('  fan file as it is:', bufcheck.check_plans(fan, fan))
+    for e in bufcheck.PLAN_IDLOCAL:
+        raw = bi.blob(e)
+        keep_larger, bufcheck.PLAN_LARGER = bufcheck.PLAN_LARGER, ()
+        try:
+            must_raise('idlocal %d stored literal-only (bigger than the fan\'s)' % e,
+                       lambda: bufcheck.check_plans(rebuild(fan, {e: raw}), fan), expect='over its bound')
+        finally:
+            bufcheck.PLAN_LARGER = keep_larger
+        must_raise('idlocal %d decoded one byte longer' % e,
+                   lambda: bufcheck.check_plans(rebuild(built_i, {e: raw + b'\0'}, lz=(e,)), fan), expect='table field')
+        bad = bytearray(built_i)
+        struct.pack_into('<I', bad, e * 8 + 4, ti[e][1] & 0x7FFFFFFF)
+        must_raise('idlocal %d table says stored raw' % e, lambda: bufcheck.check_plans(bytes(bad), fan), expect='table field')
+        bad = bytearray(built_i)
+        struct.pack_into('<I', bad, e * 8 + 4, ti[e][1] + 4)
+        must_raise('idlocal %d table size +4' % e, lambda: bufcheck.check_plans(bytes(bad), fan), expect='table field')
+    built_u = bufcheck.rom_file(rom, 'jpn/upcut_local.bin')
+    fan_u = open(os.path.join(dumpdir, 'ds_fan', 'jpn', 'upcut_local.bin'), 'rb').read()
+    print('  with upcut_local, clean:', bufcheck.check_plans(built_i, fan, built_u, fan_u))
+    print('  with upcut_local, the fan files as they are:', bufcheck.check_plans(fan, fan, fan_u, fan_u))
+    bu, tu = Idlocal(built_u), bufcheck._table(built_u)
+    for e in bufcheck.PLAN_UPCUT:
+        raw = bu.blob(e)
+        keep_up, bufcheck.PLAN_UP_LARGER = bufcheck.PLAN_UP_LARGER, ()
+        try:
+            must_raise('upcut_local %d stored literal-only (bigger than the fan\'s)' % e,
+                       lambda: bufcheck.check_plans(built_i, fan, rebuild(fan_u, {e: raw}), fan_u), expect='over its bound')
+        finally:
+            bufcheck.PLAN_UP_LARGER = keep_up
+        must_raise('upcut_local %d decoded one byte longer' % e,
+                   lambda: bufcheck.check_plans(built_i, fan, rebuild(built_u, {e: raw + b'\0'}, lz=(e,)), fan_u), expect='table field')
+        bad = bytearray(built_u)
+        struct.pack_into('<I', bad, e * 8 + 4, tu[e][1] + 4)
+        must_raise('upcut_local %d table size +4' % e, lambda: bufcheck.check_plans(built_i, fan, bytes(bad), fan_u), expect='table field')
+        pal = bu.blob(e + 1)
+        must_raise('upcut_local %d palette entry changed' % e, lambda: bufcheck.check_plans(
+            built_i, fan, rebuild(built_u, {e + 1: pal[:-1] + bytes([pal[-1] ^ 1])}, lz=(e + 1,)), fan_u), expect="is not the fan's bytes")
+    # a slot padded beyond the literal-only form (plus 3 alignment bytes) must fail for each entry that may be stored larger:
+    # the bound is the slot, not the stream inside it
+    def slot_len(container, e):
+        return bufcheck._extents(bufcheck._table(container), len(container))[e][1] - bufcheck._extents(bufcheck._table(container), len(container))[e][0]
+    for e in bufcheck.PLAN_LARGER:
+        lit = rebuild(fan, {e: bi.blob(e)})
+        room = (len(bi.blob(e)) + (len(bi.blob(e)) + 7) // 8 + 7) - slot_len(lit, e)
+        print('  PASSED  idlocal %d literal-only slot padded to the bound (+%d): %s'
+              % (e, room, bufcheck.check_plans(pad_slot(lit, e, room), fan)[('idlocal', e)]))
+        must_raise_for('idlocal %d literal-only slot one byte over the bound' % e,
+                       lambda: bufcheck.check_plans(pad_slot(lit, e, room + 1), fan), 'idlocal entry %d' % e)
+        must_raise_for('idlocal %d slot padded by 65,536 bytes' % e,
+                       lambda: bufcheck.check_plans(pad_slot(built_i, e, 65536), fan), 'idlocal entry %d' % e)
+    for e in bufcheck.PLAN_UP_LARGER:
+        lit = rebuild(fan_u, {e: bu.blob(e)})
+        room = (len(bu.blob(e)) + (len(bu.blob(e)) + 7) // 8 + 7) - slot_len(lit, e)
+        print('  PASSED  upcut_local %d literal-only slot padded to the bound (+%d): %s'
+              % (e, room, bufcheck.check_plans(built_i, fan, pad_slot(lit, e, room), fan_u)[('upcut_local', e)]))
+        must_raise_for('upcut_local %d literal-only slot one byte over the bound' % e,
+                       lambda: bufcheck.check_plans(built_i, fan, pad_slot(lit, e, room + 1), fan_u), 'upcut_local entry %d' % e)
+        must_raise_for('upcut_local %d slot padded by 65,536 bytes' % e,
+                       lambda: bufcheck.check_plans(built_i, fan, pad_slot(built_u, e, 65536), fan_u), 'upcut_local entry %d' % e)
+    shipped_larger = bufcheck.PLAN_LARGER
+    for e in (303, 309):
+        raw = bi.blob(e)
+        bufcheck.PLAN_LARGER = ()
+        try:
+            must_raise('idlocal %d stored literal-only while not in PLAN_LARGER' % e,
+                       lambda: bufcheck.check_plans(rebuild(fan, {e: raw}), fan), expect='over its bound')
+            bufcheck.PLAN_LARGER = (e,) + tuple(x for x in shipped_larger if x != e)
+            print('  PASSED  idlocal %d stored literal-only with PLAN_LARGER: %s'
+                  % (e, bufcheck.check_plans(rebuild(fan, {e: raw}), fan)[('idlocal', e)]))
+        finally:
+            bufcheck.PLAN_LARGER = shipped_larger
+    must_raise('idlocal one entry short', lambda: bufcheck.check_plans(
+        struct.pack('<I', 8 * (len(ti) - 1)) + built_i[4:(len(ti) - 1) * 8] + built_i[len(ti) * 8:], fan), expect='entries, the fan has')
+    # upcut_local entries stored bigger: allowed only for the listed ones, only literal-only at most, decoded size identical
+    shipped_up = bufcheck.PLAN_UP_LARGER
+    for e in (36, 48, 78):
+        raw = bu.blob(e)
+        bufcheck.PLAN_UP_LARGER = tuple(x for x in shipped_up if x != e)
+        try:
+            must_raise('upcut_local %d stored literal-only while not in PLAN_UP_LARGER' % e,
+                       lambda: bufcheck.check_plans(built_i, fan, rebuild(fan_u, {e: raw}), fan_u), expect='over its bound')
+            bufcheck.PLAN_UP_LARGER = shipped_up
+            print('  PASSED  upcut_local %d stored literal-only with PLAN_UP_LARGER: %s'
+                  % (e, bufcheck.check_plans(built_i, fan, rebuild(fan_u, {e: raw}), fan_u)[('upcut_local', e)]))
+            must_raise('upcut_local %d decoded one byte longer even with PLAN_UP_LARGER' % e,
+                       lambda: bufcheck.check_plans(built_i, fan, rebuild(built_u, {e: raw + b'\0'}, lz=(e,)), fan_u), expect='table field')
+        finally:
+            bufcheck.PLAN_UP_LARGER = shipped_up
+    must_raise('upcut_local picture block exceeded', lambda: (setattr(bufcheck, 'UPCUT_BLOCK', 49199),
+                                                          bufcheck.check_plans(built_i, fan, built_u, fan_u)), expect='picture block')
+    bufcheck.UPCUT_BLOCK = 0x2F000
+    # the Zodiac Hall sprite label (cutobj_local 12)
+    print('  sprite, clean:', bufcheck.check_plan_sprites(built_c, fan_c))
+    print('  sprite, the fan file as it is:', bufcheck.check_plan_sprites(fan_c, fan_c))
+    rawc = ci.blob(12)
+    must_raise('cutobj_local 12 stored literal-only (bigger than the fan\'s)',
+               lambda: bufcheck.check_plan_sprites(rebuild(built_c, {12: rawc}), fan_c), expect="over the fan's")
+    must_raise('cutobj_local 12 decoded one byte longer',
+               lambda: bufcheck.check_plan_sprites(rebuild(built_c, {12: rawc + b'\0'}, lz=(12,)), fan_c), expect='table field')
+    bad = bytearray(built_c)
+    struct.pack_into('<I', bad, 12 * 8 + 4, tcc[12][1] + 4)
+    must_raise('cutobj_local 12 table size +4', lambda: bufcheck.check_plan_sprites(bytes(bad), fan_c), expect='table field')
+    oc12 = struct.unpack_from('<3I', rawc, 0)
+    bad = bytearray(rawc)
+    bad[oc12[0] + 0x20] ^= 1
+    must_raise('cutobj_local 12 cell data changed', lambda: bufcheck.check_plan_sprites(rebuild(built_c, {12: bytes(bad)}, lz=(12,)), fan_c), expect='outside its tile data')
+    bad = bytearray(rawc)
+    bad[oc12[2] + 4] ^= 1
+    must_raise('cutobj_local 12 tile bank header changed', lambda: bufcheck.check_plan_sprites(rebuild(built_c, {12: bytes(bad)}, lz=(12,)), fan_c), expect='outside its tile data')
+    must_raise('cutobj_local 11 changed (another entry)', lambda: bufcheck.check_plan_sprites(
+        rebuild(built_c, {11: ci.blob(11)[:-1] + bytes([ci.blob(11)[-1] ^ 1])}, lz=(11,)), fan_c), expect="is not the fan's bytes")
     print('all negative tests raised, boundary cases passed')
 
 

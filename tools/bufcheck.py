@@ -6,7 +6,7 @@ error at build time. playtest/SOLVE_buffers.md traced every loader and text
 buffer in the engine; none overflows today, and checks a to e keep it that
 way (f is the Logic keyword cards, g the bag model texture, h the room names, i the opening card,
 j the evidence icons, k the nameplates, l the marker letters, m the item pictures, n the menu button,
-o the Bigg Building pictures).
+o the Bigg Building pictures, p the map pieces and plans).
 They read jpn/spt.bin, jpn/idlocal.bin, com/cutdata.bin,
 jpn/logic_keyword_local.bin, jpn/modelitemlocal.bin, jpn/cutobj_local.bin, jpn/opening_local.bin and
 com/idcom.bin out of the finished ROM (after the last step that writes any of them), compare idlocal,
@@ -90,8 +90,9 @@ l. marker letters. jpn/cutobj_local.bin entries MARKER_CUTOBJ (tools/marker_lett
    the round character markers) keep the fan's table field, are real LZ11 streams that decode to the
    fan's size and are stored in no more bytes than the fan's entry; in the entries that only this step
    changes, every byte before and after the 4bpp tile data is the fan's and the tile data is as long
-   as the fan's; every cutobj_local entry outside CUTOBJ_CHANGED (2 4 6 8 10 16 18 20 22 24 26: the room
-   names' entry 10, the city map's entries 18 and 26, and the marker letters' ten) is the fan's bytes.
+   as the fan's; every cutobj_local entry outside CUTOBJ_CHANGED (2 4 6 8 10 12 16 18 20 22 24 26: the room
+   names' entry 10, the plans' entry 12, the city map's entries 18 and 26, and the marker letters' ten) is the
+   fan's bytes.
 m. item pictures. jpn/upcut_local.bin entries ITEM_UPCUT and ITEM_UPCUT_BIG (tools/item_pics.py, tools/cg_names.py)
    keep the fan's table field (and stay under the UPCUT_FIXED_CAP picture buffer), are real LZ11 streams that
    declare and decode to that size, are stored in no more bytes than the fan's entry (ITEM_UPCUT_BIG, the keycard log
@@ -104,7 +105,17 @@ o. Bigg Building. jpn/idlocal.bin entries BIGG_IDLOCAL, jpn/upcut_local.bin entr
    cards, the city map and the cross-section pictures; tools/city_labels.py, tools/city_patches.py: Capcom's
    wording on the city map, its highlight patches, the room label and the 50th floor strip) keep the fan's table field, are real LZ11
    streams that decode to the fan's size and are stored in no more bytes than the fan's entry; the
-   other cutobj_local entries are the fan's bytes except the ones in CUTOBJ_CHANGED (2 4 6 8 10 16 18 20 22 24 26).
+   other cutobj_local entries are the fan's bytes except the ones in CUTOBJ_CHANGED (2 4 6 8 10 12 16 18 20 22 24 26).
+p. map pieces and plans in Capcom's wording. The jpn/idlocal.bin entries PLAN_IDLOCAL and the
+   jpn/upcut_local.bin entries PLAN_UPCUT (tools/plan_labels.py re-letters them in place) must decode to exactly the fan's size with
+   the fan's table field, be real LZ11 streams whose header agrees with the table, and be stored
+   in no more bytes than the fan's entry (entries in PLAN_LARGER and PLAN_UP_LARGER: the slot may hold the
+   literal-only form of the decoded size plus 3 alignment bytes; idlocal entry 172's bound is the literal-only form
+   alone, without the 3). upcut_local entries must also decode
+   to no more than the 0x2F000 picture block the loader trace found, and a raw palette entry
+   after a plan picture is the fan's bytes. The jpn/cutobj_local.bin entries PLAN_CUTOBJ (the Autumn cloud of
+   the Zodiac Hall plan) keep the fan's table field and decoded size, are stored in no more bytes than the
+   fan's, and differ from the fan's decoded entry only inside the 4bpp tile data.
 """
 import os
 import struct
@@ -139,7 +150,18 @@ BIGG_UPCUT = (208, 244, 246, 264, 278, 280, 282)
 BIGG_CUTOBJ = 26
 MARKER_CUTOBJ = (2, 4, 6, 8, 10, 16, 20, 22, 24, 26)      # entries whose marker letters marker_letters.py redraws
 PATCH_CUTOBJ = 18                                      # the city map's highlight patches (tools/city_patches.py)
-CUTOBJ_CHANGED = tuple(sorted(set((ROOM_CUTOBJ, BIGG_CUTOBJ, PATCH_CUTOBJ) + MARKER_CUTOBJ)))
+# map pieces and floor plans re-lettered in Capcom's wording (tools/plan_labels.py, check p)
+PLAN_IDLOCAL = (282, 285, 291, 294, 297, 300, 303, 306, 309, 312, 315, 318, 321, 324, 327, 349)      # 309 is only redrawn with plan_labels.LARGER
+PLAN_UPCUT = (36, 40, 48, 52, 78, 80, 82, 102, 114, 116)   # the plan pictures of jpn/upcut_local.bin (RGCN entries; the palette is entry + 1)
+PLAN_LARGER = (282, 285, 303, 309)      # idlocal entries allowed up to the literal-only form of their decoded size (plan_labels.LARGER)
+PLAN_CUTOBJ = (12,)      # jpn/cutobj_local.bin entries plan_labels re-letters (the Autumn cloud of the Zodiac Hall plan): tile data only, stored <= fan
+PLAN_UP_LARGER = (36, 48, 78)      # the same for jpn/upcut_local.bin (plan_labels.UP_LARGER; fixed 0x2F000 block, decoded size only)
+UPCUT_BLOCK = 0x2F000      # the fixed picture block the cut table's column 1 entries of upcut_local are decoded into
+OPENING_GFX, OPENING_PAL = 13, 14
+OPENING_FREE = (0,)            # the splash title tiles, rewritten by title_text.py
+ICON_ENTRIES = {281: 280, 573: 572, 575: 574}      # icon entry -> its palette entry
+# every cutobj_local entry some step changes; checks h, l, o and p require every other entry to be the fan's bytes
+CUTOBJ_CHANGED = tuple(sorted(set((ROOM_CUTOBJ, BIGG_CUTOBJ, PATCH_CUTOBJ) + MARKER_CUTOBJ + PLAN_CUTOBJ)))
 OPENING_GFX, OPENING_PAL = 13, 14
 OPENING_FREE = (0,)            # the splash title tiles, rewritten by title_text.py
 ICON_ENTRIES = {281: 280, 327: 326, 485: 484, 403: 402, 405: 404, 451: 450, 453: 452, 479: 478, 481: 480, 487: 486, 489: 488, 539: 538, 541: 540, 547: 546, 549: 548, 555: 554, 557: 556, 573: 572, 575: 574, 735: 734, 737: 736,
@@ -534,6 +556,103 @@ def check_markers(built_co, fan_co):
     for i in range(len(pt)):
         if i not in CUTOBJ_CHANGED and built_co[pe[i][0]:pe[i][1]] != fan_co[fe[i][0]:fe[i][1]]:
             raise BufCheckError('cutobj_local entry %d is not the fan\'s bytes' % i)
+    return out
+
+
+def check_plans(built_idl, fan_idl, built_up=None, fan_up=None):
+    """Check p. The entries PLAN_IDLOCAL of idlocal and PLAN_UPCUT of upcut_local (tools/plan_labels.py)
+    keep the fan's decoded size and table field, are real LZ11 streams that decode to that size, and are
+    stored in no more bytes than the fan's entry (entries in PLAN_LARGER and PLAN_UP_LARGER: the slot, not the
+    decodable prefix, up to the literal-only form of the decoded size plus 3 alignment bytes); the palette entry after each upcut_local plan is the fan's bytes.
+    -> {('idlocal', 349): (decoded, stored, fan stored), ...}."""
+    out = {}
+    for name, built, fan, entries in (('idlocal', built_idl, fan_idl, PLAN_IDLOCAL),
+                                      ('upcut_local', built_up, fan_up, PLAN_UPCUT)):
+        if built is None:
+            continue
+        pt, ft = _table(built), _table(fan)
+        if len(pt) != len(ft):
+            raise BufCheckError('%s has %d entries, the fan has %d' % (name, len(pt), len(ft)))
+        pe, fe = _extents(pt, len(built)), _extents(ft, len(fan))
+        for i in entries:
+            what = '%s entry %d' % (name, i)
+            if i >= len(pt):
+                raise BufCheckError('%s has no entry %d' % (name, i))
+            if pt[i][1] != ft[i][1]:
+                raise BufCheckError("%s: table field %#x, the fan's %#x" % (what, pt[i][1], ft[i][1]))
+            size = pt[i][1] & 0x7FFFFFFF
+            if not pt[i][1] & 0x80000000:
+                raise BufCheckError('%s is expected to be an LZ11 stream' % what)
+            stored = built[pe[i][0]:pe[i][1]]
+            fan_stored = fe[i][1] - fe[i][0]
+            if _stream_size(stored) != size:
+                raise BufCheckError('%s: stream declares %d bytes, table says %d' % (what, _stream_size(stored), size))
+            got = len(_decode(stored, what))
+            if got != size:
+                raise BufCheckError('%s decodes to %d bytes, table says %d' % (what, got, size))
+            if name == 'upcut_local' and size > UPCUT_BLOCK:
+                raise BufCheckError('%s decodes to %d bytes, over the %#x picture block' % (what, size, UPCUT_BLOCK))
+            used = len(stored)                      # the slot: what the loader reads into its temp buffer (idlocal)
+            if i in (PLAN_LARGER if name == 'idlocal' else PLAN_UP_LARGER):
+                bound = size + (size + 7) // 8 + 4 + 3      # the literal-only form, as for idlocal entry 172, and up to 3 alignment bytes
+            else:
+                bound = fan_stored
+            if used > bound:
+                raise BufCheckError("%s is stored in %d bytes, over its bound %d (the fan's entry holds %d)"
+                                    % (what, used, bound, fan_stored))
+            if name == 'upcut_local':
+                b_pal, f_pal = built[pe[i + 1][0]:pe[i + 1][1]], fan[fe[i + 1][0]:fe[i + 1][1]]
+                if not pt[i + 1][1] & 0x80000000:           # a raw palette: its table size is its length, what follows is the container's 4 byte padding
+                    n_pal = pt[i + 1][1] & 0x7FFFFFFF
+                    ok_pal = (pt[i + 1][1] == ft[i + 1][1] and b_pal[:n_pal] == f_pal[:n_pal]
+                              and not any(b_pal[n_pal:]) and not any(f_pal[n_pal:]))
+                else:
+                    ok_pal = b_pal == f_pal
+                if not ok_pal:
+                    raise BufCheckError("%s: the palette entry %d is not the fan's bytes" % (what, i + 1))
+            out[(name, i)] = (size, used, fan_stored)
+    return out
+
+
+def check_plan_sprites(built_co, fan_co):
+    """Check p (sprites). The entries PLAN_CUTOBJ of jpn/cutobj_local.bin keep the fan's table field and decoded
+    size, are real LZ11 streams, are stored in no more bytes than the fan's, and differ from the fan's decoded entry
+    only inside the 4bpp tile data; every cutobj_local entry outside CUTOBJ_CHANGED is the fan's bytes.
+    -> {('cutobj_local', 12): (decoded, stored, fan stored)}."""
+    import room_names as rn
+    pt, ft = _table(built_co), _table(fan_co)
+    if len(pt) != len(ft):
+        raise BufCheckError('cutobj_local has %d entries, the fan has %d' % (len(pt), len(ft)))
+    pe, fe = _extents(pt, len(built_co)), _extents(ft, len(fan_co))
+    out = {}
+    for i in PLAN_CUTOBJ:
+        what = 'cutobj_local entry %d' % i
+        if i >= len(pt):
+            raise BufCheckError('cutobj_local has no entry %d' % i)
+        if pt[i][1] != ft[i][1]:
+            raise BufCheckError("%s: table field %#x, the fan's %#x" % (what, pt[i][1], ft[i][1]))
+        size = pt[i][1] & 0x7FFFFFFF
+        if not pt[i][1] & 0x80000000:
+            raise BufCheckError('%s is expected to be an LZ11 stream' % what)
+        stored = built_co[pe[i][0]:pe[i][1]]
+        fan_stored = fe[i][1] - fe[i][0]
+        if _stream_size(stored) != size:
+            raise BufCheckError('%s: stream declares %d bytes, table says %d' % (what, _stream_size(stored), size))
+        dec = _decode(stored, what)
+        if len(dec) != size:
+            raise BufCheckError('%s decodes to %d bytes, table says %d' % (what, len(dec), size))
+        if len(stored) > fan_stored:
+            raise BufCheckError("%s is stored in %d bytes, over the fan's %d" % (what, len(stored), fan_stored))
+        fdec = _decode(fan_co[fe[i][0]:fe[i][1]], 'fan ' + what)
+        o = struct.unpack_from('<3I', fdec, 0)
+        b = rn.Bundle(fdec[o[0]:o[1]], fdec[o[2]:])
+        lo, hi = o[2] + b.tile_off, o[2] + b.tile_off + b.tile_len
+        if dec[:lo] != fdec[:lo] or dec[hi:] != fdec[hi:]:
+            raise BufCheckError("%s differs from the fan's outside its tile data" % what)
+        out[('cutobj_local', i)] = (size, len(stored), fan_stored)
+    for i in range(len(pt)):
+        if i not in CUTOBJ_CHANGED and built_co[pe[i][0]:pe[i][1]] != fan_co[fe[i][0]:fe[i][1]]:
+            raise BufCheckError("cutobj_local entry %d is not the fan's bytes" % i)
     return out
 
 
@@ -1058,6 +1177,9 @@ def run(rom_path, dumpdir):
     n_btn = check_menu_button(rom_file(rom, 'jpn/idlocal.bin'), fan)
     m_lk = check_idcom_icons(rom_file(rom, 'com/logic_keyword.bin'), fan_lk, LOGIC_ICON_ENTRIES, 'logic_keyword.bin')
     ms = ', '.join('upcut_local %d decodes to %d like the fan, stream %d of the fan\'s %d' % ((k,) + v) for k, v in sorted(m_up.items()))
+    p_ent = check_plans(rom_file(rom, 'jpn/idlocal.bin'), fan, rom_file(rom, 'jpn/upcut_local.bin'), fan_up)
+    p_ent.update(check_plan_sprites(rom_file(rom, 'jpn/cutobj_local.bin'), fan_co))
+    ps_ = ', '.join("%s %d decodes %d, stored %d of the fan's %d" % ((k[0], k[1]) + v) for k, v in sorted(p_ent.items()))
     ms += '; logic_keyword.bin in place: ' + ', '.join('%d decodes to %d, stream %d of the fan\'s %d' % ((k,) + v) for k, v in sorted(m_lk.items()))
     return ('%s; (f) logic cards: %d checked, every OBJ inside the RGCN bytes, cards with OBJs past the '
             'declared data (rewritten, no fan tail): %s, %d punctuation-matched name cards rewritten; (g) modelitemlocal entry %d decodes to %d bytes like '
@@ -1071,10 +1193,11 @@ def run(rom_path, dumpdir):
             "(l) marker letters (cutobj_local), tile data only in the entries no other step changes: %s; "
             "(m) item pictures, same decoded size, stored no larger (the two keycard log pictures excepted), palette the fan's: %s; "
             "(n) menu button: idlocal %d decodes to %d like the fan, stream %d of the fan's %d; "
-            "(o) Bigg Building: %s, the cutobj_local entries outside %s are the fan's bytes"
+            "(o) Bigg Building: %s, the cutobj_local entries outside %s are the fan's bytes; "
+            "(p) map pieces and plans in Capcom's wording: %s"
             % (line, n, ps, n_named, MODEL_ENTRY, g_size, g_stored, g_fan, hs, cutchg,
                OPENING_GFX, i_size, i_stored, i_fan, js, ks, ls, ms, MENU_TILES, n_btn[0], n_btn[1], n_btn[2],
-               obs, cutchg))
+               obs, cutchg, ps_))
 
 
 if __name__ == '__main__':

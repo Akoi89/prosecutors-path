@@ -33,12 +33,12 @@ def title_dir(dumpdir):
 
 def required(dumpdir):
     """Files apply() needs; build.py checks these under --skip-extract."""
-    import cg_art, mindchess, opening_card, idcom_icons, bigg_ground, marker_letters, item_pics
+    import cg_art, mindchess, opening_card, idcom_icons, bigg_ground, marker_letters, item_pics, gallery_art
     t = title_dir(dumpdir)
     return ([os.path.join(t, LOGO_PNG)] + [os.path.join(t, 'fonts', n + '.otf') for n in FONTS]
             + cg_art.required(dumpdir) + mindchess.required(dumpdir) + opening_card.required(dumpdir)
             + idcom_icons.required(dumpdir) + bigg_ground.required(dumpdir) + marker_letters.required(dumpdir)
-            + item_pics.required(dumpdir))
+            + item_pics.required(dumpdir) + gallery_art.required(dumpdir))
 
 
 def extract(bdir, dumpdir):
@@ -65,6 +65,8 @@ def extract(bdir, dumpdir):
     marker_letters.extract(bdir, dumpdir)
     import item_pics
     item_pics.extract(bdir, dumpdir)
+    import gallery_art
+    gallery_art.extract(bdir, dumpdir)
     return t
 
 
@@ -249,16 +251,34 @@ def apply(dumpdir, rom_path, log=print, version=None, any_rom=False):
     if not labels_changed:
         log('city labels: not redrawn (see reason above)')
 
-    # 7g) item pictures with the fan's wording where Capcom's differs (tools/item_pics.py): small in-place
+    # 7g) the map pieces and floor plans in Capcom's wording (Corridor, Workshop, Maximum Security, Yard,
+    #     Wing, Fountain Room; the office of room 1202 that the fan left in Japanese), in the fan's own
+    #     lettering (jpn/idlocal.bin 282-327, 349; jpn/cutobj_local.bin 12; see tools/plan_labels.py). After
+    #     the room names (4d), whose 321, 324 and 327 it letters over, and after 7d: the Bigg Building step
+    #     cuts its B from the fan's idlocal 294 and requires that entry to be unchanged in the ROM it builds
+    import plan_labels
+    rom, changed = plan_labels.apply_to_rom(rom, dumpdir, log, any_rom)
+    if not changed:
+        log('map pieces and plans: not redrawn (see reason above)')
+
+    # 7h) the plans of the prison and the detention center (jpn/upcut_local.bin 36, 40, 48, 52, 78,
+    #     80, 82) in Capcom's wording, in the fan's own lettering; after the last step that writes
+    #     upcut_local; its entries are its own (see tools/plan_labels.py)
+    import plan_labels
+    rom, plans_changed = plan_labels.apply_upcut_to_rom(rom, dumpdir, log, any_rom)
+    if not plans_changed:
+        log('plans: not redrawn (see reason above)')
+
+    # 7i) item pictures with the fan's wording where Capcom's differs (tools/item_pics.py): small in-place
     #     re-letterings in jpn/upcut_local.bin, com/idcom.bin and com/logic_keyword.bin; after the last
-    #     step that writes upcut_local, after the icon swaps above and after 7d-7f (which change other entries
+    #     step that writes upcut_local, after the icon swaps above and after 7d-7h (which change other entries
     #     of the same files; no step reads an entry another one writes)
     import item_pics
     rom, items_changed = item_pics.apply_to_rom(rom, dumpdir, log, any_rom)
     if not items_changed:
         log('item pictures: not redrawn (see reason above)')
 
-    # 7h) the partner card's "Change Re-creation" button: Capcom's "Switch re-creations" in the fan's face
+    # 7j) the partner card's "Change Re-creation" button: Capcom's "Switch re-creations" in the fan's face
     #     (jpn/idlocal.bin entry 357, cells 10 and 11; see tools/menu_button.py); after every other idlocal writer
     import menu_button
     rom, button_changed = menu_button.apply_to_rom(rom, dumpdir, log, any_rom)

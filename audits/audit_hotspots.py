@@ -213,19 +213,27 @@ RELETTERED = {
           (0, 108, 62, 118),                   # Dawning St -> Dawn Street
           (2, 133, 62, 162),                   # Dusk Waste Management -> Sundown Sanitation Plant
           (75, 143, 180, 172)],                # Prime Mall -> Day's End Mall, Rising Sun Park -> Mornington Park
+    # tools/plan_labels.py: the plans' titles, Workshop A and B, Corridor, and Maximum Security / Holding Cells /
+    # Office Area / Yard / Connecting Corridor on the point-at plans, each box round the old and the new label
+    36: [(7, 6, 78, 15), (86, 28, 144, 37), (154, 28, 212, 37), (80, 115, 122, 124), (204, 95, 247, 115)],
+    40: [(29, 6, 240, 15), (80, 20, 117, 40), (157, 62, 206, 71), (92, 120, 193, 131)],
+    78: [(7, 6, 78, 15), (86, 28, 144, 37), (154, 28, 212, 37), (80, 115, 122, 124)],
+    82: [(29, 6, 240, 15), (80, 20, 117, 40), (92, 120, 193, 131)],
 }
 
 
-def _only_inside(ours_img, fan_img, boxes):
-    """True if the two RGCN blobs differ only at pixels inside one of the boxes (raw 8bpp screen, 32 tiles wide)."""
+def _outside(ours_img, fan_img, boxes):
+    """The pixels (x, y) where the two RGCN blobs differ outside every box (raw 8bpp screen, 32 tiles wide);
+    None when the two pictures are not the same size."""
     import gfx_views
     a, b = gfx_views.raw_grid(ours_img), gfx_views.raw_grid(fan_img)
     if a.shape != b.shape:
-        return False
+        return None
     if boxes and isinstance(boxes[0], int):
         boxes = [boxes]
     ys, xs = (a != b).nonzero()
-    return all(any(x0 <= x < x1 and y0 <= y < y1 for x0, y0, x1, y1 in boxes) for y, x in zip(ys, xs))
+    return [(int(x), int(y)) for y, x in zip(ys, xs)
+            if not any(x0 <= x < x1 and y0 <= y < y1 for x0, y0, x1, y1 in boxes)]
 
 
 def check_picture_prompts(ours, fan, log):
@@ -236,17 +244,24 @@ def check_picture_prompts(ours, fan, log):
     fan_cut = txtcut.table(read_file(fan, 'com/cutdata.bin'))
     for local, slot in sorted(PICTURE_PROMPTS.items()):
         img_ok = ours_local[local] == fan_local[local] and ours_local[local + 1] == fan_local[local + 1]
-        note = ''
-        if not img_ok and local in RELETTERED and ours_local[local + 1] == fan_local[local + 1] \
-                and _only_inside(ours_local[local], fan_local[local], RELETTERED[local]):
-            img_ok, note = True, ' (re-lettered inside %s only)' % (RELETTERED[local],)
+        how = 'OK'
+        if not img_ok and local in RELETTERED and ours_local[local + 1] == fan_local[local + 1]:
+            # a picture the port re-letters on purpose: it may differ from the fan's only inside the boxes of the
+            # fixed table; the palette entry and the hit areas (cutdata) must not move at all
+            outside = _outside(ours_local[local], fan_local[local], RELETTERED[local])
+            if outside == []:
+                img_ok, how = True, 're-lettered inside %d label boxes only' % len(RELETTERED[local])
+            elif outside is None:
+                how = 'the picture changed size'
+            else:
+                how = '%d pixels changed outside the label boxes, e.g. %s' % (len(outside), outside[:3])
         cut_ok = ours_cut[slot] == fan_cut[slot]
         if not img_ok:
-            fail.append('local image %d changed from the fan\'s (image bytes)' % local)
+            fail.append('local image %d changed from the fan\'s (%s)' % (local, how))
         if not cut_ok:
             fail.append('cutdata slot %d (local image %d) changed from the fan\'s' % (slot, local))
         log('local %3d slot %2d: image %s, hitboxes %s' % (
-            local, slot, ('OK' if img_ok else 'CHANGED') + note, 'OK' if cut_ok else 'CHANGED'))
+            local, slot, how if img_ok else 'CHANGED', 'OK' if cut_ok else 'CHANGED'))
     return fail
 
 
