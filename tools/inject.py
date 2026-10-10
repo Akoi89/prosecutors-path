@@ -199,7 +199,7 @@ INDEX_ARGS = {          # code: argument positions (0-based) that are string ind
     # {E131}), none of which carries any of the six. Listing them costs
     # nothing now (0 rewrites, measured by a dry run of this function) and stops a
     # future re-cut of a Mind Chess or talk-hub entry from skewing them
-    # silently. Semantics (playtest/INDEXARGS6_FINDINGS.md): position 1 of
+    # silently. Semantics: position 1 of
     # {E200} is a 1-based row of bank 453 (the Mind Chess option text) and
     # of {E1FD}/{E20A} a 1-based row of bank 454 (the question text);
     # position 2 of all three is the string in THIS entry the pick jumps to.

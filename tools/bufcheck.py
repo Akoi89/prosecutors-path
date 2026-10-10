@@ -2,8 +2,9 @@
 """Build checks against fixed-buffer overflows, computed from the BUILT bytes.
 
 The port's data can outgrow a fixed buffer in the game without any visible
-error at build time. playtest/SOLVE_buffers.md traced every loader and text
-buffer in the engine; none overflows today, and checks a to e keep it that
+error at build time. A static trace of the DS program code (arm9 and all 46
+overlays) followed every loader and text buffer in the engine; none overflows
+today, and checks a to e keep it that
 way (f is the Logic keyword cards, g the bag model texture, h the room names, i the opening card,
 j the evidence icons, k the nameplates, l the marker letters, m the item pictures, n the menu button,
 o the Bigg Building pictures, p the map pieces and plans, q the nurse's cap, s the background signs).

@@ -10,7 +10,7 @@ lost 15 of the fan's 91 {E11C} commands and carry three {E11C:0} the fan never
 has (entries 22, 293 and 387). Each stray {E11C:0} leaves field taps off until
 the next {E11C:1}; each lost one leaves them live during a scripted scene.
 This module puts the fan's set back and nothing else: the fan's tap behaviour,
-no wording, no layout. Derivation and evidence: playtest/SOLVE_E11C.md.
+no wording, no layout. The derivation is a static read of the DS program code.
 
 HOW A SITE IS FIXED. E11C_SITES is a hard-coded table, one entry per
 (entry, row):
