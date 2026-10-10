@@ -22,10 +22,14 @@ import input_hashes as ih
 from choice_strips import Idlocal, rom_file
 
 
-def must_raise(name, fn):
+def must_raise(name, fn, expect):
+    """fn must raise; its message must contain `expect` (so a test meant for one guard cannot pass because another
+    guard fired first)."""
     try:
         fn()
     except (ml.MarkerError, SystemExit) as e:
+        if expect not in str(e):
+            raise SystemExit('FAILED: %s raised for another reason (wanted %r): %s' % (name, expect, e))
         print('  RAISED  %-52s %s' % (name, str(e)[:110]))
         return
     raise SystemExit('FAILED: %s was accepted' % name)
@@ -105,7 +109,7 @@ def main():
             shutil.copyfile(os.path.join(c, ml.NAMES[8] + '_eng.png'), os.path.join(c, ml.NAMES[2] + '_eng.png'))
             return d
         d = swapped()
-        must_raise('texture of entry 2 replaced by entry 8\'s', lambda: ml.apply_to_rom(fan, d))
+        must_raise('texture of entry 2 replaced by entry 8\'s', lambda: ml.apply_to_rom(fan, d), 'no piece found')
 
         def flipped():
             from PIL import Image
@@ -114,7 +118,7 @@ def main():
             Image.open(p).transpose(Image.FLIP_TOP_BOTTOM).save(p)
             return d
         d = flipped()
-        must_raise('texture of entry 22 upside down', lambda: ml.apply_to_rom(fan, d))
+        must_raise('texture of entry 22 upside down', lambda: ml.apply_to_rom(fan, d), 'the markers to change are')
 
         def blank():
             from PIL import Image
@@ -123,7 +127,7 @@ def main():
             Image.new('RGBA', (1440, 2880), (0, 0, 0, 0)).save(p)
             return d
         d = blank()
-        must_raise('texture of entry 16 blank', lambda: ml.apply_to_rom(fan, d))
+        must_raise('texture of entry 16 blank', lambda: ml.apply_to_rom(fan, d), 'the markers to change are')
 
         def small():
             from PIL import Image
@@ -132,14 +136,14 @@ def main():
             Image.open(p).resize((720, 1440)).save(p)
             return d
         d = small()
-        must_raise('texture of entry 20 at half size', lambda: ml.apply_to_rom(fan, d))
+        must_raise('texture of entry 20 at half size', lambda: ml.apply_to_rom(fan, d), 'expected 1440x2880')
 
         def nofile():
             d = copy_markers(dump, tmp + '/e')
             os.remove(os.path.join(ml.cache_dir(d), ml.NAMES[24] + '_cells.json'))
             return d
         d = nofile()
-        must_raise('cell list of entry 24 missing', lambda: ml.apply_to_rom(fan, d))
+        must_raise('cell list of entry 24 missing', lambda: ml.apply_to_rom(fan, d), 'is missing')
 
         def fewer():
             d = copy_markers(dump, tmp + '/f')
@@ -148,20 +152,22 @@ def main():
             json.dump(cells[:-1], open(p, 'w'))
             return d
         d = fewer()
-        must_raise('cell list of entry 22 has a cell fewer', lambda: ml.apply_to_rom(fan, d))
+        must_raise('cell list of entry 22 has a cell fewer', lambda: ml.apply_to_rom(fan, d), 'cell list has')
 
         def moved():
             d = copy_markers(dump, tmp + '/g')
             p = os.path.join(ml.cache_dir(d), ml.NAMES[22] + '_cells.json')
             cells = json.load(open(p))
-            for parts in cells:                      # every part that draws the B sprite loses its Capcom rectangle
+            done = False
+            for parts in cells:                      # one part that draws the B sprite loses its Capcom rectangle
                 for q in parts:
-                    if q['SrcX'] == 0 and q['SrcY'] == 0 and q['Width'] == 16:
-                        q['DestX'] += 1
+                    if q['SrcX'] == 0 and q['SrcY'] == 0 and q['Width'] == 16 and not done:
+                        q['DestX'], done = q['DestX'] + 1, True
             json.dump(cells, open(p, 'w'))
             return d
         d = moved()
-        must_raise('OBJs of the B sprite without a Capcom rectangle', lambda: ml.apply_to_rom(fan, d))
+        must_raise('an OBJ of the B sprite without a Capcom rectangle', lambda: ml.apply_to_rom(fan, d),
+                   'that have no Capcom rectangle')
 
         def shared():
             d = copy_markers(dump, tmp + '/h')
@@ -175,8 +181,9 @@ def main():
             json.dump(cells, open(p, 'w'))
             return d
         d = shared()
-        must_raise('the B tile drawn for two different Capcom rectangles', lambda: ml.apply_to_rom(fan, d))
-        must_raise('bundle folder without the textures', lambda: ml.apply_to_rom(fan, os.path.join(tmp, 'nothing')))
+        must_raise('the B tile drawn for two different Capcom rectangles', lambda: ml.apply_to_rom(fan, d),
+                   'different Capcom rectangles')
+        must_raise('bundle folder without the textures', lambda: ml.apply_to_rom(fan, os.path.join(tmp, 'nothing')), 'is missing')
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
         ih.GUARD_INPUTS = True
@@ -190,17 +197,18 @@ def main():
         im = np.asarray(Image.open(pth).convert('RGBA')).copy()
         im[2000, 700, 0] ^= 1
         Image.fromarray(im).save(pth)
-        must_raise('atlas of entry 24 with one value changed', lambda: ml.apply_to_rom(fan, d))
+        must_raise('atlas of entry 24 with one value changed', lambda: ml.apply_to_rom(fan, d), 'is not the Collection picture')
         d = copy_markers(dump, tmp + '/q')
         pth = os.path.join(ml.cache_dir(d), ml.NAMES[22] + '_cells.json')
         cells = json.load(open(pth))
         cells[0][0]['SrcX'] += 1
         json.dump(cells, open(pth, 'w'))
-        must_raise('cell list of entry 22 with one value changed', lambda: ml.apply_to_rom(fan, d))
+        must_raise('cell list of entry 22 with one value changed', lambda: ml.apply_to_rom(fan, d), 'is not the Collection picture')
         odd = bytearray(old_blob2)
         odd[-1] ^= 1
         from choice_strips import rebuild
-        must_raise('fan entry 2 with one byte changed', lambda: ml.patch_cutobj(rebuild(co, {2: bytes(odd)}, lz=(2,)), dump))
+        must_raise('fan entry 2 with one byte changed', lambda: ml.patch_cutobj(rebuild(co, {2: bytes(odd)}, lz=(2,)), dump),
+                   "is not the fan's")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -219,7 +227,8 @@ def main():
         shutil.rmtree(tmp, ignore_errors=True)
 
     # the glyph stage on its own: a letter that is not a letter
-    must_raise('glyph from an empty circle', lambda: ml.derive_glyph(np.zeros((111, 112)), dict(x=0, y=0, w=112, h=111), (0, 19, 4, 23)))
+    must_raise('glyph from an empty circle', lambda: ml.derive_glyph(np.zeros((111, 112)), dict(x=0, y=0, w=112, h=111), (0, 19, 4, 23)),
+               'no letter in the circle')
     print('all refusals raised, clean run passed')
 
 

@@ -44,10 +44,18 @@ jobs:
 
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          # numpy 2.5.2 (pinned below) needs Python 3.12 or newer; 3.13 matches the local builds
+          python-version: '3.13'
 
+      # Pinned to the versions the build was proven with: the build checks the sha256 of every Collection texture
+      # it decodes, so a decoder that decodes differently stops every user's build instead of drawing other pixels.
       - name: Install build dependencies
-        run: python -m pip install --upgrade pip pyinstaller UnityPy Pillow numpy
+        run: python -m pip install --upgrade pip pyinstaller UnityPy==1.25.3 texture2ddecoder==1.0.6 Pillow==12.2.0 numpy==2.5.2
+
+      # From source the self-test also proves every json in tools/ is in TOOLS_DATA and bundled by the
+      # PyInstaller line below; the frozen self-test after the build cannot see a file that was left out of both.
+      - name: Self-test from source
+        run: python tools/build.py --selftest
 
       - name: Build
         shell: bash

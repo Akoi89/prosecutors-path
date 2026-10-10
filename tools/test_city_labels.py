@@ -27,10 +27,14 @@ from nitro import nclr
 from choice_strips import Idlocal, rom_file
 
 
-def must_raise(name, fn):
+def must_raise(name, fn, expect):
+    """fn must raise; its message must contain `expect` (so a test meant for one guard cannot pass because another
+    guard fired first)."""
     try:
         fn()
     except (cl.CityError, bgd.GroundError, cp.PatchError, SystemExit) as e:
+        if expect not in str(e):
+            raise SystemExit('FAILED: %s raised for another reason (wanted %r): %s' % (name, expect, e))
         print('  RAISED  %-52s %s' % (name, str(e)[:110]))
         return
     raise SystemExit('FAILED: %s was accepted' % name)
@@ -119,56 +123,72 @@ def main():
     g = g0.copy()
     ys, xs = np.nonzero(g[28:52, 130:192] == 0)
     g[28 + ys[0], 130 + xs[0]] = 28
-    must_raise('city hall label with one ink pixel gone', lambda: cl.relabel_map(g, pal, e, face, V1, {}))
+    must_raise('city hall label with one ink pixel gone', lambda: cl.relabel_map(g, pal, e, face, V1, {}), 'ink pixels in')
     g = g0.copy()
     ys, xs = np.nonzero(g[56:78, 183:243] == 28)
     g[56 + ys[0], 183 + xs[0]] = 33
-    must_raise('a halo pixel of the old label is not the halo', lambda: cl.relabel_map(g, pal, e, face, V1, {}))
-    must_raise('map textures upside down', lambda: cl.relabel_map(g0, pal, e, face, V1[:, ::-1], {}))
-    must_raise('map textures shifted a pixel', lambda: cl.relabel_map(g0, pal, e, face, np.roll(V1, 8, axis=2), {}))
+    must_raise('a halo pixel of the old label is not the halo', lambda: cl.relabel_map(g, pal, e, face, V1, {}), 'are not the halo')
+    must_raise('map textures upside down', lambda: cl.relabel_map(g0, pal, e, face, V1[:, ::-1], {}), 'does not register')
+    must_raise('map textures shifted a pixel', lambda: cl.relabel_map(g0, pal, e, face, np.roll(V1, 8, axis=2), {}), 'does not register')
     f2 = bb.map_face_fixed()
     del f2.g['k']
-    must_raise('face without a k ("Daybreak")', lambda: cl.relabel_map(g0, pal, e, f2, V1, {}))
-    must_raise('picture of the wrong size', lambda: cl.relabel_map(g0[:190], pal, e, face, V1, {}))
+    must_raise('face without a k ("Daybreak")', lambda: cl.relabel_map(g0, pal, e, f2, V1, {}), "the face has no 'k'")
+    must_raise('picture of the wrong size', lambda: cl.relabel_map(g0[:190], pal, e, face, V1, {}), 'expected 192x256')
     # the patches
     fm = dict(fan_maps)
     g = fm[264].copy()
     ys, xs = np.nonzero(g[56:78, 183:243] == 0)
     g[56 + ys[0], 183 + xs[0]] = 28
     fm[264] = g
-    must_raise('patch label is not the map label (a map pixel moved)', lambda: cp.patch_cutobj(co, dump, face, ground, fm))
-    must_raise('map ground missing', lambda: cp.patch_cutobj(co, dump, face, {}, fan_maps))
+    must_raise('the fan map label under a patch with one ink pixel gone', lambda: cp.patch_cutobj(co, dump, face, ground, fm),
+               'ink pixels in')
+    fm = dict(fan_maps)
+    g = fm[264].copy()
+    L = [l for l in cl.MAP_LABELS if l['name'] == 'waste center'][0]
+    ink = cl._old_ink(g, L)
+    bx0, bx1, by0, by1 = L['box']
+    p = next((x, y) for (x, y) in sorted(ink) if bx0 < x < bx1 and by0 < y < by1)
+    q = next((x, y) for y in range(by0 + 1, by1) for x in range(bx0 + 1, bx1) if (x, y) not in ink)
+    g[p[1], p[0]], g[q[1], q[0]] = cl.HALO, cl.INK          # same ink count and box, one pixel moved
+    fm[264] = g
+    must_raise('patch label is not the map label (a map pixel moved)', lambda: cp.patch_cutobj(co, dump, face, ground, fm),
+               "the patch's old label is not the map's old label")
+    must_raise('map ground missing', lambda: cp.patch_cutobj(co, dump, face, {}, fan_maps), 'no map ground')
     # the cross-section band
     e = 244
     gr = gv.raw_grid(old.blob(e))
     g = gr.copy()
     g[100, 100] = 6
-    must_raise('room band with a stray pixel', lambda: cl.relabel_room(g, e, face, {}))
+    must_raise('room band with a stray pixel', lambda: cl.relabel_room(g, e, face, {}), 'is not flat')
     g = gr.copy()
     ys, xs = np.nonzero(g[86:102, 78:178] == 1)
     g[86 + ys[0], 78 + xs[0]] = 3
-    must_raise('room label with one ink pixel gone', lambda: cl.relabel_room(g, e, face, {}))
+    must_raise('room label with one ink pixel gone', lambda: cl.relabel_room(g, e, face, {}), 'ink pixels in')
     f3 = bb.map_face_fixed()
     del f3.g['C']
-    must_raise('face without a C ("Committee")', lambda: cl.relabel_room(gr, e, f3, {}))
+    must_raise('face without a C ("Committee")', lambda: cl.relabel_room(gr, e, f3, {}), "the face has no 'C'")
     # the strip
     f4 = bb.faces_for(rn.Source(Idlocal(fan_id)))['strip']
     del f4.g['p']
-    must_raise('strip face without a p (no b)', lambda: cl.strip_face(f4))
+    must_raise('strip face without a p (no b)', lambda: cl.strip_face(f4), "the strip face has no 'p'")
     # the hash guards on what the step reads
     from choice_strips import rebuild
     odd = bytearray(old.blob(264))
     odd[-1] ^= 1
-    must_raise('upcut_local 264 is not what step 7d leaves', lambda: cl.patch_upcut(rebuild(up, {264: bytes(odd)}, lz=(264,)), fan_up, dump, face, V))
+    must_raise('upcut_local 264 is not what step 7d leaves', lambda: cl.patch_upcut(rebuild(up, {264: bytes(odd)}, lz=(264,)), fan_up, dump, face, V),
+               'is not what the Bigg Building step leaves')
     odd = bytearray(Idlocal(fan_up).blob(280))
     odd[-1] ^= 1
-    must_raise("the fan's upcut_local 280 changed", lambda: cl.patch_upcut(up, rebuild(fan_up, {280: bytes(odd)}, lz=(280,)), dump, face, V))
+    must_raise("the fan's upcut_local 280 changed", lambda: cl.patch_upcut(up, rebuild(fan_up, {280: bytes(odd)}, lz=(280,)), dump, face, V),
+               'is not the one this routine was proven on')
     odd = bytearray(Idlocal(idb).blob(328))
     odd[-1] ^= 1
-    must_raise('idlocal 328 is not what step 7d leaves', lambda: cl.patch_idlocal(rebuild(idb, {328: bytes(odd)}, lz=(328,)), fan_id))
+    must_raise('idlocal 328 is not what step 7d leaves', lambda: cl.patch_idlocal(rebuild(idb, {328: bytes(odd)}, lz=(328,)), fan_id),
+               'is not what the Bigg Building step leaves')
     odd = bytearray(Idlocal(co).blob(18))
     odd[-1] ^= 1
-    must_raise("cutobj_local 18 is not the fan's", lambda: cp.patch_cutobj(rebuild(co, {18: bytes(odd)}, lz=(18,)), dump, face, ground, fan_maps))
+    must_raise("cutobj_local 18 is not the fan's", lambda: cp.patch_cutobj(rebuild(co, {18: bytes(odd)}, lz=(18,)), dump, face, ground, fan_maps),
+               "is not the fan's")
     tmp = tempfile.mkdtemp(prefix='city_test_')
     try:
         from PIL import Image
@@ -178,14 +198,14 @@ def main():
         im = np.asarray(Image.open(pth).convert('RGB')).copy()
         im[500, 900, 1] ^= 1
         Image.fromarray(im).save(pth)
-        must_raise('a map texture with one value changed', lambda: bgd.load_textures(d0, 2))
+        must_raise('a map texture with one value changed', lambda: bgd.load_textures(d0, 2), 'is not the Collection picture')
         d = os.path.join(tmp, 'dump')
         shutil.copytree(os.path.join(dump, 'title', 'bigg_map'), os.path.join(d, 'title', 'bigg_map'))
         os.remove(os.path.join(d, 'title', 'bigg_map', 'cut04_010_fre.png'))
         os.makedirs(os.path.join(d, 'ds_fan', 'jpn'))
         shutil.copy(os.path.join(dump, 'ds_fan', 'jpn', 'upcut_local.bin'), os.path.join(d, 'ds_fan', 'jpn'))
         shutil.copy(os.path.join(dump, 'ds_fan', 'jpn', 'idlocal.bin'), os.path.join(d, 'ds_fan', 'jpn'))
-        must_raise('one language texture missing', lambda: cl.apply_to_rom(rom, d))
+        must_raise('one language texture missing', lambda: cl.apply_to_rom(rom, d), 'is missing')
         r2, changed = cl.apply_to_rom(rom, d, any_rom=True)
         if changed or r2 != rom:
             raise SystemExit('FAILED: --any-rom changed the ROM')

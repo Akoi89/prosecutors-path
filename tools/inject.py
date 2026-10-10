@@ -231,10 +231,12 @@ for _code, _positions in DS_VALUE_ARGS.items():
     if not all(p < ARGS[_code] for p in _positions):
         raise ValueError('DS_VALUE_ARGS entry %s: position out of range' % (_code,))
 
-# The camera/character position/pose family: six commands whose ARGUMENTS are
+# The camera/character position/pose family: eight commands whose ARGUMENTS are
 # DS screen coordinates or animation choices, not indices - {E13A} place
 # character, {E13B} slide character over time, {E16F} move character, {E114}
-# walk character, {E15B} camera, {E150} pose (<char><anim>). The Collection
+# walk character, {E15B} camera, {E150} pose (<char><anim>), and {E14A} start
+# an action on a character / {E14B} wait for it, the companions of a walk-in
+# (see the note at STAGING_CODES below). The Collection
 # re-tuned every one of these for its own screen and cast; the fan ROM (AAI2
 # Final v2) keeps the DS originals, which are the values right for the DS
 # engine, same reasoning as DS_VALUE_ARGS above but for a whole command family
@@ -246,8 +248,9 @@ for _code, _positions in DS_VALUE_ARGS.items():
 # in the Collection rather than as on the DS; traced to spt entry 125, where
 # the fan carries about sixteen {E150} pose commands for three characters
 # that ours lacked entirely. Measured whole-game with dedicated scanning
-# tools (not part of this repo): 73 strings in 53 entries differ from the
-# fan in the five position/camera codes, and {E150} differs from the
+# tools (not part of this repo), before {E14A}/{E14B} joined the table: 73
+# strings in 53 entries differ from the fan in the five position/camera codes
+# ({E13A} {E13B} {E16F} {E114} {E15B}), and {E150} differs from the
 # fan in a further 8 strings in 5 entries; most differ only in argument
 # values, some are STRUCTURAL (the Collection added or dropped a command in
 # the sequence). See _restore_staging below, which restores the fan's
@@ -545,7 +548,7 @@ def _restore_staging(conv, ds):
     twice then char 32 twice, all four {E13A} in the SAME box, where ours had
     one of each; aligning on code alone matched (5, 32) to the fan's (5, 5)
     and put char 32's pair in the wrong box). The alignment KEY is (code,
-    character id) for the five character commands and (code,) alone for
+    character id) for the seven character commands and (code,) alone for
     {E15B} (camera, no character) - _staging_key above.
 
     Before alignment, both occurrence lists are DEDUPED (_dedupe): the fan

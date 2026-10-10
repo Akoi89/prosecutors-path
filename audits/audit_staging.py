@@ -2,10 +2,11 @@
 """Does every string's camera/character-position/pose command sequence still
 match the fan's, in the same message box?
 
-Six DS engine commands set camera, character position and pose: {E13A} place
+Eight DS engine commands set camera, character position and pose: {E13A} place
 character, {E13B} slide character over time, {E16F} move character, {E114}
-walk character, {E15B} camera, {E150} pose (STAGING_CODES, imported from
-tools/inject.py so this audit and the fix can never drift apart). Their
+walk character, {E15B} camera, {E150} pose, and {E14A} start an action on a
+character / {E14B} wait for it, the companions of a walk-in (STAGING_CODES,
+imported from tools/inject.py so this audit and the fix can never drift apart). Their
 arguments are DS screen coordinates or animation choices, not translated
 content, and the Collection re-tuned every one of them for its own screen and
 cast; the fan ROM (AAI2 Final v2) carries the DS originals, which are the

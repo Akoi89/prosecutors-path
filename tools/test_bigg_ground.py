@@ -19,10 +19,14 @@ from choice_strips import Idlocal, rom_file
 from nitro import nclr
 
 
-def must_raise(name, fn):
+def must_raise(name, fn, expect):
+    """fn must raise; its message must contain `expect` (so a test meant for one guard cannot pass because another
+    guard fired first)."""
     try:
         fn()
     except bgd.GroundError as e:
+        if expect not in str(e):
+            raise SystemExit('FAILED: %s raised for another reason (wanted %r): %s' % (name, expect, e))
         print('  RAISED  %-40s %s' % (name, str(e)[:100]))
         return
     raise SystemExit('FAILED: %s was accepted' % name)
@@ -61,18 +65,25 @@ def main():
     keep = mask.copy()
     # negative tests: nothing derived from a texture set that does not register
     flipped = V[:, ::-1].copy()
-    must_raise('textures upside down', lambda: bgd.derive(g, pal, mask, keep, textures_=flipped))
+    must_raise('textures upside down', lambda: bgd.derive(g, pal, mask, keep, textures_=flipped),
+               'the block edge line under the driveway was not found')
+    must_raise('textures upside down, arch step off', lambda: bgd.derive(g, pal, mask, keep, textures_=flipped, use_arch=False),
+               'does not register')
     moved = np.roll(V, 17, axis=2)
-    must_raise('textures moved 17 px sideways', lambda: bgd.derive(g, pal, mask, keep, textures_=moved))
+    must_raise('textures moved 17 px sideways', lambda: bgd.derive(g, pal, mask, keep, textures_=moved),
+               'the ring does not fit the road edge lines')
+    must_raise('textures moved 17 px sideways, arch step off', lambda: bgd.derive(g, pal, mask, keep, textures_=moved, use_arch=False),
+               'does not register')
     moved2 = np.roll(V, 23, axis=1)
-    must_raise('textures moved 23 px down', lambda: bgd.derive(g, pal, mask, keep, textures_=moved2))
+    must_raise('textures moved 23 px down', lambda: bgd.derive(g, pal, mask, keep, textures_=moved2), 'does not register')
     blank = np.full_like(V, 200)
-    must_raise('textures blank', lambda: bgd.derive(g, pal, mask, keep, textures_=blank))
+    must_raise('textures blank', lambda: bgd.derive(g, pal, mask, keep, textures_=blank),
+               'the block edge line under the driveway was not found')
     tmp = os.path.join(dump, 'title', 'bigg_map', bgd.textures()[2] + '.png')
     keep_name = tmp + '.moved'
     os.rename(tmp, keep_name)
     try:
-        must_raise('one language missing', lambda: bgd.load_textures(dump))
+        must_raise('one language missing', lambda: bgd.load_textures(dump), 'is missing')
     finally:
         os.rename(keep_name, tmp)
     print('all negative tests raised, derivation deterministic')

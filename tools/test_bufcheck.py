@@ -39,13 +39,13 @@ def swap_entry(spt, i, new):
     return build_archive(ents)
 
 
-def must_raise(name, fn, expect=None):
-    """fn must raise BufCheckError; with `expect`, its message must contain that text (so a test meant for one check cannot
-    pass because another check fired first)."""
+def must_raise(name, fn, expect):
+    """fn must raise BufCheckError whose message contains `expect` (so a test meant for one check cannot pass because
+    another check fired first)."""
     try:
         fn()
     except BufCheckError as e:
-        if expect is not None and expect not in str(e):
+        if expect not in str(e):
             raise SystemExit('FAILED: %s raised for another reason (wanted %r): %s' % (name, expect, e))
         print('  RAISED  %-46s %s' % (name, e))
         return
@@ -78,11 +78,11 @@ def main(rom_path, dumpdir='dump'):
     e = bytearray(ents[5])
     h = struct.unpack_from('<H', e, 8)[0]
     struct.pack_into('<H', e, 8, 0x1000)                      # header hint of entry 5 -> 0x1000
-    must_raise('entry 5 header longest %d -> 4096' % h, lambda: bufcheck.check_blobs(swap_entry(spt, 5, bytes(e)), idl, cut, fan))
+    must_raise('entry 5 header longest %d -> 4096' % h, lambda: bufcheck.check_blobs(swap_entry(spt, 5, bytes(e)), idl, cut, fan), expect='over the 0x2000 script buffer')
     e = bytearray(ents[7])
     ncnt = struct.unpack_from('<H', e, 6)[0]
     struct.pack_into('<H', e, 0xC + 8 * (ncnt - 1) + 2, 0x0FFF)   # last row's length in the row table
-    must_raise('entry 7 last row length -> 4095 (hint stays)', lambda: bufcheck.check_blobs(swap_entry(spt, 7, bytes(e)), idl, cut, fan))
+    must_raise('entry 7 last row length -> 4095 (hint stays)', lambda: bufcheck.check_blobs(swap_entry(spt, 7, bytes(e)), idl, cut, fan), expect='over the 0x2000 script buffer')
     e = bytearray(ents[342])                                   # the exemption itself must still pass
     struct.pack_into('<H', e, 8, 4059)
     bufcheck.check_blobs(swap_entry(spt, 342, bytes(e)), idl, cut, fan)
@@ -94,7 +94,7 @@ def main(rom_path, dumpdir='dump'):
         return u[:i + 1 + bufcheck.ARITY.get(u[i], 0)] + [0x41] * n + u[i + 1 + bufcheck.ARITY.get(u[i], 0):]
     src = ents[76]
     m = replace_row(src, 4, add_box_units)
-    must_raise('entry 76 row 4: 250 units added to a box', lambda: bufcheck.check_blobs(swap_entry(spt, 76, m), idl, cut, fan))
+    must_raise('entry 76 row 4: 250 units added to a box', lambda: bufcheck.check_blobs(swap_entry(spt, 76, m), idl, cut, fan), expect='over the 200 limit')
 
     loose = replace_row(ents[76], 4, lambda u: u + [0xE102] + [0x41] * 500)
     print('  b2. a 500-unit loose run after a close code is reported, not failed:')
@@ -103,7 +103,7 @@ def main(rom_path, dumpdir='dump'):
     print('c. exam rows')
     for i, r in ((453, 629), (458, 21)):
         m = replace_row(ents[i], r, lambda u: [0x41] * 64)
-        must_raise('entry %d row %d: 64 plain units' % (i, r), lambda: bufcheck.check_blobs(swap_entry(spt, i, m), idl, cut, fan))
+        must_raise('entry %d row %d: 64 plain units' % (i, r), lambda: bufcheck.check_blobs(swap_entry(spt, i, m), idl, cut, fan), expect='over the 63 limit')
     m = replace_row(ents[453], 629, lambda u: [0x41] * 63)
     bufcheck.check_blobs(swap_entry(spt, 453, m), idl, cut, fan)
     print('  PASSED  entry 453 row 629 with exactly 63 plain units')
@@ -112,25 +112,25 @@ def main(rom_path, dumpdir='dump'):
     t = bufcheck._table(idl)
     bad = bytearray(idl)
     struct.pack_into('<I', bad, 100 * 8 + 4, (t[100][1] & 0x80000000) | ((t[100][1] & 0x7FFFFFFF) + 4))
-    must_raise('entry 100 table size +4', lambda: bufcheck.check_blobs(spt, bytes(bad), cut, fan))
+    must_raise('entry 100 table size +4', lambda: bufcheck.check_blobs(spt, bytes(bad), cut, fan), expect='stream declares')
     bad = bytearray(idl)
     o = t[100][0]
     bad[o + 1:o + 4] = ((t[100][1] & 0x7FFFFFFF) + 4).to_bytes(3, 'little')
-    must_raise('entry 100 stream header size +4 (table kept)', lambda: bufcheck.check_blobs(spt, bytes(bad), cut, fan))
+    must_raise('entry 100 stream header size +4 (table kept)', lambda: bufcheck.check_blobs(spt, bytes(bad), cut, fan), expect='stream declares')
     bad = bytearray(idl)
     o = t[25][0]
     bad[o + 1:o + 4] = ((t[25][1] & 0x7FFFFFFF) + 4).to_bytes(3, 'little')
     struct.pack_into('<I', bad, 25 * 8 + 4, 0x80000000 | ((t[25][1] & 0x7FFFFFFF) + 4))
-    must_raise('entry 25 table and header +4 (stream too short)', lambda: bufcheck.check_blobs(spt, bytes(bad), cut, fan))
+    must_raise('entry 25 table and header +4 (stream too short)', lambda: bufcheck.check_blobs(spt, bytes(bad), cut, fan), expect='does not decode')
     bad = bytearray(idl)                                      # reaches the size-against-fan branch
     struct.pack_into('<I', bad, 100 * 8 + 4, (t[100][1] & 0x80000000) | ((t[100][1] & 0x7FFFFFFF) + 4))
     o = t[100][0]
     bad[o + 1:o + 4] = ((t[100][1] & 0x7FFFFFFF) + 4).to_bytes(3, 'little')
-    must_raise('entry 100 table and header both +4 (vs fan)', lambda: bufcheck.check_blobs(spt, bytes(bad), cut, fan))
+    must_raise('entry 100 table and header both +4 (vs fan)', lambda: bufcheck.check_blobs(spt, bytes(bad), cut, fan), expect="bytes, the fan's to")
     from choice_strips import rebuild, Idlocal                          # entry 25 back to literal-only storage
     lit = rebuild(idl, {25: Idlocal(idl).blob(25)})
-    must_raise('entry 25 stored literal-only', lambda: bufcheck.check_blobs(spt, lit, cut, fan))
-    must_raise('idlocal one entry short', lambda: bufcheck.check_idlocal(idl[:0] + struct.pack('<I', 8 * (len(t) - 1)) + idl[4:(len(t) - 1) * 8] + idl[len(t) * 8:], fan))
+    must_raise('entry 25 stored literal-only', lambda: bufcheck.check_blobs(spt, lit, cut, fan), expect='over the 16384 limit')
+    must_raise('idlocal one entry short', lambda: bufcheck.check_idlocal(idl[:0] + struct.pack('<I', 8 * (len(t) - 1)) + idl[4:(len(t) - 1) * 8] + idl[len(t) * 8:], fan), expect='entries, the fan has')
 
     print('d2. Promise Notebook title strip (idlocal entry 172, real LZ11 bound by its literal-only size)')
     ext172 = bufcheck._extents(t, len(idl))[172]
@@ -150,13 +150,13 @@ def main(rom_path, dumpdir='dump'):
             if tt[j][0] >= ex[e][1]:
                 struct.pack_into('<I', out, j * 8, tt[j][0] + k)
         return bytes(out)
-    must_raise('entry 172 literal-only plus 8 bytes (over its bound)', lambda: bufcheck.check_idlocal(grow(lit172, 172, 8), fan))
+    must_raise('entry 172 literal-only plus 8 bytes (over its bound)', lambda: bufcheck.check_idlocal(grow(lit172, 172, 8), fan), expect='of its literal-only form')
     bad = bytearray(idl)
     struct.pack_into('<I', bad, 172 * 8 + 4, t[172][1] & 0x7FFFFFFF)
-    must_raise('entry 172 no longer flagged as an LZ11 stream', lambda: bufcheck.check_idlocal(bytes(bad), fan))
+    must_raise('entry 172 no longer flagged as an LZ11 stream', lambda: bufcheck.check_idlocal(bytes(bad), fan), expect='expected to be an LZ11 stream')
     short = bytearray(idl)
     short[ext172[0] + 40:ext172[1]] = bytes(ext172[1] - ext172[0] - 40)
-    must_raise('entry 172 stream cut short (does not decode to its size)', lambda: bufcheck.check_idlocal(bytes(short), fan))
+    must_raise('entry 172 stream cut short (does not decode to its size)', lambda: bufcheck.check_idlocal(bytes(short), fan), expect='does not decode')
 
     print('e. cutdata slot 47')
     tc = bufcheck._table(cut)
@@ -165,9 +165,9 @@ def main(rom_path, dumpdir='dump'):
     blob = bytearray(lz11.decompress(cut[o:live[0]]))
     b17 = bytearray(blob)
     struct.pack_into('<H', b17, 4, 17)
-    must_raise('slot 47 records 2 -> 17', lambda: bufcheck.check_blobs(spt, idl, cut_with(cut, bytes(b17)), fan))
+    must_raise('slot 47 records 2 -> 17', lambda: bufcheck.check_blobs(spt, idl, cut_with(cut, bytes(b17)), fan), expect='over the 16-entry array')
     big = bytes(blob) + bytes(1700 - len(blob))
-    must_raise('slot 47 decoded size %d -> 1700' % len(blob), lambda: bufcheck.check_blobs(spt, idl, cut_with(cut, big), fan))
+    must_raise('slot 47 decoded size %d -> 1700' % len(blob), lambda: bufcheck.check_blobs(spt, idl, cut_with(cut, big), fan), expect="the fan's largest slot has")
     b16 = bytearray(blob)
     struct.pack_into('<H', b16, 4, 16)
     b16 = bytes(b16) + bytes(1604 - len(b16))
@@ -190,23 +190,23 @@ def main(rom_path, dumpdir='dump'):
         return bytes(out)
 
     print('  fan file as built (fan cards kept whole pass):', bufcheck.check_logic_cards(fan_l, fan_l))
-    must_raise('a card with no fan counterpart', lambda: bufcheck.check_logic_cards(_swap(built, 242, L.table(fan_l)[242]), fan_l))
+    must_raise('a card with no fan counterpart', lambda: bufcheck.check_logic_cards(_swap(built, 242, L.table(fan_l)[242]), fan_l), expect='has no fan card')
     parts = L.sub_split(L.table(built)[244])
     g = bytearray(parts[2])
     fg = L.sub_split(L.table(fan_l)[244])[2]
     g[0x530:0x630] = fg[0x530:0x630]
     parts[2] = bytes(g)
-    must_raise('card 244 rewritten but the fan tail bytes put back', lambda: bufcheck.check_logic_cards(_swap(built, 244, L.sub_join(parts)), fan_l))
+    must_raise('card 244 rewritten but the fan tail bytes put back', lambda: bufcheck.check_logic_cards(_swap(built, 244, L.sub_join(parts)), fan_l), expect='are still the fan tail')
     parts = L.sub_split(L.table(built)[243])
     parts[2] = parts[2][:0x30 + 1280]
-    must_raise('card 243 RGCN part cut to 1280 tile bytes (OBJs reach 1536)', lambda: bufcheck.check_logic_cards(_swap(built, 243, L.sub_join(parts)), fan_l))
+    must_raise('card 243 RGCN part cut to 1280 tile bytes (OBJs reach 1536)', lambda: bufcheck.check_logic_cards(_swap(built, 243, L.sub_join(parts)), fan_l), expect='but the RGCN part holds only')
     print('  sizes and names of the rewritten cards (clean):', bufcheck.check_logic_sizes(built, fan_l),
           'rewritten,', bufcheck.check_logic_names(built, fan_l), 'punctuation-matched cards named')
     from title_text import repack
     from title_version import _store
     tb = L.table(built)
     must_raise('card 41 decodes 4 bytes longer than the fan card',
-               lambda: bufcheck.check_logic_sizes(repack(built, {41: tb[41] + bytes(4)}), fan_l))
+               lambda: bufcheck.check_logic_sizes(repack(built, {41: tb[41] + bytes(4)}), fan_l), expect='the fan card to')
     pt = bufcheck._table(built)
     ext = bufcheck._extents(pt, len(built))
 
@@ -226,18 +226,18 @@ def main(rom_path, dumpdir='dump'):
         return bytes(table + body)
 
     must_raise('card 41 stored raw, the fan card compressed',
-               lambda: bufcheck.check_logic_sizes(_relay(41, tb[41], len(tb[41])), fan_l))
+               lambda: bufcheck.check_logic_sizes(_relay(41, tb[41], len(tb[41])), fan_l), expect='is stored raw, the fan card compressed')
     must_raise('card 41 stored 64 bytes over the literal-only form',
-               lambda: bufcheck.check_logic_sizes(_relay(41, _store(tb[41]) + bytes(64), pt[41][1]), fan_l))
+               lambda: bufcheck.check_logic_sizes(_relay(41, _store(tb[41]) + bytes(64), pt[41][1]), fan_l), expect='the literal-only form needs')
     boundary = bufcheck.check_logic_sizes(_relay(41, _store(tb[41]), pt[41][1]), fan_l)
     print('  PASSED  card 41 re-laid out at the literal-only size (%d rewritten)' % boundary)
     bad = bytearray(built)
     struct.pack_into('<II', bad, 41 * 8, pt[41][0], (pt[41][1] & 0x80000000) | (pt[41][1] & 0x7FFFFFFF) + 4)
-    must_raise('card 41 table size field +4', lambda: bufcheck.check_logic_sizes(bytes(bad), fan_l))
+    must_raise('card 41 table size field +4', lambda: bufcheck.check_logic_sizes(bytes(bad), fan_l), expect='table size field')
     for e in (41, 175, 61, 255):
         must_raise('card %d put back to the fan drawing (a name that stopped matching)' % e,
-                   lambda e=e: bufcheck.check_logic_names(repack(built, {e: L.table(fan_l)[e]}), fan_l))
-    must_raise('the fan file as built has none of the six named', lambda: bufcheck.check_logic_names(fan_l, fan_l))
+                   lambda e=e: bufcheck.check_logic_names(repack(built, {e: L.table(fan_l)[e]}), fan_l), expect='still has the fan drawing')
+    must_raise('the fan file as built has none of the six named', lambda: bufcheck.check_logic_names(fan_l, fan_l), expect='still has the fan drawing')
     print('g. bag model texture (jpn/modelitemlocal.bin entry 1)')
     from choice_strips import rebuild
     built_m = bufcheck.rom_file(rom, 'jpn/modelitemlocal.bin')
@@ -247,19 +247,19 @@ def main(rom_path, dumpdir='dump'):
     tm = bufcheck._table(fan_m)
     blob1 = lz11.decompress(fan_m[tm[1][0]:bufcheck._extents(tm, len(fan_m))[1][1]])
     must_raise('entry 1 stored literal-only (bigger than the fan\'s)',
-               lambda: bufcheck.check_model_item(rebuild(fan_m, {1: blob1}), fan_m))
+               lambda: bufcheck.check_model_item(rebuild(fan_m, {1: blob1}), fan_m), expect="over the fan's")
     must_raise('entry 1 decoded one byte longer',
-               lambda: bufcheck.check_model_item(rebuild(fan_m, {1: blob1 + b'\0'}, lz=(1,)), fan_m))
+               lambda: bufcheck.check_model_item(rebuild(fan_m, {1: blob1 + b'\0'}, lz=(1,)), fan_m), expect='table field')
     bad = bytearray(blob1)
     bad[0:4] = b'XXXX'
-    must_raise('entry 1 no longer a BTX0', lambda: bufcheck.check_model_item(rebuild(fan_m, {1: bytes(bad)}, lz=(1,)), fan_m))
+    must_raise('entry 1 no longer a BTX0', lambda: bufcheck.check_model_item(rebuild(fan_m, {1: bytes(bad)}, lz=(1,)), fan_m), expect='is not a BTX0')
     blob0 = lz11.decompress(fan_m[tm[0][0]:bufcheck._extents(tm, len(fan_m))[0][1]])
-    must_raise('entry 0 changed', lambda: bufcheck.check_model_item(rebuild(fan_m, {0: blob0[:-1] + b'\x01'}, lz=(0,)), fan_m))
+    must_raise('entry 0 changed', lambda: bufcheck.check_model_item(rebuild(fan_m, {0: blob0[:-1] + b'\x01'}, lz=(0,)), fan_m), expect="is not the fan's bytes")
     bad = bytearray(fan_m)
     struct.pack_into('<I', bad, 8 + 4, tm[1][1] + 4)
-    must_raise('entry 1 table size +4', lambda: bufcheck.check_model_item(bytes(bad), fan_m))
+    must_raise('entry 1 table size +4', lambda: bufcheck.check_model_item(bytes(bad), fan_m), expect='table field')
     must_raise('one entry short', lambda: bufcheck.check_model_item(
-        struct.pack('<I', 8 * (len(tm) - 1)) + fan_m[4:(len(tm) - 1) * 8] + fan_m[len(tm) * 8:], fan_m))
+        struct.pack('<I', 8 * (len(tm) - 1)) + fan_m[4:(len(tm) - 1) * 8] + fan_m[len(tm) * 8:], fan_m), expect='entries, the fan has')
     print('h. room names (jpn/idlocal.bin 321 324 327, jpn/cutobj_local.bin 10)')
     from choice_strips import Idlocal
     built_i = bufcheck.rom_file(rom, 'jpn/idlocal.bin')
@@ -271,26 +271,26 @@ def main(rom_path, dumpdir='dump'):
     for e in bufcheck.ROOM_IDLOCAL:
         raw = bi.blob(e)
         must_raise('idlocal %d stored literal-only (bigger than the fan\'s)' % e,
-                   lambda: bufcheck.check_rooms(rebuild(built_i, {e: raw}), fan, built_c, fan_c))
+                   lambda: bufcheck.check_rooms(rebuild(built_i, {e: raw}), fan, built_c, fan_c), expect="over the fan's")
         must_raise('idlocal %d decoded one byte longer' % e,
-                   lambda: bufcheck.check_rooms(rebuild(built_i, {e: raw + b'\0'}, lz=(e,)), fan, built_c, fan_c))
+                   lambda: bufcheck.check_rooms(rebuild(built_i, {e: raw + b'\0'}, lz=(e,)), fan, built_c, fan_c), expect='table field')
     bad = bytearray(built_i)
     ti = bufcheck._table(built_i)
     struct.pack_into('<I', bad, 321 * 8 + 4, ti[321][1] & 0x7FFFFFFF)      # compressed flag cleared
-    must_raise('idlocal 321 table says stored raw', lambda: bufcheck.check_rooms(bytes(bad), fan, built_c, fan_c))
+    must_raise('idlocal 321 table says stored raw', lambda: bufcheck.check_rooms(bytes(bad), fan, built_c, fan_c), expect='table field')
     raw = ci.blob(bufcheck.ROOM_CUTOBJ)
-    must_raise('cutobj_local 10 stored literal-only', lambda: bufcheck.check_rooms(built_i, fan, rebuild(built_c, {10: raw}), fan_c))
+    must_raise('cutobj_local 10 stored literal-only', lambda: bufcheck.check_rooms(built_i, fan, rebuild(built_c, {10: raw}), fan_c), expect="over the fan's")
     must_raise('cutobj_local 10 decoded one byte longer',
-               lambda: bufcheck.check_rooms(built_i, fan, rebuild(built_c, {10: raw + b'\0'}, lz=(10,)), fan_c))
+               lambda: bufcheck.check_rooms(built_i, fan, rebuild(built_c, {10: raw + b'\0'}, lz=(10,)), fan_c), expect='table field')
     tcc = bufcheck._table(built_c)
     other = ci.blob(0)
     must_raise('cutobj_local entry 0 changed',
-               lambda: bufcheck.check_rooms(built_i, fan, rebuild(built_c, {0: other[:-1] + bytes([other[-1] ^ 1])}, lz=(0,)), fan_c))
+               lambda: bufcheck.check_rooms(built_i, fan, rebuild(built_c, {0: other[:-1] + bytes([other[-1] ^ 1])}, lz=(0,)), fan_c), expect="is not the fan's bytes")
     bad = bytearray(built_c)
     struct.pack_into('<I', bad, 10 * 8 + 4, tcc[10][1] + 4)
-    must_raise('cutobj_local 10 table size +4', lambda: bufcheck.check_rooms(built_i, fan, bytes(bad), fan_c))
+    must_raise('cutobj_local 10 table size +4', lambda: bufcheck.check_rooms(built_i, fan, bytes(bad), fan_c), expect='table field')
     must_raise('cutobj_local one entry short', lambda: bufcheck.check_rooms(
-        built_i, fan, struct.pack('<I', 8 * (len(tcc) - 1)) + built_c[4:(len(tcc) - 1) * 8] + built_c[len(tcc) * 8:], fan_c))
+        built_i, fan, struct.pack('<I', 8 * (len(tcc) - 1)) + built_c[4:(len(tcc) - 1) * 8] + built_c[len(tcc) * 8:], fan_c), expect='entries, the fan has')
     print('i. opening card (jpn/opening_local.bin entries 13/14)')
     import opening_card as oc
     built_o = bufcheck.rom_file(rom, 'jpn/opening_local.bin')
@@ -316,30 +316,30 @@ def main(rom_path, dumpdir='dump'):
                 struct.pack_into('<I', out, i * 8, o + shift)
         return bytes(out)
 
-    must_raise('entry 13 stored literal-only (%d bytes, fan %d)' % (len(lit), fan_s13), lambda: bufcheck.check_opening_card(with13(bytes(lit)), fan_o))
+    must_raise('entry 13 stored literal-only (%d bytes, fan %d)' % (len(lit), fan_s13), lambda: bufcheck.check_opening_card(with13(bytes(lit)), fan_o), expect="over the fan's")
     real = lz11.compress(g13)
     print('  entry 13 padded to exactly the fan\'s stored size passes:',
           bufcheck.check_opening_card(with13(real + bytes(fan_s13 - len(real))), fan_o))
     must_raise('entry 13 one byte over the fan\'s stored size',
-               lambda: bufcheck.check_opening_card(with13(real + bytes(fan_s13 - len(real) + 1)), fan_o))
+               lambda: bufcheck.check_opening_card(with13(real + bytes(fan_s13 - len(real) + 1)), fan_o), expect="over the fan's")
     must_raise('entry 13 decoded one byte longer', lambda: bufcheck.check_opening_card(
-        oc.rebuild(built_o, {13: g13 + b'\0'}, lz=(13,)), fan_o))
+        oc.rebuild(built_o, {13: g13 + b'\0'}, lz=(13,)), fan_o), expect='table field')
     bad = bytearray(g13)
     bad[0:4] = b'XXXX'
-    must_raise('entry 13 no longer an RGCN', lambda: bufcheck.check_opening_card(oc.rebuild(built_o, {13: bytes(bad)}, lz=(13,)), fan_o))
-    must_raise('entry 13 stored uncompressed', lambda: bufcheck.check_opening_card(oc.rebuild(built_o, {13: g13}), fan_o))
+    must_raise('entry 13 no longer an RGCN', lambda: bufcheck.check_opening_card(oc.rebuild(built_o, {13: bytes(bad)}, lz=(13,)), fan_o), expect='is not an RGCN')
+    must_raise('entry 13 stored uncompressed', lambda: bufcheck.check_opening_card(oc.rebuild(built_o, {13: g13}), fan_o), expect='table field')
     p14 = oc.entry(built_o, 14)[0]
-    must_raise('entry 14 stored as LZ11', lambda: bufcheck.check_opening_card(oc.rebuild(built_o, {14: p14}, lz=(14,)), fan_o))
+    must_raise('entry 14 stored as LZ11', lambda: bufcheck.check_opening_card(oc.rebuild(built_o, {14: p14}, lz=(14,)), fan_o), expect='table field')
     c12 = bytearray(oc.entry(built_o, 12)[0])
     c12[-1] ^= 1
-    must_raise('entry 12 (cells) changed', lambda: bufcheck.check_opening_card(oc.rebuild(built_o, {12: bytes(c12)}, lz=(12,)), fan_o))
+    must_raise('entry 12 (cells) changed', lambda: bufcheck.check_opening_card(oc.rebuild(built_o, {12: bytes(c12)}, lz=(12,)), fan_o), expect="is not the fan's data")
     a11 = bytearray(oc.entry(built_o, 11)[0])
     a11[-1] ^= 1
-    must_raise('entry 11 (animation) changed', lambda: bufcheck.check_opening_card(oc.rebuild(built_o, {11: bytes(a11)}, lz=(11,)), fan_o))
+    must_raise('entry 11 (animation) changed', lambda: bufcheck.check_opening_card(oc.rebuild(built_o, {11: bytes(a11)}, lz=(11,)), fan_o), expect="is not the fan's data")
     to = bufcheck._table(built_o)
     bad = bytearray(built_o)
     struct.pack_into('<I', bad, 13 * 8 + 4, to[13][1] + 4)
-    must_raise('entry 13 table size +4', lambda: bufcheck.check_opening_card(bytes(bad), fan_o))
+    must_raise('entry 13 table size +4', lambda: bufcheck.check_opening_card(bytes(bad), fan_o), expect='table field')
     print('j. evidence icons (com/idcom.bin entries 281, 573, 575 and their palettes)')
     built_ic = bufcheck.rom_file(rom, 'com/idcom.bin')
     fan_ic = open(os.path.join(dumpdir, 'ds_fan', 'com', 'idcom.bin'), 'rb').read()
@@ -361,26 +361,26 @@ def main(rom_path, dumpdir='dump'):
     def dec(container, e):
         return lz11.decompress(container[eic[e][0]:eic[e][1]])
 
-    must_raise('file one byte longer', lambda: bufcheck.check_idcom_icons(built_ic + bytes(1), fan_ic))
+    must_raise('file one byte longer', lambda: bufcheck.check_idcom_icons(built_ic + bytes(1), fan_ic), expect='expected (file length')
     # the container laid out again (idcom_icons.relayout): what a damaged layout looks like
     import idcom_icons as _I
     bti = bufcheck._table(built_ic)
     bad = bytearray(built_ic)
     struct.pack_into('<I', bad, (len(bti) - 1) * 8, len(built_ic) - 4)
-    must_raise('relaid file: terminator slot is not the file length', lambda: bufcheck.check_idcom_icons(bytes(bad), fan_ic))
+    must_raise('relaid file: terminator slot is not the file length', lambda: bufcheck.check_idcom_icons(bytes(bad), fan_ic), expect='expected (file length')
     bad = bytearray(built_ic)
     ia, ib = 10, 11
     oa, ob = struct.unpack_from('<I', bad, ia * 8)[0], struct.unpack_from('<I', bad, ib * 8)[0]
     struct.pack_into('<I', bad, ia * 8, ob)
     struct.pack_into('<I', bad, ib * 8, oa)
-    must_raise('relaid file: two entries swapped in the table', lambda: bufcheck.check_idcom_icons(bytes(bad), fan_ic))
+    must_raise('relaid file: two entries swapped in the table', lambda: bufcheck.check_idcom_icons(bytes(bad), fan_ic), expect="not in the fan's order")
     d575_all = lz11.decompress(built_ic[eic[575][0]:eic[575][1]])
     lit = bytearray(b'\x11' + len(d575_all).to_bytes(3, 'little'))
     for q in range(0, len(d575_all), 8):
         lit.append(0)
         lit += d575_all[q:q + 8]
     must_raise("relaid file: icon 575 stored larger than the fan's (not one of the grown icons)", lambda: bufcheck.check_idcom_icons(
-        _I.relayout(built_ic, {575: bytes(lit)}), fan_ic))
+        _I.relayout(built_ic, {575: bytes(lit)}), fan_ic), expect="over the fan's")
     bad = bytearray(_I.relayout(built_ic, {563: lz11.compress(lz11.decompress(built_ic[eic[563][0]:eic[563][1]]) + bytes(8))}))
     struct.pack_into('<I', bad, 563 * 8 + 4, 0x80000000 | 2328)
     must_raise('relaid file: a column +8 icon (563) decoded over the 2,320 byte block', lambda: bufcheck.check_idcom_icons(
@@ -395,37 +395,37 @@ def main(rom_path, dumpdir='dump'):
         bytes(shifted), fan_ic), expect='multiple of four')
     bad = bytearray(built_ic)
     struct.pack_into('<I', bad, 281 * 8 + 4, tic[281][1] + 4)
-    must_raise('entry 281 table size +4', lambda: bufcheck.check_idcom_icons(bytes(bad), fan_ic))
+    must_raise('entry 281 table size +4', lambda: bufcheck.check_idcom_icons(bytes(bad), fan_ic), expect='a table size field differs')
     bad = bytearray(built_ic)
     bad[eic[0][0]] ^= 1
-    must_raise('entry 0 (another entry) changed', lambda: bufcheck.check_idcom_icons(bytes(bad), fan_ic))
+    must_raise('entry 0 (another entry) changed', lambda: bufcheck.check_idcom_icons(bytes(bad), fan_ic), expect="is not the fan's bytes")
     d575 = dec(built_ic, 575)
     must_raise('icon 575 stream cut short (does not decode inside its slot)', lambda: bufcheck.check_idcom_icons(
-        put(built_ic, 575, built_ic[eic[575][0]:eic[575][1]][:300]), fan_ic))
+        put(built_ic, 575, built_ic[eic[575][0]:eic[575][1]][:300]), fan_ic), expect='does not decode')
     must_raise('icon 575 decoded one byte longer (stream header disagrees)', lambda: bufcheck.check_idcom_icons(
-        put(built_ic, 575, lz11.compress(d575 + bytes(1))), fan_ic))
+        put(built_ic, 575, lz11.compress(d575 + bytes(1))), fan_ic), expect='stream declares')
     bad = bytearray(d575)
     bad[5] ^= 0xFF
     must_raise('icon 575 cell data changed (outside the tile data)', lambda: bufcheck.check_idcom_icons(
-        put(built_ic, 575, lz11.compress(bytes(bad))), fan_ic))
+        put(built_ic, 575, lz11.compress(bytes(bad))), fan_ic), expect='outside its tile data')
     s0, s1 = bufcheck._tile_span(d575, 'test')
     bad = bytearray(d575)
     for k in range(s0, s0 + 32):
         bad[k] = 0
     must_raise('icon 575 first tile all index 0 (transparent holes)', lambda: bufcheck.check_idcom_icons(
-        put(built_ic, 575, lz11.compress(bytes(bad))), fan_ic))
+        put(built_ic, 575, lz11.compress(bytes(bad))), fan_ic), expect='the transparent key')
     pal = built_ic[eic[574][0]:eic[574][1]]
     bad = bytearray(pal)
     bad[0x10] ^= 1
-    must_raise('palette 574 header byte changed', lambda: bufcheck.check_idcom_icons(put(built_ic, 574, bytes(bad)), fan_ic))
+    must_raise('palette 574 header byte changed', lambda: bufcheck.check_idcom_icons(put(built_ic, 574, bytes(bad)), fan_ic), expect='outside colours 1-15')
     bad = bytearray(pal)
     bad[0x28] ^= 1
-    must_raise('palette 574 key colour changed', lambda: bufcheck.check_idcom_icons(put(built_ic, 574, bytes(bad)), fan_ic))
+    must_raise('palette 574 key colour changed', lambda: bufcheck.check_idcom_icons(put(built_ic, 574, bytes(bad)), fan_ic), expect='outside colours 1-15')
     bad = bytearray(pal)
     bad[0x28 + 32] ^= 1
-    must_raise('palette 574 trailer changed', lambda: bufcheck.check_idcom_icons(put(built_ic, 574, bytes(bad)), fan_ic))
+    must_raise('palette 574 trailer changed', lambda: bufcheck.check_idcom_icons(put(built_ic, 574, bytes(bad)), fan_ic), expect='outside colours 1-15')
     must_raise('icon 281 stream is garbage', lambda: bufcheck.check_idcom_icons(
-        put(built_ic, 281, b'\x11' + bytes(40)), fan_ic))
+        put(built_ic, 281, b'\x11' + bytes(40)), fan_ic), expect='stream declares')
     print('k. nameplates (idlocal entries of plates.PLATES, real LZ11, fan slot or the listed excess)')
     from plates import PLATES
     from choice_strips import rebuild as idl_rebuild
@@ -451,38 +451,38 @@ def main(rom_path, dumpdir='dump'):
     print('  entry %d stored %d of the fan\'s slot; entry %d stored %d, allowed %d' % (
         e_in, ext_in, e_over, ext_over, bufcheck.PLATE_STORED_OVER[e_over]))
     must_raise('entry %d (Hart) stored literal-only (708 bytes)' % e_in,
-               lambda: bufcheck.check_plates(idl_rebuild(idl, {e_in: kraw(e_in)}), fan))
-    must_raise('entry 63 (Excelsius, listed over) stored literal-only', lambda: bufcheck.check_plates(idl_rebuild(idl, {63: kraw(63)}), fan))
-    must_raise('entry %d slot 12 bytes longer (over the fan\'s 192)' % e_in, lambda: bufcheck.check_plates(kgrow(idl, e_in, 12), fan))
+               lambda: bufcheck.check_plates(idl_rebuild(idl, {e_in: kraw(e_in)}), fan), expect='over its')
+    must_raise('entry 63 (Excelsius, listed over) stored literal-only', lambda: bufcheck.check_plates(idl_rebuild(idl, {63: kraw(63)}), fan), expect='over its')
+    must_raise('entry %d slot 12 bytes longer (over the fan\'s 192)' % e_in, lambda: bufcheck.check_plates(kgrow(idl, e_in, 12), fan), expect='over its')
     must_raise('entry %d slot 4 bytes over its listed %d' % (e_over, bufcheck.PLATE_STORED_OVER[e_over]),
-               lambda: bufcheck.check_plates(kgrow(idl, e_over, 4), fan))
+               lambda: bufcheck.check_plates(kgrow(idl, e_over, 4), fan), expect='over its')
     d1 = bytearray(kraw(e_in))
-    must_raise('entry %d decoded one byte longer' % e_in, lambda: bufcheck.check_plates(idl_rebuild(idl, {e_in: bytes(d1) + b'\0'}, lz=(e_in,)), fan))
+    must_raise('entry %d decoded one byte longer' % e_in, lambda: bufcheck.check_plates(idl_rebuild(idl, {e_in: bytes(d1) + b'\0'}, lz=(e_in,)), fan), expect='table field')
     bad = bytearray(idl)
     struct.pack_into('<I', bad, e_in * 8 + 4, tk[e_in][1] & 0x7FFFFFFF)
-    must_raise('entry %d no longer flagged as an LZ11 stream' % e_in, lambda: bufcheck.check_plates(bytes(bad), fan))
+    must_raise('entry %d no longer flagged as an LZ11 stream' % e_in, lambda: bufcheck.check_plates(bytes(bad), fan), expect='table field')
     bad = bytearray(idl)
     struct.pack_into('<I', bad, e_in * 8 + 4, tk[e_in][1] + 8)
-    must_raise('entry %d table size +8' % e_in, lambda: bufcheck.check_plates(bytes(bad), fan))
+    must_raise('entry %d table size +8' % e_in, lambda: bufcheck.check_plates(bytes(bad), fan), expect='table field')
     hd = bytearray(d1)
     hd[5] ^= 0xFF
-    must_raise('entry %d changed outside its tile data' % e_in, lambda: bufcheck.check_plates(idl_rebuild(idl, {e_in: bytes(hd)}, lz=(e_in,)), fan))
+    must_raise('entry %d changed outside its tile data' % e_in, lambda: bufcheck.check_plates(idl_rebuild(idl, {e_in: bytes(hd)}, lz=(e_in,)), fan), expect='outside its tile data')
     short = bytearray(idl)
     short[ek[e_in][0] + 40:ek[e_in][1]] = bytes(ext_in - 40)
-    must_raise('entry %d stream cut short' % e_in, lambda: bufcheck.check_plates(bytes(short), fan))
-    must_raise('entry 27 (Edgeworth, not redrawn) changed', lambda: bufcheck.check_plates(idl_rebuild(idl, {27: lz11.decompress(idl[ek[27][0]:ek[27][1]])[:-1] + b'\1'}, lz=(27,)), fan))
-    must_raise('entry 27 (not redrawn) stored literal-only', lambda: bufcheck.check_plates(idl_rebuild(idl, {27: lz11.decompress(idl[ek[27][0]:ek[27][1]])}), fan))
+    must_raise('entry %d stream cut short' % e_in, lambda: bufcheck.check_plates(bytes(short), fan), expect='does not decode')
+    must_raise('entry 27 (Edgeworth, not redrawn) changed', lambda: bufcheck.check_plates(idl_rebuild(idl, {27: lz11.decompress(idl[ek[27][0]:ek[27][1]])[:-1] + b'\1'}, lz=(27,)), fan), expect="is not the fan's bytes")
+    must_raise('entry 27 (not redrawn) stored literal-only', lambda: bufcheck.check_plates(idl_rebuild(idl, {27: lz11.decompress(idl[ek[27][0]:ek[27][1]])}), fan), expect="is not the fan's bytes")
     saved_over = dict(bufcheck.PLATE_STORED_OVER)
     try:
         bufcheck.PLATE_STORED_OVER[e_in] = 2000
-        must_raise('PLATE_STORED_OVER allowing more than the literal-only form', lambda: bufcheck.check_plates(idl, fan))
+        must_raise('PLATE_STORED_OVER allowing more than the literal-only form', lambda: bufcheck.check_plates(idl, fan), expect='PLATE_STORED_OVER allows')
         bufcheck.PLATE_STORED_OVER[e_in] = 100
-        must_raise('PLATE_STORED_OVER allowing less than the fan\'s slot', lambda: bufcheck.check_plates(idl, fan))
+        must_raise('PLATE_STORED_OVER allowing less than the fan\'s slot', lambda: bufcheck.check_plates(idl, fan), expect='PLATE_STORED_OVER allows')
         del bufcheck.PLATE_STORED_OVER[e_in]
         bufcheck.PLATE_STORED_OVER[e_over] = ext_over - 4
-        must_raise('entry %d listed with a limit below what it stores' % e_over, lambda: bufcheck.check_plates(idl, fan))
+        must_raise('entry %d listed with a limit below what it stores' % e_over, lambda: bufcheck.check_plates(idl, fan), expect='over its')
         bufcheck.PLATE_STORED_OVER.clear()
-        must_raise('PLATE_STORED_OVER emptied (the over-slot plates are no longer allowed)', lambda: bufcheck.check_plates(idl, fan))
+        must_raise('PLATE_STORED_OVER emptied (the over-slot plates are no longer allowed)', lambda: bufcheck.check_plates(idl, fan), expect='over its')
     finally:
         bufcheck.PLATE_STORED_OVER.clear(); bufcheck.PLATE_STORED_OVER.update(saved_over)
     print('  PASSED  entry %d at exactly its listed %d bytes' % (e_over, ext_over), bufcheck.check_plates(idl, fan)[e_over])
@@ -499,74 +499,74 @@ def main(rom_path, dumpdir='dump'):
     for e in bufcheck.BIGG_IDLOCAL:
         raw = bi.blob(e)
         must_raise('idlocal %d stored literal-only (bigger than the fan\'s)' % e,
-                   lambda: bufcheck.check_bigg(rebuild(built_i, {e: raw}), fan, built_u, fan_u, built_c, fan_c))
+                   lambda: bufcheck.check_bigg(rebuild(built_i, {e: raw}), fan, built_u, fan_u, built_c, fan_c), expect="over the fan's")
         must_raise('idlocal %d decoded one byte longer' % e,
-                   lambda: bufcheck.check_bigg(rebuild(built_i, {e: raw + b'\0'}, lz=(e,)), fan, built_u, fan_u, built_c, fan_c))
+                   lambda: bufcheck.check_bigg(rebuild(built_i, {e: raw + b'\0'}, lz=(e,)), fan, built_u, fan_u, built_c, fan_c), expect='table field')
     for e in bufcheck.BIGG_UPCUT:
         raw = bu.blob(e)
         must_raise('upcut_local %d stored literal-only (bigger than the fan\'s)' % e,
-                   lambda: bufcheck.check_bigg(built_i, fan, rebuild(built_u, {e: raw}), fan_u, built_c, fan_c))
+                   lambda: bufcheck.check_bigg(built_i, fan, rebuild(built_u, {e: raw}), fan_u, built_c, fan_c), expect="over the fan's")
         must_raise('upcut_local %d decoded one byte longer' % e,
-                   lambda: bufcheck.check_bigg(built_i, fan, rebuild(built_u, {e: raw + b'\0'}, lz=(e,)), fan_u, built_c, fan_c))
+                   lambda: bufcheck.check_bigg(built_i, fan, rebuild(built_u, {e: raw + b'\0'}, lz=(e,)), fan_u, built_c, fan_c), expect='table field')
     raw = bc.blob(bufcheck.BIGG_CUTOBJ)
     must_raise('cutobj_local 26 stored literal-only',
-               lambda: bufcheck.check_bigg(built_i, fan, built_u, fan_u, rebuild(built_c, {26: raw}), fan_c))
+               lambda: bufcheck.check_bigg(built_i, fan, built_u, fan_u, rebuild(built_c, {26: raw}), fan_c), expect="over the fan's")
     must_raise('cutobj_local 26 decoded one byte longer',
-               lambda: bufcheck.check_bigg(built_i, fan, built_u, fan_u, rebuild(built_c, {26: raw + b'\0'}, lz=(26,)), fan_c))
+               lambda: bufcheck.check_bigg(built_i, fan, built_u, fan_u, rebuild(built_c, {26: raw + b'\0'}, lz=(26,)), fan_c), expect='table field')
     raw = bc.blob(bufcheck.PATCH_CUTOBJ)
     must_raise('cutobj_local 18 stored literal-only',
-               lambda: bufcheck.check_bigg(built_i, fan, built_u, fan_u, rebuild(built_c, {18: raw}), fan_c))
+               lambda: bufcheck.check_bigg(built_i, fan, built_u, fan_u, rebuild(built_c, {18: raw}), fan_c), expect="over the fan's")
     must_raise('cutobj_local 18 decoded one byte longer',
-               lambda: bufcheck.check_bigg(built_i, fan, built_u, fan_u, rebuild(built_c, {18: raw + b'\0'}, lz=(18,)), fan_c))
+               lambda: bufcheck.check_bigg(built_i, fan, built_u, fan_u, rebuild(built_c, {18: raw + b'\0'}, lz=(18,)), fan_c), expect='table field')
     tcc = bufcheck._table(built_c)
     other = bc.blob(0)
     must_raise('cutobj_local entry 0 changed',
                lambda: bufcheck.check_bigg(built_i, fan, built_u, fan_u,
-                                           rebuild(built_c, {0: other[:-1] + bytes([other[-1] ^ 1])}, lz=(0,)), fan_c))
+                                           rebuild(built_c, {0: other[:-1] + bytes([other[-1] ^ 1])}, lz=(0,)), fan_c), expect="is not the fan's bytes")
     bad = bytearray(built_c)
     struct.pack_into('<I', bad, 26 * 8 + 4, tcc[26][1] + 4)
-    must_raise('cutobj_local 26 table size +4', lambda: bufcheck.check_bigg(built_i, fan, built_u, fan_u, bytes(bad), fan_c))
+    must_raise('cutobj_local 26 table size +4', lambda: bufcheck.check_bigg(built_i, fan, built_u, fan_u, bytes(bad), fan_c), expect='table field')
     bad = bytearray(built_i)
     ti = bufcheck._table(built_i)
     struct.pack_into('<I', bad, 340 * 8 + 4, ti[340][1] & 0x7FFFFFFF)       # compressed flag cleared
-    must_raise('idlocal 340 table says stored raw', lambda: bufcheck.check_bigg(bytes(bad), fan, built_u, fan_u, built_c, fan_c))
+    must_raise('idlocal 340 table says stored raw', lambda: bufcheck.check_bigg(bytes(bad), fan, built_u, fan_u, built_c, fan_c), expect='table field')
     tuc = bufcheck._table(built_u)
     bad = bytearray(built_u)
     struct.pack_into('<I', bad, 264 * 8 + 4, tuc[264][1] + 4)
-    must_raise('upcut_local 264 table size +4', lambda: bufcheck.check_bigg(built_i, fan, bytes(bad), fan_u, built_c, fan_c))
+    must_raise('upcut_local 264 table size +4', lambda: bufcheck.check_bigg(built_i, fan, bytes(bad), fan_u, built_c, fan_c), expect='table field')
     short = bytearray(built_u)
     ext = bufcheck._extents(tuc, len(built_u))[264]
     short[ext[0] + 40:ext[1]] = bytes(ext[1] - ext[0] - 40)
-    must_raise('upcut_local 264 stream cut short', lambda: bufcheck.check_bigg(built_i, fan, bytes(short), fan_u, built_c, fan_c))
+    must_raise('upcut_local 264 stream cut short', lambda: bufcheck.check_bigg(built_i, fan, bytes(short), fan_u, built_c, fan_c), expect='does not decode')
     must_raise('cutobj_local one entry short', lambda: bufcheck.check_bigg(
         built_i, fan, built_u, fan_u,
-        struct.pack('<I', 8 * (len(tcc) - 1)) + built_c[4:(len(tcc) - 1) * 8] + built_c[len(tcc) * 8:], fan_c))
+        struct.pack('<I', 8 * (len(tcc) - 1)) + built_c[4:(len(tcc) - 1) * 8] + built_c[len(tcc) * 8:], fan_c), expect='entries, the fan has')
     print('l. marker letters (jpn/cutobj_local.bin %s)' % ' '.join(str(e) for e in bufcheck.MARKER_CUTOBJ))
     print('  clean:', bufcheck.check_markers(built_c, fan_c))
     print('  fan file as it is:', bufcheck.check_markers(fan_c, fan_c))
     for e in bufcheck.MARKER_CUTOBJ:
         raw = bc.blob(e)
         must_raise('cutobj_local %d stored literal-only (bigger than the fan\'s)' % e,
-                   lambda: bufcheck.check_markers(rebuild(built_c, {e: raw}), fan_c))
+                   lambda: bufcheck.check_markers(rebuild(built_c, {e: raw}), fan_c), expect="over the fan's")
         must_raise('cutobj_local %d decoded one byte longer' % e,
-                   lambda: bufcheck.check_markers(rebuild(built_c, {e: raw + b'\0'}, lz=(e,)), fan_c))
+                   lambda: bufcheck.check_markers(rebuild(built_c, {e: raw + b'\0'}, lz=(e,)), fan_c), expect='table field')
         bad = bytearray(built_c)
         struct.pack_into('<I', bad, e * 8 + 4, tcc[e][1] + 4)
-        must_raise('cutobj_local %d table size +4' % e, lambda: bufcheck.check_markers(bytes(bad), fan_c))
+        must_raise('cutobj_local %d table size +4' % e, lambda: bufcheck.check_markers(bytes(bad), fan_c), expect='table field')
     # a marker entry that only this step changes: a byte outside the tile data (the first cell list byte after the header)
     e = 22
     raw = bytearray(bc.blob(e))
     o = struct.unpack_from('<3I', raw, 0)
     raw[o[0] + 0x20] ^= 1
-    must_raise('cutobj_local 22 cell data changed', lambda: bufcheck.check_markers(rebuild(built_c, {e: bytes(raw)}, lz=(e,)), fan_c))
+    must_raise('cutobj_local 22 cell data changed', lambda: bufcheck.check_markers(rebuild(built_c, {e: bytes(raw)}, lz=(e,)), fan_c), expect='outside its tile data')
     raw = bytearray(bc.blob(e))
     raw[o[2] + 4] ^= 1
-    must_raise('cutobj_local 22 tile bank header changed', lambda: bufcheck.check_markers(rebuild(built_c, {e: bytes(raw)}, lz=(e,)), fan_c))
+    must_raise('cutobj_local 22 tile bank header changed', lambda: bufcheck.check_markers(rebuild(built_c, {e: bytes(raw)}, lz=(e,)), fan_c), expect='outside its tile data')
     other = bc.blob(0)
     must_raise('cutobj_local entry 0 changed',
-               lambda: bufcheck.check_markers(rebuild(built_c, {0: other[:-1] + bytes([other[-1] ^ 1])}, lz=(0,)), fan_c))
+               lambda: bufcheck.check_markers(rebuild(built_c, {0: other[:-1] + bytes([other[-1] ^ 1])}, lz=(0,)), fan_c), expect="is not the fan's bytes")
     must_raise('cutobj_local one entry short', lambda: bufcheck.check_markers(
-        struct.pack('<I', 8 * (len(tcc) - 1)) + built_c[4:(len(tcc) - 1) * 8] + built_c[len(tcc) * 8:], fan_c))
+        struct.pack('<I', 8 * (len(tcc) - 1)) + built_c[4:(len(tcc) - 1) * 8] + built_c[len(tcc) * 8:], fan_c), expect='entries, the fan has')
     print('m. item pictures (jpn/upcut_local.bin %s, com/idcom.bin 327, com/logic_keyword.bin %s)'
           % (list(bufcheck.ITEM_UPCUT), sorted(bufcheck.LOGIC_ICON_ENTRIES)))
     import choice_strips as cs
@@ -580,44 +580,60 @@ def main(rom_path, dumpdir='dump'):
         b = idl.blob(e)
         return b if idl.ents[e][1] & 0x80000000 else b[:idl.ents[e][1]]
 
+    def head_flip(dec):
+        """dec with one bit flipped in the RGCN's CHAR header (RAHC+8, the tile height), the magic kept: a change
+        outside the tile data that is still an RGCN."""
+        g = 0 if dec[:4] == b'RGCN' else struct.unpack_from('<3I', dec, 0)[2]
+        assert dec[g:g + 4] == b'RGCN' and dec[g + 16:g + 20] == b'RAHC'
+        out = bytearray(dec)
+        out[g + 24] ^= 1
+        return bytes(out)
+
+    def slot_cut(container, e, n):
+        """container with the last n bytes of entry e's slot removed and every later offset moved back: the
+        stream is cut short and no longer decodes inside its slot."""
+        tt = bufcheck._table(container)
+        ex = bufcheck._extents(tt, len(container))
+        out = bytearray(container[:ex[e][1] - n]) + container[ex[e][1]:]
+        for j in range(len(tt)):
+            if tt[j][0] >= ex[e][1]:
+                struct.pack_into('<I', out, j * 8, tt[j][0] - n)
+        return bytes(out)
+
     e0 = bufcheck.ITEM_UPCUT[0]
     e1 = bufcheck.ITEM_UPCUT[-1]
     d0 = content(e0)
     must_raise('upcut picture stored uncompressed form (over the fan\'s bytes)', lambda: bufcheck.check_item_pics(
-        cs.rebuild(built_up, {e1: content(e1)}), fan_up))
+        cs.rebuild(built_up, {e1: content(e1)}), fan_up), expect="over the fan's")
     must_raise('upcut picture decoded one byte longer', lambda: bufcheck.check_item_pics(
-        cs.rebuild(built_up, {e0: d0 + b'\0'}, lz=(e0,)), fan_up))
-    bad = bytearray(d0)
-    bad[3] ^= 1
+        cs.rebuild(built_up, {e0: d0 + b'\0'}, lz=(e0,)), fan_up), expect='table field')
     must_raise('upcut picture header changed (outside the tile data)', lambda: bufcheck.check_item_pics(
-        cs.rebuild(built_up, {e0: bytes(bad)}, lz=(e0,)), fan_up))
+        cs.rebuild(built_up, {e0: head_flip(d0)}, lz=(e0,)), fan_up), expect='outside its tile data')
     bad = bytearray(content(e0 + 1))
     bad[-3] ^= 1
     must_raise('upcut palette changed', lambda: bufcheck.check_item_pics(
-        cs.rebuild(built_up, {e0 + 1: bytes(bad)}, lz=(e0 + 1,)), fan_up))
+        cs.rebuild(built_up, {e0 + 1: bytes(bad)}, lz=(e0 + 1,)), fan_up), expect="is not the fan's bytes")
     tb = bufcheck._table(built_up)
     bad = bytearray(built_up)
     struct.pack_into('<I', bad, e0 * 8 + 4, tb[e0][1] + 4)
-    must_raise('upcut picture table size +4', lambda: bufcheck.check_item_pics(bytes(bad), fan_up))
+    must_raise('upcut picture table size +4', lambda: bufcheck.check_item_pics(bytes(bad), fan_up), expect='table field')
     must_raise('upcut picture stream cut short', lambda: bufcheck.check_item_pics(
-        cs.rebuild(built_up, {e0: lz11.compress(d0)[:200]}, lz=()), fan_up))
+        slot_cut(built_up, e0, 1000), fan_up), expect='does not decode')
     bad = bytearray(d0)
     bad[:4] = b'XXXX'
     must_raise('upcut picture no longer an RGCN', lambda: bufcheck.check_item_pics(
-        cs.rebuild(built_up, {e0: bytes(bad)}, lz=(e0,)), fan_up))
+        cs.rebuild(built_up, {e0: bytes(bad)}, lz=(e0,)), fan_up), expect='has no RGCN part')
     big = bufcheck.ITEM_UPCUT_BIG
     must_raise('keycard log picture %d decoded one byte longer' % big[0], lambda: bufcheck.check_item_pics(
-        cs.rebuild(built_up, {big[0]: content(big[0]) + b'\0'}, lz=(big[0],)), fan_up))
-    bad = bytearray(content(big[1]))
-    bad[3] ^= 1
+        cs.rebuild(built_up, {big[0]: content(big[0]) + b'\0'}, lz=(big[0],)), fan_up), expect='table field')
     must_raise('keycard log picture %d header changed (outside the tile data)' % big[1], lambda: bufcheck.check_item_pics(
-        cs.rebuild(built_up, {big[1]: bytes(bad)}, lz=(big[1],)), fan_up))
+        cs.rebuild(built_up, {big[1]: head_flip(content(big[1]))}, lz=(big[1],)), fan_up), expect='outside its tile data')
     bad = bytearray(built_up)
     struct.pack_into('<I', bad, big[1] * 8 + 4, 0x80000000 | (bufcheck.UPCUT_FIXED_CAP + 1))
     must_raise('keycard log picture %d over the picture buffer' % big[1], lambda: bufcheck.check_item_pics(
         bytes(bad), fan_up), expect='picture buffer')
     must_raise('keycard log picture %d stream cut short' % big[0], lambda: bufcheck.check_item_pics(
-        cs.rebuild(built_up, {big[0]: lz11.compress(content(big[0]))[:200]}, lz=()), fan_up))
+        slot_cut(built_up, big[0], 1000), fan_up), expect='does not decode')
     built_lk = bufcheck.rom_file(rom, 'com/logic_keyword.bin')
     fan_lk = open(os.path.join(dumpdir, 'ds_fan', 'com', 'logic_keyword.bin'), 'rb').read()
     LK = bufcheck.LOGIC_ICON_ENTRIES
@@ -634,34 +650,34 @@ def main(rom_path, dumpdir='dump'):
         return bytes(out)
 
     must_raise('logic_keyword file one byte longer', lambda: bufcheck.check_idcom_icons(
-        built_lk + bytes(1), fan_lk, LK, 'logic_keyword.bin'))
+        built_lk + bytes(1), fan_lk, LK, 'logic_keyword.bin'), expect='the icons are written in place')
     bad = bytearray(built_lk)
     bad[elk[0][0]] ^= 1
-    must_raise('logic_keyword entry 0 changed', lambda: bufcheck.check_idcom_icons(bytes(bad), fan_lk, LK, 'logic_keyword.bin'))
+    must_raise('logic_keyword entry 0 changed', lambda: bufcheck.check_idcom_icons(bytes(bad), fan_lk, LK, 'logic_keyword.bin'), expect="is not the fan's bytes")
     dk = lz11.decompress(built_lk[elk[82][0]:elk[82][1]])
     bad = bytearray(dk)
     bad[5] ^= 0xFF
     must_raise('logic_keyword icon 82 cell data changed', lambda: bufcheck.check_idcom_icons(
-        lk_put(built_lk, 82, lz11.compress(bytes(bad))), fan_lk, LK, 'logic_keyword.bin'))
+        lk_put(built_lk, 82, lz11.compress(bytes(bad))), fan_lk, LK, 'logic_keyword.bin'), expect='outside its tile data')
     must_raise('logic_keyword icon 92 stream cut short', lambda: bufcheck.check_idcom_icons(
-        lk_put(built_lk, 92, built_lk[elk[92][0]:elk[92][1]][:200]), fan_lk, LK, 'logic_keyword.bin'))
+        lk_put(built_lk, 92, built_lk[elk[92][0]:elk[92][1]][:200]), fan_lk, LK, 'logic_keyword.bin'), expect='does not decode')
     pal = built_lk[elk[83][0]:elk[83][1]]
     bad = bytearray(pal)
     bad[0x10] ^= 1
     must_raise('logic_keyword palette 83 header changed', lambda: bufcheck.check_idcom_icons(
-        lk_put(built_lk, 83, bytes(bad)), fan_lk, LK, 'logic_keyword.bin'))
+        lk_put(built_lk, 83, bytes(bad)), fan_lk, LK, 'logic_keyword.bin'), expect='outside colours 1-15')
     s0, s1 = bufcheck._tile_span(dk, 'test')
     bad = bytearray(dk)
     for k in range(s0, s0 + 32):
         bad[k] = 0
     must_raise('logic_keyword icon 82 first tile all index 0', lambda: bufcheck.check_idcom_icons(
-        lk_put(built_lk, 82, lz11.compress(bytes(bad))), fan_lk, LK, 'logic_keyword.bin'))
+        lk_put(built_lk, 82, lz11.compress(bytes(bad))), fan_lk, LK, 'logic_keyword.bin'), expect='the transparent key')
     must_raise('idcom icon 327 stream is garbage', lambda: bufcheck.check_idcom_icons(
-        put(built_ic, 327, b'\x11' + bytes(40)), fan_ic))
+        put(built_ic, 327, b'\x11' + bytes(40)), fan_ic), expect='stream declares')
     bad = bytearray(dec(built_ic, 327))
     bad[5] ^= 0xFF
     must_raise('idcom icon 327 cell data changed', lambda: bufcheck.check_idcom_icons(
-        put(built_ic, 327, lz11.compress(bytes(bad))), fan_ic))
+        put(built_ic, 327, lz11.compress(bytes(bad))), fan_ic), expect='outside its tile data')
     print('n. menu button (jpn/idlocal.bin entry 357, the partner card tiles)')
     built_il = bufcheck.rom_file(rom, 'jpn/idlocal.bin')
     fan_il = open(os.path.join(dumpdir, 'ds_fan', 'jpn', 'idlocal.bin'), 'rb').read()
@@ -669,21 +685,19 @@ def main(rom_path, dumpdir='dump'):
     ci = cs.Idlocal(built_il)
     d357 = ci.blob(357)
     must_raise('entry 357 stored uncompressed form (over the fan bytes)', lambda: bufcheck.check_menu_button(
-        cs.rebuild(built_il, {357: d357}), fan_il))
+        cs.rebuild(built_il, {357: d357}), fan_il), expect="over the fan's")
     must_raise('entry 357 decoded one byte longer', lambda: bufcheck.check_menu_button(
-        cs.rebuild(built_il, {357: d357 + b'\0'}, lz=(357,)), fan_il))
-    bad = bytearray(d357)
-    bad[3] ^= 1
+        cs.rebuild(built_il, {357: d357 + b'\0'}, lz=(357,)), fan_il), expect='table field')
     must_raise('entry 357 header changed (outside the tile data)', lambda: bufcheck.check_menu_button(
-        cs.rebuild(built_il, {357: bytes(bad)}, lz=(357,)), fan_il))
+        cs.rebuild(built_il, {357: head_flip(d357)}, lz=(357,)), fan_il), expect='outside its tile data')
     bad = bytearray(ci.blob(356))
     bad[-3] ^= 1
     must_raise('cells entry 356 changed', lambda: bufcheck.check_menu_button(
-        cs.rebuild(built_il, {356: bytes(bad)}, lz=(356,)), fan_il))
+        cs.rebuild(built_il, {356: bytes(bad)}, lz=(356,)), fan_il), expect="is not the fan's bytes")
     bad = bytearray(built_il)
     tb = bufcheck._table(built_il)
     struct.pack_into('<I', bad, 357 * 8 + 4, tb[357][1] + 4)
-    must_raise('entry 357 table size +4', lambda: bufcheck.check_menu_button(bytes(bad), fan_il))
+    must_raise('entry 357 table size +4', lambda: bufcheck.check_menu_button(bytes(bad), fan_il), expect='table field')
     print('all negative tests raised, boundary cases passed')
 
 

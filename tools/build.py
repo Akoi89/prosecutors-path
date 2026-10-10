@@ -224,7 +224,8 @@ def selftest():
                 'lz11', 'nitro', 'txtcut', 'cg_names', 'cg_art', 'bag_tex', 'opening_card', 'idcom_icons', 'item_pics', 'plaque_face', 'icon_labels', 'menu_button', 'loc_dump', 'title_assets', 'voices',
                 'compact', 'mindchess', 'mc_wait', 'room_names', 'mindchess_recn', 'rnan25', 'linefix', 'last_rows', 'rewrite', 'relaid_rows',
                 'condense_rows', 'skipguard', 'sentence_breaks', 'e11c', 'rowsplit', 'cutdata_hotfix',
-                'marker_letters', 'bufcheck'):
+                'marker_letters', 'bigg_building', 'bigg_ground', 'city_labels', 'city_patches', 'gfx_views',
+                'input_hashes', 'bufcheck'):
         try:
             __import__(mod)
             print('  import %-29s ok' % mod)
