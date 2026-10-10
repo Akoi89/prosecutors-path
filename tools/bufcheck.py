@@ -6,7 +6,7 @@ error at build time. playtest/SOLVE_buffers.md traced every loader and text
 buffer in the engine; none overflows today, and checks a to e keep it that
 way (f is the Logic keyword cards, g the bag model texture, h the room names, i the opening card,
 j the evidence icons, k the nameplates, l the marker letters, m the item pictures, n the menu button,
-o the Bigg Building pictures, p the map pieces and plans).
+o the Bigg Building pictures, p the map pieces and plans, q the nurse's cap, s the background signs).
 They read jpn/spt.bin, jpn/idlocal.bin, com/cutdata.bin,
 jpn/logic_keyword_local.bin, jpn/modelitemlocal.bin, jpn/cutobj_local.bin, jpn/opening_local.bin and
 com/idcom.bin out of the finished ROM (after the last step that writes any of them), compare idlocal,
@@ -116,6 +116,24 @@ p. map pieces and plans in Capcom's wording. The jpn/idlocal.bin entries PLAN_ID
    after a plan picture is the fan's bytes. The jpn/cutobj_local.bin entries PLAN_CUTOBJ (the Autumn cloud of
    the Zodiac Hall plan) keep the fan's table field and decoded size, are stored in no more bytes than the
    fan's, and differ from the fan's decoded entry only inside the 4bpp tile data.
+q. the nurse's cap. tools/props_bust.py redraws the tile data of com/bustup.bin 252, 253, 254, 255 and 264
+   (OAM sprite banks, palettes 251 and 263) and of com/idcom.bin 951 and 953 (portrait icons, palettes
+   950 and 952), written in place. com/bustup.bin is as long as the fan's, its whole table is the fan's and
+   every other entry is the fan's bytes. com/idcom.bin may have been laid out again by the item icons (check j):
+   there 951 and 953 keep the fan's table field and a slot of the fan's size, and check j, which counts them among
+   the entries it lets differ, proves the layout and that every other entry is the fan's bytes. Each entry is an LZ11 stream whose declared size is the table's, decodes to the fan's size and
+   fits in the bytes the fan's entry held, only its RGCN tile data differs from the fan's, and no tile
+   byte the fan drew becomes index 0 (the transparent key). Neither container's loader was traced for
+   these entries, so the stored size stays at or under the fan's.
+s. background signs. The pictures tools/props.py redraws (SIGN_ENTRIES: com/mapbg.bin, com/logicbg.bin,
+   com/upcut.bin, jpn/upcut_local.bin) are written in place: each file is as long as the fan's, its whole table is the
+   fan's, every other entry (the palettes included) is the fan's bytes, each picture is an LZ11 stream
+   that decodes to the fan's size, whose stream fits in the bytes the fan's entry held, and only the
+   pixel data of its RGCN differs from the fan's. These containers are not idlocal or idcom (whose
+   loaders decode into an exact-size heap buffer through a freed temporary); their loaders were not
+   traced, so the stored size stays at or under the fan's. jpn/upcut_local.bin is rebuilt by
+   tools/cg_art.py first, so there only the sign entries are compared: table field the fan's, slot of
+   the fan's size, the stream decoding inside it, and only pixel data changed.
 """
 import os
 import struct
@@ -160,6 +178,21 @@ UPCUT_BLOCK = 0x2F000      # the fixed picture block the cut table's column 1 en
 OPENING_GFX, OPENING_PAL = 13, 14
 OPENING_FREE = (0,)            # the splash title tiles, rewritten by title_text.py
 ICON_ENTRIES = {281: 280, 573: 572, 575: 574}      # icon entry -> its palette entry
+# the nurse's cap (tools/props_bust.py): container -> {entry: palette entry}
+NURSE_ENTRIES = {
+    'com/bustup.bin': {252: 251, 253: 251, 254: 251, 255: 251, 264: 263},
+    'com/idcom.bin': {951: 950, 953: 952},
+}
+# background pictures tools/props.py redraws: container -> {picture entry: palette entry}
+SIGN_ENTRIES = {
+    'com/mapbg.bin': {10: 11, 20: 21, 22: 23, 30: 31, 54: 55, 56: 57, 60: 61},
+    'com/logicbg.bin': {14: 15, 34: 35},
+    'com/upcut.bin': {128: 129, 388: 389, 392: 393, 400: 401, 406: 407, 408: 409},
+    'jpn/upcut_local.bin': {42: 43, 206: 207, 234: 235},
+}
+# containers the port rebuilds before the signs step (tools/cg_art.py rewrites jpn/upcut_local.bin): only
+# the sign entries are compared with the fan's, each in a slot of exactly the fan's size
+SIGN_REBUILT = ('jpn/upcut_local.bin',)
 # every cutobj_local entry some step changes; checks h, l, o and p require every other entry to be the fan's bytes
 CUTOBJ_CHANGED = tuple(sorted(set((ROOM_CUTOBJ, BIGG_CUTOBJ, PATCH_CUTOBJ) + MARKER_CUTOBJ + PLAN_CUTOBJ)))
 OPENING_GFX, OPENING_PAL = 13, 14
@@ -928,6 +961,8 @@ def check_idcom_icons(built, fan, entries=None, name='idcom.bin'):
             raise BufCheckError('%s table differs from the fan\'s' % name)
         bext = ext
     touched = set(entries) | set(entries.values())
+    if name == 'idcom.bin':
+        touched |= set(NURSE_ENTRIES['com/idcom.bin'])          # the nurse's portrait icons (check q)
     for i in range(len(t)):
         a, b = ext[i]
         ba, bb = bext[i]
@@ -1113,6 +1148,137 @@ def check_menu_button(built_idl, fan_idl):
     return size, used, len(fstored)
 
 
+def check_nurse(cont, built, fan):
+    """Check q on one container. -> {entry: (decoded size, stream bytes used, fan's stored bytes)}."""
+    entries = NURSE_ENTRIES[cont]
+    t = _table(fan)
+    ext = _extents(t, len(fan))
+    if cont == 'com/idcom.bin':
+        # the item icons may lay this file out again (check j proves that layout, and that every entry apart from
+        # the icons it lists and these two is the fan's bytes): read the nurse's entries through the built table
+        bt = _table(built)
+        if len(bt) != len(t):
+            raise BufCheckError('%s has %d table slots, the fan\'s %d' % (cont, len(bt), len(t)))
+        bext = _extents(bt, len(built))
+        for e in sorted(entries):
+            if bt[e][1] != t[e][1]:
+                raise BufCheckError('%s entry %d: table field %#x, the fan\'s %#x' % (cont, e, bt[e][1], t[e][1]))
+            if bext[e][1] - bext[e][0] != ext[e][1] - ext[e][0]:
+                raise BufCheckError('%s entry %d slot is %d bytes, the fan\'s %d'
+                                    % (cont, e, bext[e][1] - bext[e][0], ext[e][1] - ext[e][0]))
+    else:
+        if len(built) != len(fan):
+            raise BufCheckError('%s is %d bytes, the fan\'s %d (the nurse\'s cap is written in place)'
+                                % (cont, len(built), len(fan)))
+        tlen = struct.unpack_from('<I', fan, 0)[0]
+        if built[:tlen] != fan[:tlen]:
+            raise BufCheckError('%s table differs from the fan\'s' % cont)
+        bext = ext
+        for i in range(len(t)):
+            a, b = ext[i]
+            if i not in entries and built[a:b] != fan[a:b]:
+                raise BufCheckError('%s entry %d is not the fan\'s bytes' % (cont, i))
+    out = {}
+    for e in sorted(entries):
+        what = '%s entry %d' % (cont, e)
+        a, b = ext[e]
+        if not t[e][1] & 0x80000000:
+            raise BufCheckError('%s is expected to be an LZ11 stream' % what)
+        size = t[e][1] & 0x7FFFFFFF
+        st, fst = built[bext[e][0]:bext[e][1]], fan[a:b]
+        if _stream_size(st) != size:
+            raise BufCheckError('%s: stream declares %d bytes, table says %d' % (what, _stream_size(st), size))
+        used = _stream_len(st, size, what)
+        dec, fdec = _decode(st, what), _decode(fst, what + ' (fan)')
+        if len(dec) != len(fdec):
+            raise BufCheckError('%s decodes to %d bytes, the fan\'s to %d' % (what, len(dec), len(fdec)))
+        # (no 'used > len(fst)' test: the stream is read from a slot of exactly the fan's size, in place
+        # or checked above, so used <= len(st) == len(fst) always; the real bound is that the stream
+        # decodes to the table's size inside that slot, which _stream_len raises on)
+        s0, s1 = _tile_span(dec, what)
+        if (s0, s1) != _tile_span(fdec, what + ' (fan)'):
+            raise BufCheckError('%s: the tile data moved' % what)
+        if dec[:s0] != fdec[:s0] or dec[s1:] != fdec[s1:]:
+            raise BufCheckError('%s differs from the fan\'s outside its tile data' % what)
+        if cont == 'com/idcom.bin':
+            # 4 bpp: a nibble the fan drew must not become 0
+            for k in range(s0, s1):
+                for sh in (0, 4):
+                    if (fdec[k] >> sh) & 15 and not (dec[k] >> sh) & 15:
+                        raise BufCheckError('%s: a drawn pixel became index 0 (the transparent key)' % what)
+        else:
+            for k in range(s0, s1):
+                if fdec[k] and not dec[k]:
+                    raise BufCheckError('%s: a drawn pixel became index 0 (the transparent key)' % what)
+        out[e] = (len(dec), used, len(fst))
+    return out
+
+
+def _rgcn_pixels(dec, what):
+    """(start, end) of the pixel data of a raw RGCN picture."""
+    if dec[:4] != b'RGCN' or dec[16:20] != b'RAHC':
+        raise BufCheckError('%s is not an RGCN picture' % what)
+    body = 24
+    dsize, doff = struct.unpack_from('<II', dec, body + 16)
+    if body + doff + dsize > len(dec):
+        raise BufCheckError('%s: RGCN data runs past the entry' % what)
+    return body + doff, body + doff + dsize
+
+
+def check_signs(cont, built, fan):
+    """Check s on one container. -> {entry: (decoded size, stream bytes used, fan's stored bytes)}."""
+    entries = SIGN_ENTRIES[cont]
+    t = _table(fan)
+    ext = _extents(t, len(fan))
+    if cont in SIGN_REBUILT:
+        bt = _table(built)
+        bext = _extents(bt, len(built))
+        if len(bt) != len(t):
+            raise BufCheckError('%s has %d entries, the fan\'s %d' % (cont, len(bt), len(t)))
+        for e in sorted(entries):
+            if bt[e][1] != t[e][1]:
+                raise BufCheckError('%s entry %d table field %#x, the fan\'s %#x' % (cont, e, bt[e][1], t[e][1]))
+            if bext[e][1] - bext[e][0] != ext[e][1] - ext[e][0]:
+                raise BufCheckError('%s entry %d slot is %d bytes, the fan\'s %d'
+                                    % (cont, e, bext[e][1] - bext[e][0], ext[e][1] - ext[e][0]))
+    else:
+        bext = ext
+        if len(built) != len(fan):
+            raise BufCheckError('%s is %d bytes, the fan\'s %d (the pictures are written in place)'
+                                % (cont, len(built), len(fan)))
+        tlen = struct.unpack_from('<I', fan, 0)[0]
+        if built[:tlen] != fan[:tlen]:
+            raise BufCheckError('%s table differs from the fan\'s' % cont)
+        for i in range(len(t)):
+            a, b = ext[i]
+            if i not in entries and built[a:b] != fan[a:b]:
+                raise BufCheckError('%s entry %d is not the fan\'s bytes' % (cont, i))
+    out = {}
+    for e in sorted(entries):
+        what = '%s entry %d' % (cont, e)
+        a, b = ext[e]
+        if not t[e][1] & 0x80000000:
+            raise BufCheckError('%s is expected to be an LZ11 stream' % what)
+        size = t[e][1] & 0x7FFFFFFF
+        st, fst = built[bext[e][0]:bext[e][1]], fan[a:b]
+        if _stream_size(st) != size:
+            raise BufCheckError('%s: stream declares %d bytes, table says %d' % (what, _stream_size(st), size))
+        used = _stream_len(st, size, what)
+        dec, fdec = _decode(st, what), _decode(fst, what + ' (fan)')
+        if len(dec) != len(fdec):
+            raise BufCheckError('%s decodes to %d bytes, the fan\'s to %d' % (what, len(dec), len(fdec)))
+        # (no 'used > len(fst)' test: the stream is read from a slot of exactly the fan's size, in place
+        # or checked above, so used <= len(st) == len(fst) always; the real bound is that the stream
+        # decodes to the table's size inside that slot, which _stream_len raises on)
+        s0, s1 = _rgcn_pixels(dec, what)
+        if (s0, s1) != _rgcn_pixels(fdec, what + ' (fan)'):
+            raise BufCheckError('%s: the pixel data moved' % what)
+        if dec[:s0] != fdec[:s0] or dec[s1:] != fdec[s1:]:
+            raise BufCheckError('%s differs from the fan\'s outside its pixel data' % what)
+        out[e] = (len(dec), used, len(fst))
+    return out
+
+
 def rom_file(rom, path):
     """One file's bytes out of a ROM image."""
     from inject import file_id
@@ -1181,6 +1347,18 @@ def run(rom_path, dumpdir):
     p_ent.update(check_plan_sprites(rom_file(rom, 'jpn/cutobj_local.bin'), fan_co))
     ps_ = ', '.join("%s %d decodes %d, stored %d of the fan's %d" % ((k[0], k[1]) + v) for k, v in sorted(p_ent.items()))
     ms += '; logic_keyword.bin in place: ' + ', '.join('%d decodes to %d, stream %d of the fan\'s %d' % ((k,) + v) for k, v in sorted(m_lk.items()))
+    nparts = []
+    for cont in sorted(NURSE_ENTRIES):
+        with open(os.path.join(dumpdir, 'ds_fan', *cont.split('/')), 'rb') as f:
+            fan_c = f.read()
+        for k, v in sorted(check_nurse(cont, rom_file(rom, cont), fan_c).items()):
+            nparts.append('%s %d decodes to %d like the fan, stream %d of the fan\'s %d' % ((cont, k) + v))
+    sparts = []
+    for cont in sorted(SIGN_ENTRIES):
+        with open(os.path.join(dumpdir, 'ds_fan', *cont.split('/')), 'rb') as f:
+            fan_c = f.read()
+        for k, v in sorted(check_signs(cont, rom_file(rom, cont), fan_c).items()):
+            sparts.append('%s %d decodes to %d like the fan, stream %d of the fan\'s %d' % ((cont, k) + v))
     return ('%s; (f) logic cards: %d checked, every OBJ inside the RGCN bytes, cards with OBJs past the '
             'declared data (rewritten, no fan tail): %s, %d punctuation-matched name cards rewritten; (g) modelitemlocal entry %d decodes to %d bytes like '
             "the fan's, stored %d of the fan's %d, the other entries are the fan's bytes; "
@@ -1194,10 +1372,12 @@ def run(rom_path, dumpdir):
             "(m) item pictures, same decoded size, stored no larger (the two keycard log pictures excepted), palette the fan's: %s; "
             "(n) menu button: idlocal %d decodes to %d like the fan, stream %d of the fan's %d; "
             "(o) Bigg Building: %s, the cutobj_local entries outside %s are the fan's bytes; "
-            "(p) map pieces and plans in Capcom's wording: %s"
+            "(p) map pieces and plans in Capcom's wording: %s; "
+            "(q) the nurse's cap written in place (com/idcom.bin read through its own table), every other entry the fan's: %s; "
+            "(s) background signs written in place, tables and every other entry the fan's: %s"
             % (line, n, ps, n_named, MODEL_ENTRY, g_size, g_stored, g_fan, hs, cutchg,
                OPENING_GFX, i_size, i_stored, i_fan, js, ks, ls, ms, MENU_TILES, n_btn[0], n_btn[1], n_btn[2],
-               obs, cutchg, ps_))
+               obs, cutchg, ps_, ', '.join(nparts), ', '.join(sparts)))
 
 
 if __name__ == '__main__':

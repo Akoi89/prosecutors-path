@@ -223,7 +223,7 @@ def selftest():
                 'spt', 'dstext', 'inject', 'locate', 'ndsx', 'names', 'plates', 'buttons',
                 'lz11', 'nitro', 'txtcut', 'cg_names', 'cg_art', 'bag_tex', 'opening_card', 'idcom_icons', 'item_pics', 'plaque_face', 'icon_labels', 'menu_button', 'loc_dump', 'title_assets', 'voices',
                 'compact', 'mindchess', 'mc_wait', 'room_names', 'plan_labels', 'gallery_art', 'board_temps', 'mindchess_recn', 'rnan25', 'linefix', 'last_rows', 'rewrite', 'relaid_rows',
-                'condense_rows', 'skipguard', 'sentence_breaks', 'e11c', 'rowsplit', 'cutdata_hotfix',
+                'condense_rows', 'skipguard', 'sentence_breaks', 'e11c', 'rowsplit', 'cutdata_hotfix', 'props_core', 'props', 'props_bust',
                 'marker_letters', 'bigg_building', 'bigg_ground', 'city_labels', 'city_patches', 'gfx_views',
                 'input_hashes', 'bufcheck'):
         try:

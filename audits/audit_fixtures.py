@@ -73,7 +73,7 @@ import title_logo                             # noqa: E402
 _BOXEND = (0xE102, 0xE104, 0xE185, 0xE081)
 
 RIG = _os.path.dirname(_os.path.abspath(__file__))
-WORK = os.path.join(tempfile.gettempdir(), 'claude', 'fixtures')
+WORK = tempfile.mkdtemp(prefix='fixtures_')     # private per run: a shared folder let concurrent runs collide
 XOR = 0x55AA
 
 
@@ -1027,4 +1027,8 @@ def main():
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    try:
+        rc = main()
+    finally:
+        shutil.rmtree(WORK, ignore_errors=True)
+    sys.exit(rc)

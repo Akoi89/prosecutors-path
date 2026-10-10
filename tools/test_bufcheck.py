@@ -75,6 +75,16 @@ def must_raise(name, fn, expect):
     raise SystemExit('FAILED: %s was accepted' % name)
 
 
+def declare_plus(stream, k):
+    """the LZ11 stream with its declared decoded size raised by k (the data left as it is)."""
+    st = bytearray(stream)
+    size = int.from_bytes(st[1:4], 'little')
+    if size == 0:
+        raise SystemExit('test setup: extended LZ11 size header not handled')
+    st[1:4] = (size + k).to_bytes(3, 'little')
+    return bytes(st)
+
+
 def cut_with(cd, blob):
     """cutdata.bin with slot 47 replaced by `blob` (literal-only stream, appended)."""
     t = bufcheck._table(cd)
@@ -842,6 +852,150 @@ def main(rom_path, dumpdir='dump'):
     must_raise('cutobj_local 12 tile bank header changed', lambda: bufcheck.check_plan_sprites(rebuild(built_c, {12: bytes(bad)}, lz=(12,)), fan_c), expect='outside its tile data')
     must_raise('cutobj_local 11 changed (another entry)', lambda: bufcheck.check_plan_sprites(
         rebuild(built_c, {11: ci.blob(11)[:-1] + bytes([ci.blob(11)[-1] ^ 1])}, lz=(11,)), fan_c), expect="is not the fan's bytes")
+    print("q. the nurse's cap (tools/props_bust.py, NURSE_ENTRIES)")
+    for cont in sorted(bufcheck.NURSE_ENTRIES):
+        built_n = bufcheck.rom_file(rom, cont)
+        fan_n = open(os.path.join(dumpdir, 'ds_fan', *cont.split('/')), 'rb').read()
+        idcom = cont == 'com/idcom.bin'
+        print('  clean %s:' % cont, bufcheck.check_nurse(cont, built_n, fan_n))
+        print('  fan file as it is:', bufcheck.check_nurse(cont, fan_n, fan_n))
+        # the built file's own table: com/idcom.bin may have been laid out again by the item icons (check j)
+        tn = bufcheck._table(built_n)
+        en = bufcheck._extents(tn, len(built_n))
+        fen = bufcheck._extents(bufcheck._table(fan_n), len(fan_n))
+
+        def nput(container, e, raw, en=en):
+            a, b = en[e]
+            if len(raw) > b - a:
+                raise SystemExit("test setup: %d bytes do not fit entry %d's %d" % (len(raw), e, b - a))
+            out = bytearray(container)
+            out[a:b] = raw + bytes(b - a - len(raw))
+            return bytes(out)
+
+        if idcom:
+            # check j holds the file's layout, the palettes and every other entry of com/idcom.bin
+            must_raise('%s one byte longer' % cont, lambda: bufcheck.check_idcom_icons(built_n + bytes(1), fan_n),
+                       expect='the last slot is')
+        else:
+            must_raise('%s one byte longer' % cont, lambda: bufcheck.check_nurse(cont, built_n + bytes(1), fan_n),
+                       expect='written in place')
+        whole = (lambda b_: bufcheck.check_idcom_icons(b_, fan_n)) if idcom else (lambda b_: bufcheck.check_nurse(cont, b_, fan_n))
+        for e, pe in sorted(bufcheck.NURSE_ENTRIES[cont].items()):
+            a, b = en[e]
+            d = lz11.decompress(built_n[a:b])
+            bad = bytearray(built_n)
+            struct.pack_into('<I', bad, e * 8 + 4, tn[e][1] + 4)
+            must_raise('%s %d table size field +4' % (cont, e),
+                       lambda: bufcheck.check_nurse(cont, bytes(bad), fan_n), expect='table field' if idcom else 'table differs')
+            must_raise('%s %d stream declares 4 more bytes than the table' % (cont, e), lambda: bufcheck.check_nurse(
+                cont, nput(built_n, e, declare_plus(built_n[a:b], 4)), fan_n), expect='stream declares')
+            if idcom:
+                order = sorted(range(len(tn)), key=lambda k: (tn[k][0], k))
+                nxt = order[order.index(e) + 1]
+                bad5 = bytearray(built_n)
+                struct.pack_into('<I', bad5, nxt * 8, tn[nxt][0] + 4)
+                must_raise('%s %d slot 4 bytes larger than the fan\'s' % (cont, e),
+                           lambda: bufcheck.check_nurse(cont, bytes(bad5), fan_n), expect='slot is')
+            bad2 = bytearray(built_n)
+            bad2[en[pe][0] + 0x30] ^= 1
+            must_raise('%s palette %d changed' % (cont, pe), lambda: whole(bytes(bad2)),
+                       expect='entry %d is not the fan\'s bytes' % pe)
+            other = next(k for k in range(e + 1, len(tn)) if k not in bufcheck.NURSE_ENTRIES[cont]
+                         and k not in bufcheck.ICON_ENTRIES and k not in bufcheck.ICON_ENTRIES.values()
+                         and en[k][1] - en[k][0] > 8)
+            bad3 = bytearray(built_n)
+            bad3[en[other][0] + 8] ^= 1
+            must_raise('%s %d (another entry) changed' % (cont, other), lambda: whole(bytes(bad3)),
+                       expect='entry %d is not the fan\'s bytes' % other)
+            lit = bytes([0x11]) + len(d).to_bytes(3, 'little') + b''.join(bytes([0]) + d[k:k + 8] for k in range(0, len(d), 8))
+            must_raise('%s %d stream does not fit the fan\'s slot (literal-only, cut at the slot)' % (cont, e),
+                       lambda: bufcheck.check_nurse(cont, nput(built_n, e, lit[:b - a]), fan_n), expect='does not decode')
+            must_raise('%s %d decoded one byte longer (its stream declares it)' % (cont, e), lambda: bufcheck.check_nurse(
+                cont, nput(built_n, e, lz11.compress(d + bytes(1))), fan_n), expect='stream declares')
+            hd = bytearray(d)
+            hd[0x18] ^= 1
+            must_raise('%s %d cell data changed' % (cont, e), lambda: bufcheck.check_nurse(
+                cont, nput(built_n, e, lz11.compress(bytes(hd))), fan_n), expect='outside its tile data')
+            s0, s1 = bufcheck._tile_span(d, 'test')
+            fd = lz11.decompress(fan_n[fen[e][0]:fen[e][1]])
+            k = next(i for i in range(s0, s1) if fd[i] and d[i])
+            hole = bytearray(d)
+            hole[k] = 0
+            must_raise('%s %d a drawn pixel made transparent' % (cont, e), lambda: bufcheck.check_nurse(
+                cont, nput(built_n, e, lz11.compress(bytes(hole))), fan_n), expect='transparent key')
+            bad4 = bytearray(built_n)
+            struct.pack_into('<I', bad4, e * 8 + 4, tn[e][1] & 0x7FFFFFFF)
+            must_raise('%s %d LZ flag cleared in the table' % (cont, e),
+                       lambda: bufcheck.check_nurse(cont, bytes(bad4), fan_n), expect='table field' if idcom else 'table differs')
+            # the LZ-flag check itself: reached only when the fan's own table lacks the flag
+            must_raise('%s %d fan entry not flagged LZ11' % (cont, e),
+                       lambda: bufcheck.check_nurse(cont, bytes(bad4), bytes(bad4)), expect='expected to be an LZ11 stream')
+    print('s. background signs (tools/props.py, SIGN_ENTRIES)')
+    for cont in sorted(bufcheck.SIGN_ENTRIES):
+        built_s = bufcheck.rom_file(rom, cont)
+        fan_s = open(os.path.join(dumpdir, 'ds_fan', *cont.split('/')), 'rb').read()
+        print('  clean %s:' % cont, bufcheck.check_signs(cont, built_s, fan_s))
+        print('  fan file as it is:', bufcheck.check_signs(cont, fan_s, fan_s))
+        rebuilt = cont in bufcheck.SIGN_REBUILT
+        ts = bufcheck._table(built_s if rebuilt else fan_s)
+        es = bufcheck._extents(ts, len(built_s if rebuilt else fan_s))
+
+        def sput(container, e, raw, es=es):
+            a, b = es[e]
+            if len(raw) > b - a:
+                raise SystemExit("test setup: %d bytes do not fit entry %d's %d" % (len(raw), e, b - a))
+            out = bytearray(container)
+            out[a:b] = raw + bytes(b - a - len(raw))
+            return bytes(out)
+
+        if not rebuilt:
+            must_raise('%s one byte longer' % cont, lambda: bufcheck.check_signs(cont, built_s + bytes(1), fan_s),
+                       expect='written in place')
+        for e, pe in sorted(bufcheck.SIGN_ENTRIES[cont].items()):
+            a, b = es[e]
+            d = lz11.decompress(built_s[a:b])
+            bad = bytearray(built_s)
+            struct.pack_into('<I', bad, e * 8 + 4, ts[e][1] + 4)
+            must_raise('%s %d table size field +4' % (cont, e), lambda: bufcheck.check_signs(cont, bytes(bad), fan_s),
+                       expect='table field' if rebuilt else 'table differs')
+            must_raise('%s %d stream declares 4 more bytes than the table' % (cont, e), lambda: bufcheck.check_signs(
+                cont, sput(built_s, e, declare_plus(built_s[a:b], 4)), fan_s), expect='stream declares')
+            if rebuilt:
+                # the next entry's offset moved one word down: the sign's slot is no longer the fan's size
+                order = sorted(range(len(ts)), key=lambda k: ts[k][0])
+                nxt = order[order.index(e) + 1]
+                bad5 = bytearray(built_s)
+                struct.pack_into('<I', bad5, nxt * 8, ts[nxt][0] + 4)
+                must_raise('%s %d slot 4 bytes larger than the fan\'s' % (cont, e),
+                           lambda: bufcheck.check_signs(cont, bytes(bad5), fan_s), expect='slot is')
+            else:
+                bad2 = bytearray(built_s)
+                bad2[es[pe][0] + 0x30] ^= 1
+                must_raise('%s palette %d changed' % (cont, pe), lambda: bufcheck.check_signs(cont, bytes(bad2), fan_s),
+                           expect='entry %d is not the fan\'s bytes' % pe)
+                other = e + 2 if e + 2 not in bufcheck.SIGN_ENTRIES[cont] else e + 4
+                bad3 = bytearray(built_s)
+                bad3[es[other][0] + 8] ^= 1
+                must_raise('%s %d (another entry) changed' % (cont, other), lambda: bufcheck.check_signs(cont, bytes(bad3), fan_s),
+                           expect='entry %d is not the fan\'s bytes' % other)
+            lit = lz11.compress_literal(d) if hasattr(lz11, 'compress_literal') else None
+            if lit is None:
+                lit = bytes([0x11]) + len(d).to_bytes(3, 'little') + b''.join(bytes([0]) + d[k:k + 8] for k in range(0, len(d), 8))
+            must_raise('%s %d stream does not fit the fan\'s slot (literal-only, cut at the slot)' % (cont, e),
+                       lambda: bufcheck.check_signs(cont, sput(built_s, e, lit[:b - a]), fan_s), expect='does not decode')
+            must_raise('%s %d decoded one byte longer (its stream declares it)' % (cont, e), lambda: bufcheck.check_signs(
+                cont, sput(built_s, e, lz11.compress(d + bytes(1))), fan_s), expect='stream declares')
+            hd = bytearray(d)
+            hd[0x18] ^= 1
+            must_raise('%s %d RGCN header changed' % (cont, e), lambda: bufcheck.check_signs(
+                cont, sput(built_s, e, lz11.compress(bytes(hd))), fan_s), expect='outside its pixel data')
+            bad4 = bytearray(built_s)
+            struct.pack_into('<I', bad4, e * 8 + 4, ts[e][1] & 0x7FFFFFFF)
+            must_raise('%s %d LZ flag cleared in the table' % (cont, e), lambda: bufcheck.check_signs(cont, bytes(bad4), fan_s),
+                       expect='table field' if rebuilt else 'table differs')
+            if not rebuilt:
+                must_raise('%s %d fan entry not flagged LZ11' % (cont, e),
+                           lambda: bufcheck.check_signs(cont, bytes(bad4), bytes(bad4)), expect='expected to be an LZ11 stream')
     print('all negative tests raised, boundary cases passed')
 
 

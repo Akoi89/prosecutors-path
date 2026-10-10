@@ -33,12 +33,13 @@ def title_dir(dumpdir):
 
 def required(dumpdir):
     """Files apply() needs; build.py checks these under --skip-extract."""
-    import cg_art, mindchess, opening_card, idcom_icons, bigg_ground, marker_letters, item_pics, gallery_art
+    import cg_art, mindchess, opening_card, idcom_icons, bigg_ground, marker_letters, item_pics, gallery_art, props, props_bust
     t = title_dir(dumpdir)
     return ([os.path.join(t, LOGO_PNG)] + [os.path.join(t, 'fonts', n + '.otf') for n in FONTS]
             + cg_art.required(dumpdir) + mindchess.required(dumpdir) + opening_card.required(dumpdir)
             + idcom_icons.required(dumpdir) + bigg_ground.required(dumpdir) + marker_letters.required(dumpdir)
-            + item_pics.required(dumpdir) + gallery_art.required(dumpdir))
+            + item_pics.required(dumpdir) + gallery_art.required(dumpdir) + props.required(dumpdir)
+            + props_bust.required(dumpdir))
 
 
 def extract(bdir, dumpdir):
@@ -67,6 +68,10 @@ def extract(bdir, dumpdir):
     item_pics.extract(bdir, dumpdir)
     import gallery_art
     gallery_art.extract(bdir, dumpdir)
+    import props
+    props.extract(bdir, dumpdir)
+    import props_bust
+    props_bust.extract(bdir, dumpdir)
     return t
 
 
@@ -284,6 +289,20 @@ def apply(dumpdir, rom_path, log=print, version=None, any_rom=False):
     rom, button_changed = menu_button.apply_to_rom(rom, dumpdir, log, any_rom)
     if not button_changed:
         log('menu button: not redrawn (see reason above)')
+
+    # 7k) signs and props painted into the backgrounds (com/mapbg.bin, com/logicbg.bin, com/upcut.bin,
+    #     jpn/upcut_local.bin):
+    #     the fan's wording replaced by Capcom's, from the Collection's own pictures of the same
+    #     backgrounds, written in place (see tools/props.py); its entries are its own (jpn/upcut_local.bin 42,
+    #     206, 234: none another step writes or reads)
+    import props
+    rom, _signs = props.apply_to_rom(rom, dumpdir, log, any_rom)
+    # 7l) the nurse's cap (com/bustup.bin 252-255, 264, and her portrait icons com/idcom.bin 951, 953):
+    #     Capcom's SAFETY [pill] FIRST from the Collection's atlases, in every cell (see tools/props_bust.py);
+    #     after every step that writes com/idcom.bin (7c, 7i: the item icons may lay it out again), since it
+    #     writes 951 and 953 in place through the file's own table
+    import props_bust
+    rom, _cap = props_bust.apply_to_rom(rom, dumpdir, log, any_rom)
 
     # 8) hotfix: the Coroner's Findings "point at the burn mark" prompt (com/cutdata.bin
     #    slot 47, cut 208) - derive its hit-area rectangles from txtcut's own layout of

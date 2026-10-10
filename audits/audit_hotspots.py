@@ -219,6 +219,9 @@ RELETTERED = {
     40: [(29, 6, 240, 15), (80, 20, 117, 40), (157, 62, 206, 71), (92, 120, 193, 131)],
     78: [(7, 6, 78, 15), (86, 28, 144, 37), (154, 28, 212, 37), (80, 115, 122, 124)],
     82: [(29, 6, 240, 15), (80, 20, 117, 40), (92, 120, 193, 131)],
+    # tools/props.py: the night cut-in of the cotton candy stand carries the banner at the right edge
+    # (HEAVEN'S TEAR -> Capcom's Cotton Candy / Parting Clouds)
+    234: [(246, 58, 256, 113)],
 }
 
 

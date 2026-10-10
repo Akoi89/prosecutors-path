@@ -69,6 +69,9 @@ def main(argv=None):
         adv, px = fontwidths.widths(fanrom) if fanrom else (None, None)
         if not dstext.use_real_widths(adv, px):
             print('note: could not read the ROM advances; measuring with the estimate')
+            sys.stderr.write('\nWARNING: coverage.py could not read the fan ROM\'s font advances and fell back to the\n'
+                             'width ESTIMATE; this TOTAL is not comparable with counts measured with the real\n'
+                             'advances. Put the fan ROM where locate.py finds it.\n\n')
         # Mind Chess's SMALL-font advances (2026-09-27), so the harmonize_entry
         # self-comparison below (names.use_small_widths) checks a renamed
         # 453/454/455 row's width the same way the build itself did. Left
@@ -80,10 +83,12 @@ def main(argv=None):
         import names as _small_names
         _small_names.use_small_widths(fontwidths.small_widths(fanrom))
     import ndsx
-    tmp = os.path.join(os.environ.get('TEMP', '.'), '_coverage_extract')
-    import shutil
-    if os.path.isdir(tmp):
-        shutil.rmtree(tmp)
+    # a private folder per run (a fixed shared folder let two runs trip over each other), removed at exit
+    # even when the count crashes
+    import shutil, tempfile, atexit
+    base = tempfile.mkdtemp(prefix='coverage_')
+    atexit.register(shutil.rmtree, base, True)
+    tmp = os.path.join(base, 'rom')
     ndsx.extract(rom, tmp)
     # rowsplit.py appends continuation rows to entries whose longest row would
     # overrun the engine's script buffer; fold them back (the build's split
@@ -245,7 +250,7 @@ def main(argv=None):
         print('  DS[%d] str %d  (%d char units)' % (bi, bs_, bn))
     print('rows rewritten in Capcom\'s style: %d rows, replacing %s fan units'
           % (rewrite_rows, format(rewrite_units, ',')))
-    shutil.rmtree(tmp)
+    shutil.rmtree(base, ignore_errors=True)
     return 0
 
 
