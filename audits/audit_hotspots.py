@@ -193,18 +193,27 @@ def check_text_prompt(ours, log):
     return fail
 
 
-# Pictures whose lettering the port re-letters on purpose (tools/bigg_building.py: the city map's
-# "Grand Tower" label becomes "Bigg Building"; tools/city_labels.py: the map's other labels take Capcom's
-# wording). The image may differ from the fan's only inside these boxes (x0, y0, x1, y1, end exclusive),
-# one per label (the labels that touch share a box), the palette entry and the cutdata slot not at all.
-RELETTERED = {280: [(60, 100, 130, 126),                 # the tower's label
-                    (28, 15, 80, 81),                    # Twilight Station -> Sunset Station, Sunset Ave -> Dusk Street
-                    (133, 31, 191, 50),                  # Earl Bright City Hall -> Sunrise Hall
-                    (185, 58, 242, 77),                  # Dawn Waste Center -> Daybreak Dump
-                    (201, 91, 254, 110),                 # Sunshine Warehouse -> Sunshine Depot
-                    (0, 108, 62, 118),                   # Dawning St -> Dawn Street
-                    (2, 133, 62, 162),                   # Dusk Waste Management -> Sundown Sanitation Plant
-                    (75, 143, 180, 172)]}                # Prime Mall -> Day's End Mall, Rising Sun Park -> Mornington Park
+# Pictures whose lettering the port re-letters on purpose. The image may differ from the fan's only inside these
+# boxes (x0, y0, x1, y1, end exclusive), one per label (the labels that touch share a box), the palette entry and
+# the cutdata slot not at all. The boxes are a fixed table, not read from the tools under test, so an oversized
+# patch in a tool cannot widen the audit.
+RELETTERED = {
+    # tools/item_pics.py: the painting's title (Angel's Recipe -> Angel's Cookbook) and the three brass plaques
+    104: [(40, 80, 96, 98),
+          (56, 173, 114, 192), (70, 173, 111, 192), (68, 172, 112, 192),
+          (157, 173, 218, 192), (163, 173, 200, 192), (161, 172, 202, 192),
+          (49, 118, 87, 134), (42, 118, 97, 134), (26, 118, 113, 134)],
+    # tools/bigg_building.py: the city map's "Grand Tower" label becomes "Bigg Building";
+    # tools/city_labels.py: the map's other labels take Capcom's wording
+    280: [(60, 100, 130, 126),                 # the tower's label
+          (28, 15, 80, 81),                    # Twilight Station -> Sunset Station, Sunset Ave -> Dusk Street
+          (133, 31, 191, 50),                  # Earl Bright City Hall -> Sunrise Hall
+          (185, 58, 242, 77),                  # Dawn Waste Center -> Daybreak Dump
+          (201, 91, 254, 110),                 # Sunshine Warehouse -> Sunshine Depot
+          (0, 108, 62, 118),                   # Dawning St -> Dawn Street
+          (2, 133, 62, 162),                   # Dusk Waste Management -> Sundown Sanitation Plant
+          (75, 143, 180, 172)],                # Prime Mall -> Day's End Mall, Rising Sun Park -> Mornington Park
+}
 
 
 def _only_inside(ours_img, fan_img, boxes):

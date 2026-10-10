@@ -29,6 +29,20 @@ MAP_FONT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'map_font.js
 INK100, HALO100, TAN100 = (82, 82, 82), (247, 239, 231), (189, 165, 140)
 HALO100B = (222, 214, 198)   # the halo's diagonal corners, a softer tone
 
+WHITE, CYAN = (255, 255, 255), (165, 214, 231)
+INK_LOG = (74, 74, 74)
+_ROWS = [(y + 1, y + 19) for y in range(30, 190, 20)]          # the table's cell rows between its horizontal lines
+# fill rectangles (x0, y0, x1, y1, colour), applied before the words: the old "April 4" underline goes, the one under the new
+# "April 4" is drawn at the right, and the column line at x 136 moves to 156
+LOG_OPS = ([(8, 23, 104, 23, WHITE), (160, 23, 247, 23, CYAN)]
+           + [(136, a, 136, b, WHITE) for a, b in _ROWS] + [(156, a, 156, b, CYAN) for a, b in _ROWS])
+LOG_HEAD = [{'box': (9, 31, 246, 49), 'text': '', 'x': 9, 'base': 44, 'ink': INK_LOG},                       # the old column heads go
+            {'box': (9, 5, 105, 22), 'text': 'Keycard Log', 'x': 14, 'base': 19, 'ink': INK_LOG},
+            {'box': (170, 5, 246, 22), 'text': 'April 4', 'cx': 203, 'base': 19, 'ink': INK_LOG},
+            {'box': (10, 32, 71, 48), 'text': 'User ID', 'cx': 40, 'base': 44, 'ink': INK_LOG},
+            {'box': (75, 32, 154, 48), 'text': 'Time of Use', 'cx': 115, 'base': 44, 'ink': INK_LOG, 'spacing': -1},
+            {'box': (158, 32, 245, 48), 'text': 'User Name', 'cx': 201, 'base': 44, 'ink': INK_LOG}]
+
 EDITS = {
     # the contest map: Capcom's own English map (Collection cut02_003_eng) labels
     # the rooms Gusto's / Scone's / Tangaroa's / Frost's; the second line "Room"
@@ -39,12 +53,28 @@ EDITS = {
                     {'box': (161, 42, 206, 56), 'text': "Scone's", 'cx': 183, 'base': 52, 'ink': INK100, 'halo': HALO100, 'halo2': HALO100B},
                     {'box': (19, 88, 68, 101), 'text': "Tangaroa's", 'cx': 43, 'base': 98, 'ink': INK100, 'halo': HALO100, 'halo2': HALO100B},
                     {'box': (191, 88, 235, 101), 'text': "Frost's", 'cx': 212, 'base': 98, 'ink': INK100, 'halo': HALO100, 'halo2': HALO100B}]},
-    210: {'ground': (255, 255, 255), 'keep': [(165, 214, 231)],
-          'edits': [{'box': (139, 73, 246, 89), 'text': 'Rosie Ringer', 'x': 141, 'base': 84, 'ink': (74, 74, 74)}]},
-    242: {'ground': (255, 255, 255), 'keep': [(165, 214, 231)],
-          'edits': [{'box': (139, 53, 246, 70), 'text': 'Verity Gavelle', 'x': 141, 'base': 66, 'ink': (74, 74, 74)},
-                    {'box': (139, 73, 246, 89), 'text': 'Rosie Ringer', 'x': 141, 'base': 84, 'ink': (74, 74, 74)}]},
+    # the keycard log, laid out as Capcom's (Collection cut03_026_eng): the heading "Keycard Log" at the left, "April 4" over
+    # an underline at the right, the column heads "User ID / Time of Use / User Name" and the rows "Gavelle (with the grave accent), Verity" and
+    # "Ringer, Rosie". The words are set in the same face the tool used for the names. "Time of Use" and "Gavelle (with the grave accent), Verity"
+    # are wider than the fan's columns, so the column line between the time and name columns moves from x 136 to 156 and
+    # the two long words are set one pixel tighter per letter.
+    210: {'ground': (255, 255, 255), 'keep': [(165, 214, 231)], 'ops': LOG_OPS,
+          'edits': LOG_HEAD + [{'box': (139, 73, 246, 89), 'text': 'Ringer, Rosie', 'x': 160, 'base': 84, 'ink': (74, 74, 74), 'spacing': -1}]},
+    242: {'ground': (255, 255, 255), 'keep': [(165, 214, 231)], 'ops': LOG_OPS,
+          'edits': LOG_HEAD + [{'box': (139, 53, 246, 70), 'text': 'Gav\u00e8lle, Verity', 'x': 160, 'base': 66, 'ink': (74, 74, 74), 'spacing': -1},
+                               {'box': (139, 73, 246, 89), 'text': 'Ringer, Rosie', 'x': 160, 'base': 84, 'ink': (74, 74, 74), 'spacing': -1}]},
 }
+
+
+def grave_e(font):
+    """An e with a grave accent (the face has none), built from the face's own e: two rows of a diagonal stroke, a blank row,
+    then the e. The glyph is three rows taller than the e and has the same advance."""
+    e = dict(font['e'])
+    width = len(e['bits'][0])
+    acc = ['0' * 2 + '10' + '0' * (width - 4), '0' * 2 + '01' + '0' * (width - 4)]
+    e['bits'] = acc + ['0' * width] + list(e['bits'])
+    e['h'] = e['h'] + 3
+    return e
 
 
 def palette_index(pal, rgb):
@@ -112,6 +142,11 @@ def apply_entry(gfx, pal, spec, faces, log, entry):
     ground = palette_index(pal, spec['ground'])
     keep = {palette_index(pal, c) for c in spec.get('keep', [])}
     erase = {palette_index(pal, c) for c in spec.get('erase', [])}
+    for (x0, y0, x1, y1, rgb) in spec.get('ops', []):
+        idx = palette_index(pal, rgb)
+        for y in range(y0, y1 + 1):
+            for x in range(x0, x1 + 1):
+                px[x, y] = idx
     for ed in spec['edits']:
         x0, y0, x1, y1 = ed['box']
         for y in range(y0, y1 + 1):
@@ -130,9 +165,16 @@ def apply_entry(gfx, pal, spec, faces, log, entry):
     return write_gfx(gfx, im)
 
 
-def build(src, outdir):
+def make_faces():
     mf = json.load(open(MAP_FONT, encoding='utf-8'))
-    faces = {'text': load_font(), 'map': (mf['font'], mf['space'])}
+    tf, tsp = load_font()
+    tf = dict(tf)
+    tf['\u00e8'] = grave_e(tf)                      # the face has no accented e: its e under a grave accent
+    return {'text': (tf, tsp), 'map': (mf['font'], mf['space'])}
+
+
+def build(src, outdir):
+    faces = make_faces()
     data = open(src, 'rb').read()
     E = table(data)
     repl, log = {}, []

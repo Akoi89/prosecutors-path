@@ -168,6 +168,15 @@ def pause():
         pass
 
 
+# data files that live beside the tool modules and are opened relative to __file__ (the bundle root when frozen); the
+# workflow's --add-data list must carry every json here (checked from source by the self-test)
+TOOLS_DATA = ('desc_font.json', 'select_strips.json', 'txtcut_font.json', 'txtcut_condensed.json', 'map_font.json',
+              'cg_art_reg.json', 'bag_tex_reg.json', 'idcom_icons_reg.json', 'item_pics_reg.json',
+              'logic_fan_text.json', 'button_icons.json',
+              'cg_art_final/008.png', 'cg_art_final/018.png', 'cg_art_final/118.png',
+              'cg_art_final/140.png', 'cg_art_final/260.png', 'cg_art_final/268.png')
+
+
 def selftest():
     """Prove a frozen build is actually complete.
 
@@ -186,19 +195,33 @@ def selftest():
     # __file__: in a frozen build that is the bundle root. v1.6.0 shipped
     # without them and crashed at the description step.
     tools_dir = sys._MEIPASS if FROZEN else os.path.dirname(os.path.abspath(__file__))
-    for f in ('desc_font.json', 'select_strips.json', 'txtcut_font.json', 'txtcut_condensed.json', 'map_font.json', 'cg_art_reg.json', 'bag_tex_reg.json', 'idcom_icons_reg.json',
-              'logic_fan_text.json', 'button_icons.json',
-              'cg_art_final/008.png', 'cg_art_final/018.png', 'cg_art_final/118.png',
-              'cg_art_final/140.png', 'cg_art_final/260.png', 'cg_art_final/268.png'):
+    for f in TOOLS_DATA:
         good = os.path.exists(os.path.join(tools_dir, f))
         ok &= good
         print('  tools %-30s %s' % (f, 'ok' if good else 'MISSING'))
+    if not FROZEN:
+        # from source, prove the list is complete and that the CI workflow bundles every entry: a data file a tool
+        # opens that is missing from either one is the v1.6.0 crash (the exe passes the self-test, then fails mid-build)
+        listed = {f for f in TOOLS_DATA if '/' not in f}
+        found = {f for f in os.listdir(tools_dir) if f.endswith('.json')}
+        for f in sorted(found - listed):
+            ok = False
+            print('  tools %-30s NOT IN TOOLS_DATA (add it here and to the workflow)' % f)
+        wf = os.path.join(os.path.dirname(tools_dir), '.github', 'workflows', 'build.yml')
+        if os.path.exists(wf):
+            text = open(wf, encoding='utf-8').read()
+            for f in TOOLS_DATA:
+                if f.startswith('cg_art_final/'):
+                    continue
+                if '$root/tools/%s${{' % f not in text:
+                    ok = False
+                    print('  workflow %-27s NOT BUNDLED (no --add-data in %s)' % (f, os.path.basename(wf)))
     # UnityPy.UnityPyBoost is a C extension and lz4 is how Addressables bundles are
     # actually compressed - both are reached only during extraction, so a build
     # missing them looks perfectly healthy until someone points it at the game.
     for mod in ('UnityPy', 'UnityPy.UnityPyBoost', 'lz4.block', 'brotli', 'PIL.Image', 'numpy',
                 'spt', 'dstext', 'inject', 'locate', 'ndsx', 'names', 'plates', 'buttons',
-                'lz11', 'nitro', 'txtcut', 'cg_names', 'cg_art', 'bag_tex', 'opening_card', 'idcom_icons', 'loc_dump', 'title_assets', 'voices',
+                'lz11', 'nitro', 'txtcut', 'cg_names', 'cg_art', 'bag_tex', 'opening_card', 'idcom_icons', 'item_pics', 'plaque_face', 'icon_labels', 'menu_button', 'loc_dump', 'title_assets', 'voices',
                 'compact', 'mindchess', 'mc_wait', 'room_names', 'mindchess_recn', 'rnan25', 'linefix', 'last_rows', 'rewrite', 'relaid_rows',
                 'condense_rows', 'skipguard', 'sentence_breaks', 'e11c', 'rowsplit', 'cutdata_hotfix',
                 'marker_letters', 'bufcheck'):

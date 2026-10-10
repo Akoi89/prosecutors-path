@@ -33,11 +33,12 @@ def title_dir(dumpdir):
 
 def required(dumpdir):
     """Files apply() needs; build.py checks these under --skip-extract."""
-    import cg_art, mindchess, opening_card, idcom_icons, bigg_ground, marker_letters
+    import cg_art, mindchess, opening_card, idcom_icons, bigg_ground, marker_letters, item_pics
     t = title_dir(dumpdir)
     return ([os.path.join(t, LOGO_PNG)] + [os.path.join(t, 'fonts', n + '.otf') for n in FONTS]
             + cg_art.required(dumpdir) + mindchess.required(dumpdir) + opening_card.required(dumpdir)
-            + idcom_icons.required(dumpdir) + bigg_ground.required(dumpdir) + marker_letters.required(dumpdir))
+            + idcom_icons.required(dumpdir) + bigg_ground.required(dumpdir) + marker_letters.required(dumpdir)
+            + item_pics.required(dumpdir))
 
 
 def extract(bdir, dumpdir):
@@ -62,6 +63,8 @@ def extract(bdir, dumpdir):
     bigg_ground.extract(bdir, dumpdir)
     import marker_letters
     marker_letters.extract(bdir, dumpdir)
+    import item_pics
+    item_pics.extract(bdir, dumpdir)
     return t
 
 
@@ -245,6 +248,22 @@ def apply(dumpdir, rom_path, log=print, version=None, any_rom=False):
     rom, labels_changed = city_labels.apply_to_rom(rom, dumpdir, log, any_rom)
     if not labels_changed:
         log('city labels: not redrawn (see reason above)')
+
+    # 7g) item pictures with the fan's wording where Capcom's differs (tools/item_pics.py): small in-place
+    #     re-letterings in jpn/upcut_local.bin, com/idcom.bin and com/logic_keyword.bin; after the last
+    #     step that writes upcut_local, after the icon swaps above and after 7d-7f (which change other entries
+    #     of the same files; no step reads an entry another one writes)
+    import item_pics
+    rom, items_changed = item_pics.apply_to_rom(rom, dumpdir, log, any_rom)
+    if not items_changed:
+        log('item pictures: not redrawn (see reason above)')
+
+    # 7h) the partner card's "Change Re-creation" button: Capcom's "Switch re-creations" in the fan's face
+    #     (jpn/idlocal.bin entry 357, cells 10 and 11; see tools/menu_button.py); after every other idlocal writer
+    import menu_button
+    rom, button_changed = menu_button.apply_to_rom(rom, dumpdir, log, any_rom)
+    if not button_changed:
+        log('menu button: not redrawn (see reason above)')
 
     # 8) hotfix: the Coroner's Findings "point at the burn mark" prompt (com/cutdata.bin
     #    slot 47, cut 208) - derive its hit-area rectangles from txtcut's own layout of
