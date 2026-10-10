@@ -7,7 +7,7 @@ from optional dialogue help most.
 ## Testing status
 
 Every release is verified structurally (every string audited against the fan layout,
-14 audits covering the defect classes that have shipped before) and exercised in
+17 audits covering the defect classes that have shipped before) and exercised in
 melonDS by a scripted rig. What that rig has actually executed, measured: all 25 chapter
 saves boot, load and advance; about 5,100 of the game's 41,706 message boxes have been
 displayed, weighted toward chapter openings and finales; and on the 1.5.0 candidate an
@@ -24,6 +24,30 @@ hang found another way is the Case 4 freeze fixed in 1.10.0, found by searching 
 scene for the cause of one a tester hit in Case 2, not by anyone hitting it. The Case 4
 crash fixed in 1.11.0, after talking to Lotta, was hit by the tester; his emulator save
 state reproduced it, and the rig then replayed it and confirmed the fix.
+
+For 1.11.2, the Case 3 freeze fix was checked in the emulator. The rig put the memory scene
+into a save from just before it, once on a copy of 1.11.1 and once on a test build carrying
+this one script change. On 1.11.1 and on 1.10.0 the top screen goes white on the first press
+and is pixel-identical after 201 presses; on 1.11.1 the other buttons and the touch screen
+don't answer either.
+On 1.9.1 and on the test build the next box, "(There's a huge block of ice on display here.)",
+appears on the second press and the scene runs on to Bound's next line. A new audit flags a
+wait on a character the scene never placed: on 1.11.1 it flags exactly the two waits that
+caused this, and on the fixed build none. The rebuttal that leads into the memory could not be
+played on the rig, so that part was compared by script and not played, and the reporter hasn't
+confirmed the fix yet.
+
+The pictures JPScaravino reported while playing Episode 5 on 1.11.1 (the city map, a
+floor-plan marker, a nameplate) and the pictures found by the sweep that followed were
+checked by decoding the built ROM and by rendering each one beside the fan's and Capcom's.
+The release ROM was built twice with identical results, `--verify` matches the published
+reference, and a build from a full extraction of the Collection gives the same picture data.
+On a running game, in melonDS from the tester's own Episode 5 save, the floor-plan marker
+now reads W, and all twenty evidence icons in the Organizer draw the same as the ROM's own
+pictures, in the list and up close. The city maps sit behind Mind Chess and a
+microphone mini-game the rig can't play, so they and the rest of the new pictures were
+checked from the ROM only. I booted the 1.11.2 release build on a DSi and a DSPico, and it
+played the Episode 1 opening movie on both.
 
 For 1.11.1, the purse paper was checked on a running game: the rig played a new game
 through the first investigation to the Episode 1 trash can, opened the purse and looked

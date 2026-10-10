@@ -66,17 +66,17 @@ list it falls on, send it anyway.
   Episode 2 have been finished by a tester (the Playtesters box above has the detail), but
   Episode 5 hasn't been reported finished, and a lot of optional dialogue hasn't been
   played anywhere. If something looks off there, please report it.
-- **"Gavelle" has no accent in a few places.** The Case 4 visitor log, Organizer
-  descriptions and Mind Chess spell it without the grave, because the lettering there has no
-  accented letters. In dialogue it is Gavèlle as before.
-- **Two map pieces in a later chapter are still in Japanese.** An office label and a
-  corridor label on one map were never translated by the fan patch, and Capcom's
-  Collection has no English version of that map to take them from.
+- **"Gavelle" has no accent in a couple of places.** Organizer descriptions and Mind Chess
+  spell it without the grave, because the lettering there has no accented letters. In
+  dialogue and on the Case 4 visitor log it is Gavèlle.
+- **A picture or two may still carry the fan's wording.** I fixed the pictures where the fan
+  translation's wording differed from Capcom's, but a few were too faint for me to read with
+  confidence. If you spot one, send it.
 - **On real hardware, dialogue that turns into strings of accented letters is the game's
   anti-piracy check.** Current versions of TWiLight Menu++ and the DSpico's Pico Loader
   handle it for this patch, and I tested both. If you see it, update your loader or switch
   to one of those. I also booted test builds of 1.11.0 into the first case on a DSi (through
-  TWiLight Menu++) and on a DSPico, and the 1.11.0 release build boots on both. The 1.11.1 release build boots on both as well. Nothing deeper has been tried on hardware, and no
+  TWiLight Menu++) and on a DSPico, and the 1.11.0 release build boots on both. The 1.11.1 and 1.11.2 release builds boot on both as well, and 1.11.2 played the Episode 1 opening movie on both. Nothing deeper has been tried on hardware, and no
   original DS has been tried at all.
 
 ## What you need
@@ -95,7 +95,7 @@ Two ways in, ending at the same ROM, and `--verify` confirms it either way.
 **Apply the patch** if you have the fan ROM and want it done in seconds:
 
 ```bash
-xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds" "Prosecutors-Path-1.11.1-fan-base.xdelta" "GK2 (Official English, DS port).nds"
+xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds" "Prosecutors-Path-1.11.2-fan-base.xdelta" "GK2 (Official English, DS port).nds"
 ```
 
 On Windows, DeltaPatcher asks for the same two files and writes the same output. The source
@@ -106,10 +106,10 @@ else either fails to decode or boots to a black screen. Check the result:
 gk2port-windows-x64.exe --verify "GK2 (Official English, DS port).nds"
 ```
 
-A correct output ROM is 50,609,764 bytes, sha256
-a411e3f08019e6227aa30fd4188f3ab26f9b67aebea24f001965bb7f1875d35a. The patch itself is
-3,937,394 bytes, sha256 17e5e8120db58339d5475b8f5362ed5b2f7f466a5596f3c9b06e726f4a138cc4. The bundled `GK2-v1.11.1.zip` is
-4,094,338 bytes, sha256 4f935a4188dd903e257f57b7a95b38d4037de5b800f23ba2a0d2a8dde1270be9.
+A correct output ROM is 50,548,648 bytes, sha256
+e8d391bbe2c5fddbb5b4d871c99680b4fcd0fda43e023e45d3e2d2d423351170. The patch itself is
+5,547,665 bytes, sha256 3f57757623376a085f12f1a9439308ef68d7a9402b4953503fd971541fa72200. The bundled `GK2-v1.11.2.zip` is
+5,705,404 bytes, sha256 c09bf98d418955ab1b50b6b782d60982d5b5ef225d9b338752beaca7f52f8b16.
 
 **Or build it yourself** from your own copy of the Collection, if you'd rather the
 localization came out of your files than out of one someone uploaded. Full steps are in
@@ -156,14 +156,14 @@ in [TESTING.md](TESTING.md), the ~41,700 total and the ~5,100 run by script. Tho
 the work and no shipped tool reproduces them, which is why they carry a tilde. Read the
 coverage figure as measured and the box figures as estimates.
 
-The 14 audits in [`audits/`](audits) guard the structural failure classes, and every one
+The 17 audits in [`audits/`](audits) guard the structural failure classes, and every one
 but the typography shape check is tested against a deliberately corrupted input. An audit that has never failed hasn't
 been tested, it's only been run.
 
 The tooling was written with **LLM assistance**: Claude, driven through Claude Code, over a
 series of sessions. That's stated plainly rather than buried. What ships is Capcom's own
 script, art and recordings plus the fan team's assets; nothing in the ROM is generated
-text. The code is about 22,500 lines across 72 modules, plus 15 audit scripts (the 14 audits and the harness that tests them), MIT licensed, and it ships as source
+text. The code is about 33,800 lines across 94 modules, plus 18 audit scripts (the 17 audits and the harness that tests them), MIT licensed, and it ships as source
 precisely so you don't have to take any of that on faith.
 
 Every hang but one was found by **playing the game**, not by an offline check (the Case 4
@@ -187,12 +187,13 @@ hadn't crossed, the 1.7.0 tag is the last one before it.
 
 Building requires your own legally-obtained copy of both games. Don't redistribute the
 output: it contains Capcom's copyrighted localization, and since 1.5.0 their logo art, two
-of their fonts and twenty of their audio clips, and since 1.11.1 their cake-show logo and two
-evidence pictures, alongside the fan translation's
+of their fonts and twenty of their audio clips, since 1.11.1 their cake-show logo and two
+evidence pictures, and since 1.11.2 more of their picture lettering and a whole map picture,
+alongside the fan translation's
 assets.
 
 The releases also carry an `.xdelta` from the fan ROM to the built one, and that delta *is*
-Capcom's script, which is what makes it nearly 4 MB. The trade is written down rather than
+Capcom's script, which is why it runs to about 5.5 MB. The trade is written down rather than
 left implied, in [DETAILS.md](DETAILS.md).
 
 **If you want Capcom's translation, buy the Collection.** It's very good, and it's the

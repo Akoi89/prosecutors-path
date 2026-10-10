@@ -1,16 +1,19 @@
-Version 1.11.1 fixes what a player reported, gaps inside long screams and the fan translation's names on the purse's security plan, then a few more fan names I found by checking every picture the fan translation edited. Everything else is as in 1.11.0; saves carry over.
+Version 1.11.2 fixes the Case 3 freeze reported in issue 3 and puts Capcom's wording on a long list of pictures, most of them found after JPScaravino's Episode 5 reports. The script is as in 1.11.1 apart from the Case 3 commands.
 
 ## What this build fixes
 
-- **Gaps inside long screams.** Long breakdowns, such as the two ending Episode 1, showed a small gap mid-row ("AAAAAAA AAAAAAA"). Screams now run on without a gap, including ones with no line break in Capcom's script.
-- **Fan names on the purse's security plan.** The security plan you pull out of the purse in the Episode 1 trash can still carried the fan translation's names, Rooke and Knightley. It now reads Rook and Knight.
-- **Stray spaces after hyphens.** A few words showed "long- standing" or "muddle- headed". They no longer have a stray space after the hyphen, and one very long phrase no longer breaks mid-word.
-- **Fan names left in pictures.** The Episode 3 opening card's cake-show logo now reads Capcom's "Samson & Judy's Bake 'n' Bop!", the cake-contest maps say Gusto's, Scone's, Tangaroa's and Frost's Room, and the victim's letter in the Court Record reads Ms. Rosie Ringer. I didn't find any other pictures with fan names.
-- **Six Logic keyword cards.** "Simon's stunt" now reads Capcom's "Mr. Saint's big moment". Five more that kept the fan's wording now read "Bloody lamp", "Lack of knowledge", "Scone's rulebreaking", "Vehicle activity" and "No Shaun".
-- **A Court Record title.** One title that was still in Japanese now reads Capcom's "Promise Notebook".
+- **The Case 3 freeze.** After Ms. Bound's second rebuttal, Edgeworth's memory of the ice block began on a white top screen and nothing responded. Every version from 1.10.0 on had it. A command that put two characters on screen had been dropped while the commands waiting on them stayed; they now go together.
+- **Bigg Building and the city map.** "Grand Tower" is gone from the city map, the cross-sections and the place cards, and the other city place names match Capcom's map.
+- **Markers on maps and floor plans.** The round markers carry Capcom's letters, so the red B for Chairman Winner is a W.
+- **Nameplates.** "Man in Black" no longer reads "ManinBlack", and the redrawn names are evenly spaced and centred.
+- **Plans and map pieces.** The prison, detention center and Zodiac Hall plans, the Gourd Lake pieces and the leaflet map use Capcom's wording, and an office and a corridor label that were still Japanese are in English.
+- **Evidence and close-ups.** A ticket, a keycard, a notebook, the Angel's Cookbook painting and its plaques, weight markings and some icon labels use Capcom's words.
+- **Signs painted into backgrounds.** The prison motto, the Maximum Security door, the circus banner, the cotton candy stand, a few more signs and the nurse's cap use Capcom's lettering.
+- **The Case 4 visitor log.** It is laid out like Capcom's and shows "Gavèlle" with its accent.
 
 ## Version history
 
+- **v1.11.2** - the Case 3 freeze fixed, Bigg Building, Capcom's wording on maps, plans, signs, item pictures and nameplates.
 - **v1.11.1** - screams without gaps, Rook and Knight on the purse's security plan, Capcom's names on more pictures and Logic cards.
 - **v1.11.0** - Case 4 crash after Lotta fixed, Mind Chess banner redrawn, touch-tap switches, coverage 99.4%.
 - **v1.10.0** - two rebuttal freezes, cut-off text, DS staging, accents.
@@ -47,21 +50,23 @@ Version 1.11.1 fixes what a player reported, gaps inside long screams and the fa
 
 ## Known problems
 
-- The tester JPScaravino has finished Episodes 1, 3 and 4 and the second half of Episode 2. Episode 5 hasn't been reported finished, and a lot of optional dialogue hasn't been played by anyone. The Lotta crash fix (1.11.0) was checked by replaying his own save, and he then finished Episode 4 on a later build. The Logic banner fix, the touch-tap switches and 1.10.0's camera and pose fixes were checked by measurement and rendering, not on a running game. For 1.11.1, on a running game I checked the purse paper, Wang's scream at the end of Episode 1 (on a build from just before the last scream change), the Episode 3 opening card and the victim's letter in the Court Record, and two of the cake-contest room maps. The rest I checked by decoding the built ROM and by renders.
-- I booted test builds of 1.11.0 into the first case on a DSi through TWiLight Menu++ and on a DSPico, and the 1.11.0 release build boots on both too. The 1.11.1 release build boots on both as well. Nothing deeper has been tried on real hardware, and no original DS has been tried at all.
-- "Gavelle" has no accent on the Case 4 visitor log, in Organizer descriptions and in Mind Chess, where the lettering has no accented letters. In dialogue it is Gavèlle.
+- JPScaravino has finished Episodes 1, 3 and 4 and the second half of Episode 2. Episode 5 hasn't been reported finished, and a lot of optional dialogue hasn't been played by anyone.
+- I checked the Case 3 fix in the emulator from a save just before the memory scene: on 1.11.1 the screen goes white and stays that way, and with the fix the scene plays on. I haven't replayed the rebuttal leading into it, and the reporter hasn't confirmed yet.
+- The new pictures were checked by decoding the built ROM. In the emulator I saw the new floor-plan marker and every evidence icon in an Episode 5 save draw correctly; the city maps and the rest haven't been seen on a running game yet.
+- The 1.11.0, 1.11.1 and 1.11.2 release builds boot on a DSi through TWiLight Menu++ and on a DSPico, and 1.11.2 played the Episode 1 opening movie on both. Nothing deeper has been tried on real hardware, and no original DS at all.
+- A few pictures were too faint for me to read with confidence, so a picture or two may still carry the fan's wording. If you spot one, send it.
+- "Gavelle" has no accent in Organizer descriptions and in Mind Chess, where the lettering has no accented letters.
 - The fan translation remains only where Capcom's Collection has no matching text (mostly DS-only save and menu messages) or its wording doesn't fit a Mind Chess row's bar. My own lines in Capcom's style are counted separately.
-- Two pieces of a map in a later chapter, an office label and a corridor label, are still in Japanese: the fan patch never translated them, and Capcom's Collection has no English version of that map.
 
 **How the figure is counted.** 99.4% is the share of the script's characters that are Capcom's, measured by a tool in the repository. Based on an analysis of the game's code rather than a full playthrough, about 99.8% of the text you can actually see is Capcom's official wording. The counting changed slightly: a fan row already matching Capcom's wording now counts as Capcom's, and my own lines are reported separately. 1.10.0 said 98.8%; before the 1.5.0 correction it was 96.5%.
 
 ## Files
 
-- `gk2port-windows-x64.exe` and `gk2port-linux-x64`: the build tool, with `SHA256SUMS` alongside them. `gk2port --verify` checks a finished ROM against this version's published reference, sha256 a411e3f08019e6227aa30fd4188f3ab26f9b67aebea24f001965bb7f1875d35a.
-- `Prosecutors-Path-1.11.1-fan-base.xdelta` (3,937,394 bytes, sha256 17e5e8120db58339d5475b8f5362ed5b2f7f466a5596f3c9b06e726f4a138cc4): the patch, uploaded separately and left out of `SHA256SUMS` because it carries Capcom's script.
-- `GK2-v1.11.1.zip` (4,094,338 bytes, sha256 4f935a4188dd903e257f57b7a95b38d4037de5b800f23ba2a0d2a8dde1270be9): the same patch bundled with `xdelta3.exe` and a short README.
+- `gk2port-windows-x64.exe` and `gk2port-linux-x64`: the build tool, with `SHA256SUMS` alongside them. `gk2port --verify` checks a finished ROM against this version's published reference, sha256 e8d391bbe2c5fddbb5b4d871c99680b4fcd0fda43e023e45d3e2d2d423351170 (50,548,648 bytes).
+- `Prosecutors-Path-1.11.2-fan-base.xdelta` (5,547,665 bytes, sha256 3f57757623376a085f12f1a9439308ef68d7a9402b4953503fd971541fa72200): the patch, uploaded separately and left out of `SHA256SUMS` because it carries Capcom's script.
+- `GK2-v1.11.2.zip` (5,705,404 bytes, sha256 c09bf98d418955ab1b50b6b782d60982d5b5ef225d9b338752beaca7f52f8b16): the same patch bundled with `xdelta3.exe` and a short README.
 - Apply steps, sizes, hashes and troubleshooting are in [README.md](README.md).
 
 ## Credits
 
-Thanks to **JPScaravino** for the playtesting across several builds. His save state found the Lotta crash and his screenshot the stray Logic banner letters. Thanks also to the player on Reddit whose report started 1.11.1. The AAI2 Final v2 fan translation team did the hard part: without their patch there is nothing to inject into. This project is built on their work and keeps their ATTENTION notice in every build. The tooling was written with LLM assistance, Claude, driven through Claude Code; what ships in the ROM is Capcom's own script, art and recordings plus the fan team's assets, nothing generated.
+Thanks to **meowcitycentral** for reporting the Case 3 freeze in issue 3 and for checking the same save on 1.9.1, which narrowed it down. Thanks to **JPScaravino** for the playtesting across several builds: his save state found the Lotta crash, his screenshot the stray Logic banner letters, and his Episode 5 reports on 1.11.1 the "Grand Tower" on the city map, the red B on a floor plan where Capcom has a W, and the run-together "Man in Black" nameplate. Thanks also to the player on Reddit whose report started 1.11.1. The AAI2 Final v2 fan translation team did the hard part: without their patch there is nothing to inject into. This project is built on their work and keeps their ATTENTION notice in every build. The tooling was written with LLM assistance, Claude, driven through Claude Code; what ships in the ROM is Capcom's own script, art and recordings plus the fan team's assets, nothing generated.
