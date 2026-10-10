@@ -17,12 +17,12 @@ from props_core import PropsError
 from nitro import nclr
 
 
-def must_raise(name, fn, kinds=(PropsError,), expect=None):
-    """fn must raise one of kinds; with expect, its message must contain expect (it failed for that reason)."""
+def must_raise(name, fn, kinds=(PropsError,), *, expect):
+    """fn must raise one of kinds, and its message must contain expect (it failed for that reason)."""
     try:
         fn()
     except kinds as e:
-        if expect is not None and expect not in str(e):
+        if expect not in str(e):
             raise SystemExit('FAILED: %s raised for another reason: %s' % (name, str(e).split('\n')[0][:200]))
         print('  RAISED  %-52s %s' % (name, str(e).split('\n')[0][:150]))
         return
@@ -250,14 +250,17 @@ def main(rom_path, dumpdir='dump'):
     bad = bytearray(d)
     bad[a:b] = st + bytes(b - a - len(st))
     must_raise('%s: picture one pixel off the fan\'s' % p0['cont'],
-               lambda: props.patch_container(p0['cont'], bytes(bad), dumpdir))
+               lambda: props.patch_container(p0['cont'], bytes(bad), dumpdir), expect="is not the fan's picture")
     # a missing extracted window
     tmp = tempfile.mkdtemp()
     try:
-        must_raise('extracted window missing', lambda: props.redraw(p0, g, pal, tmp))
+        must_raise('extracted window missing', lambda: props.redraw(p0, g, pal, tmp),
+                   expect='is missing; run the build once without --skip-extract')
         # the DS picture moved by two pixels against Capcom's window: registration must refuse
-        must_raise('DS picture moved two pixels right', lambda: props.redraw(p0, np.roll(g, 2, 1), pal, dumpdir))
-        must_raise('DS picture moved two pixels down', lambda: props.redraw(p0, np.roll(g, 2, 0), pal, dumpdir))
+        must_raise('DS picture moved two pixels right', lambda: props.redraw(p0, np.roll(g, 2, 1), pal, dumpdir),
+                   expect="does not register onto the DS picture")
+        must_raise('DS picture moved two pixels down', lambda: props.redraw(p0, np.roll(g, 2, 0), pal, dumpdir),
+                   expect="does not register onto the DS picture")
         src = props.cache_dir(dumpdir)
         os.makedirs(props.cache_dir(tmp))
         # a blank English texture: no lettering where the table says
@@ -270,18 +273,29 @@ def main(rom_path, dumpdir='dump'):
             props.lettering_alpha(tmp, k)          # the copied crops pass
             jp = os.path.join(src, props.crop_name(L['canvas'], lb, ''))
             shutil.copy(jp, os.path.join(props.cache_dir(tmp), props.crop_name(L['canvas'], lb, '_eng')))
-            must_raise('lettering %s: English texture without lettering' % k, lambda: props.lettering_alpha(tmp, k))
+            # the pixel-hash guard would refuse this Japanese-as-English crop first (the "collection crop refusals"
+            # below test that); step it aside so the check the name says, "English picture differs from the
+            # Japanese one in every word", is the one that raises
+            guard = props.check_crop
+            props.check_crop = lambda _name, a: a
+            try:
+                must_raise('lettering %s: English texture without lettering' % k, lambda: props.lettering_alpha(tmp, k),
+                           expect='is the same in the English and Japanese pictures')
+            finally:
+                props.check_crop = guard
         # a row fill whose inner columns miss the face: refused, not filled from nothing
         for p in [q for q in props.PICTURES if q.get('row_fill')][:1]:
             _d, gq, palq = fan_picture(dumpdir, p)
             xs = [x for x, _y in p['face']]
             q = dict(p, row_fill=(max(xs) + 3, max(xs) + 6))
-            must_raise('%s: row fill outside the face' % p['name'], lambda: props.redraw(q, gq, palq, dumpdir))
+            must_raise('%s: row fill outside the face' % p['name'], lambda: props.redraw(q, gq, palq, dumpdir),
+                       expect='has no inner face column')
         # an unknown fill mode: refused, not silently voted
         for p in [q for q in props.PICTURES if q.get('fill')][:1]:
             _d, gq, palq = fan_picture(dumpdir, p)
             q = dict(p, fill='nearst')
-            must_raise('%s: unknown fill mode' % p['name'], lambda: props.redraw(q, gq, palq, dumpdir))
+            must_raise('%s: unknown fill mode' % p['name'], lambda: props.redraw(q, gq, palq, dumpdir),
+                       expect="unknown fill 'nearst'")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     print('detector')
@@ -367,19 +381,24 @@ def main(rom_path, dumpdir='dump'):
     a, b = ext[264]
     badc = bytearray(fan_b)
     badc[a:b] = st + bytes(b - a - len(st))
-    must_raise('bustup 264 one tile byte off the fan\'s', lambda: pbu.patch_container(bytes(badc), dumpdir))
+    must_raise('bustup 264 one tile byte off the fan\'s', lambda: pbu.patch_container(bytes(badc), dumpdir),
+               expect="is not the fan's sprite")
     saved = pbu.GROUPS[264]
     try:
         pbu.GROUPS[264] = saved[:1]
-        must_raise('bustup 264 with a cell no group lists', lambda: pbu.patch_container(fan_b, dumpdir))
+        must_raise('bustup 264 with a cell no group lists', lambda: pbu.patch_container(fan_b, dumpdir),
+                   expect='the groups do not list each of its 17 cells once')
         pbu.GROUPS[264] = [(saved[0][0],) + tuple(saved[0][1:3]) + (saved[0][3] + 3.0, saved[0][4]) + (saved[0][5],)] + saved[1:]
-        must_raise('bustup 264 atlas moved three pixels (no crop for it)', lambda: pbu.patch_container(fan_b, dumpdir))
+        must_raise('bustup 264 atlas moved three pixels (no crop for it)', lambda: pbu.patch_container(fan_b, dumpdir),
+                   expect='chrBust21b_000_eng_o6_472_-18_889_326.png is missing')
     finally:
         pbu.GROUPS[264] = saved
     tmp = tempfile.mkdtemp()
     try:
-        must_raise('nurse atlas crops missing', lambda: pbu.patch_container(fan_b, tmp))
-        must_raise('nurse icon texture missing', lambda: pbu.patch_icons(fan_i, tmp))
+        must_raise('nurse atlas crops missing', lambda: pbu.patch_container(fan_b, tmp),
+                   expect='chrBust21b_000_eng_o6_455_-18_872_326.png is missing')
+        must_raise('nurse icon texture missing', lambda: pbu.patch_icons(fan_i, tmp),
+                   expect='cast21d_00_l_eng_flipped.png is missing')
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     print('all refusals raised')

@@ -58,9 +58,9 @@ g. bag model texture. Entry 1 of jpn/modelitemlocal.bin (the BTX0 with texture b
 h. room names. Entries 321, 324 and 327 of jpn/idlocal.bin and entry 10 of
    jpn/cutobj_local.bin (tools/room_names.py re-letters them in place) must decode to exactly
    the fan's size, their stream header must agree with the table, and each must be stored in no
-   more bytes than the fan's entry; every cutobj_local entry outside CUTOBJ_CHANGED (2 4 6 8 10 16 18
-   20 22 24 26: the room names, Bigg Building, the city map patches and the marker letters) must be byte
-   for byte the fan's.
+   more bytes than the fan's entry; every cutobj_local entry outside CUTOBJ_CHANGED (2 4 6 8 10 12 16
+   18 20 22 24 26: the room names, Bigg Building, the city map patches, the marker letters and the
+   floor plans) must be byte for byte the fan's.
 i. opening card. jpn/opening_local.bin entries 13 (RGCN, which opening_card.py redraws) and 14
    (RLCN) are read by the sprite bundle loader into a buffer of the table's decoded size, through
    a temporary copy of the stored entry. Every table field must be the fan's (decoded sizes and
@@ -74,7 +74,9 @@ j. evidence icons. com/idcom.bin entries 281, 573 and 575 (the business card and
    the fan's bytes, each icon decodes to the fan's size and its LZ11 stream fits in the bytes the
    fan's entry held (so it is stored in no more than the fan's), only the tile data of an icon
    and only the 16 colours of a palette differ from the fan's, and no pixel is index 0 (the
-   transparent key, which would punch a hole in the sprite).
+   transparent key, which would punch a hole in the sprite). Entries 951 and 953 (the nurse's portrait
+   icons, tools/props_bust.py) are exempt here and checked by check q; their palettes 950 and 952 stay
+   the fan's bytes.
    Exception (IDCOM_GROW: 483 519 563, the notebook, the licence and the law-office card): these may be stored larger
    than the fan's, and then the whole file is laid out again (idcom_icons.relayout). The table must keep its slot
    count and every size field, start right after itself, end with the slot (file length, 0), list the entries in the
@@ -175,9 +177,6 @@ PLAN_LARGER = (282, 285, 303, 309)      # idlocal entries allowed up to the lite
 PLAN_CUTOBJ = (12,)      # jpn/cutobj_local.bin entries plan_labels re-letters (the Autumn cloud of the Zodiac Hall plan): tile data only, stored <= fan
 PLAN_UP_LARGER = (36, 48, 78)      # the same for jpn/upcut_local.bin (plan_labels.UP_LARGER; fixed 0x2F000 block, decoded size only)
 UPCUT_BLOCK = 0x2F000      # the fixed picture block the cut table's column 1 entries of upcut_local are decoded into
-OPENING_GFX, OPENING_PAL = 13, 14
-OPENING_FREE = (0,)            # the splash title tiles, rewritten by title_text.py
-ICON_ENTRIES = {281: 280, 573: 572, 575: 574}      # icon entry -> its palette entry
 # the nurse's cap (tools/props_bust.py): container -> {entry: palette entry}
 NURSE_ENTRIES = {
     'com/bustup.bin': {252: 251, 253: 251, 254: 251, 255: 251, 264: 263},
