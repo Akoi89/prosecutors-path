@@ -608,7 +608,7 @@ grounded in measurements over the real files rather than in anyone's recollectio
 be trusted without trusting whoever built it, and the published binary has been confirmed
 to reproduce that hash byte-for-byte.
 
-The 14 audits in [`audits/`](audits) guard the structural failure classes, and **each one
+The 17 audits in [`audits/`](audits) guard the structural failure classes, and **each one
 but `audit_typography.py`, which checks a shape rather than a fault, is tested against a deliberately corrupted input**. `audits/audit_fixtures.py`
 breaks a copy of your build (or, for the title audit, of the fan artwork it reads) in exactly
 the way each one claims to detect and checks it notices, reporting the line that changed.
@@ -656,7 +656,7 @@ only works if someone reads the wall.
 
 So treat the guards as a record of what has actually gone wrong rather than proof that
 nothing else will, and treat the code as reviewable rather than authoritative. It is about
-22,500 lines across 72 modules, plus 15 audit scripts (the 14 audits and the harness that tests them), MIT licensed, and it ships as source precisely so you do
+33,800 lines across 94 modules, plus 18 audit scripts (the 17 audits and the harness that tests them), MIT licensed, and it ships as source precisely so you do
 not have to take any of the above on faith. Read it before you trust it with a ROM you
 care about, and recompute anything here that matters to you.
 
