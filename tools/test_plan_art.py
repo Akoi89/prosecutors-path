@@ -18,10 +18,14 @@ from nitro import nclr
 from choice_strips import Idlocal, rebuild, rom_file
 
 
-def must_raise(name, exc, fn):
+def must_raise(name, exc, fn, expect):
+    """fn must raise exc whose message contains `expect` (so a test meant for one guard cannot pass because another
+    guard fired first)."""
     try:
         fn()
     except exc as e:
+        if expect not in str(e):
+            raise SystemExit('FAILED: %s raised for another reason (wanted %r): %s' % (name, expect, e))
         print('  RAISED  %-58s %s' % (name, str(e)[:100]))
         return
     raise SystemExit('FAILED: %s was accepted' % name)
@@ -53,9 +57,11 @@ def main(rom_path, dumpdir='dump'):
 
     print('the slash and the derived letters')
     must_raise('slash of upcut_local 40 touched in the fan file', pl.PlanError,
-               lambda: pl.plan_faces(with_picture(fan_up, 40, lambda g: g.__setitem__((10, 122), 0))))
+               lambda: pl.plan_faces(with_picture(fan_up, 40, lambda g: g.__setitem__((10, 122), 0))),
+               'is not the shape this routine was proven on')
     must_raise('a pixel next to the slash inked', pl.PlanError,
-               lambda: pl.plan_faces(with_picture(fan_up, 40, lambda g: g.__setitem__((10, 124), 1))))
+               lambda: pl.plan_faces(with_picture(fan_up, 40, lambda g: g.__setitem__((10, 124), 1))),
+               'is not standing alone')
 
     print('the leaflet texture (upcut_local 114)')
     tmp = tempfile.mkdtemp()
@@ -70,10 +76,13 @@ def main(rom_path, dumpdir='dump'):
         print('  clean texture accepted')
         im[500, 900, 0] ^= 1
         Image.fromarray(im).save(p)
-        must_raise('texture with one channel value changed', gallery_art.GalleryError, lambda: gallery_art.picture(d, pal114))
-        must_raise('texture missing', gallery_art.GalleryError, lambda: gallery_art.picture(os.path.join(tmp, 'nowhere'), pal114))
+        must_raise('texture with one channel value changed', gallery_art.GalleryError, lambda: gallery_art.picture(d, pal114),
+                   'is not the Collection picture')
+        must_raise('texture missing', gallery_art.GalleryError, lambda: gallery_art.picture(os.path.join(tmp, 'nowhere'), pal114),
+                   'is missing')
         # through the routine: the change reaches the build as a refusal
-        must_raise('patch_upcut with the changed texture', pl.PlanError, lambda: pl.patch_upcut(fan_up, fan_up, dumpdir=d))
+        must_raise('patch_upcut with the changed texture', pl.PlanError, lambda: pl.patch_upcut(fan_up, fan_up, dumpdir=d),
+                   'is not the Collection picture')
     finally:
         shutil.rmtree(tmp)
 
@@ -84,20 +93,24 @@ def main(rom_path, dumpdir='dump'):
     print('  fan picture accepted')
     blank = g116.copy()
     blank[72:136, 100:170] = 98
-    must_raise('no temperature lines in the zone', board_temps.BoardError, lambda: board_temps.patch(blank, pal116))
+    must_raise('no temperature lines in the zone', board_temps.BoardError, lambda: board_temps.patch(blank, pal116),
+               'the temperature lines are not where the routine expects')
     half = g116.copy()
     half[72:104, 100:170] = 98
-    must_raise('upper cells empty', board_temps.BoardError, lambda: board_temps.patch(half, pal116))
+    must_raise('upper cells empty', board_temps.BoardError, lambda: board_temps.patch(half, pal116),
+               'the temperature lines are not where the routine expects')
     must_raise('patch_upcut on another 116', pl.PlanError,
                lambda: pl.patch_upcut(with_picture(fan_up, 116, lambda g: g.__setitem__((10, 10), 1)),
-                                      fan_up))
+                                      fan_up),
+               "is not the fan's")
 
     print('room names output (idlocal 321)')
     I = Idlocal(built_id)
     odd = bytearray(I.blob(321))
     odd[-1] ^= 1
     must_raise('idlocal 321 not what room_names writes', pl.PlanError,
-               lambda: pl.patch_idlocal(rebuild(fan_id, {321: bytes(odd)}, lz=(321,)), fan_id))
+               lambda: pl.patch_idlocal(rebuild(fan_id, {321: bytes(odd)}, lz=(321,)), fan_id),
+               'is not what tools/room_names')
 
     print('the detectors')
     must_report('board: the fan picture (79 F, Celsius)', pd.board_check(fan_up, fan_up))
