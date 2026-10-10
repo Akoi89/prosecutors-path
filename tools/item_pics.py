@@ -421,14 +421,16 @@ CROP_REG = (5.625, 5.625, 240.0, 0.0)
 # Capcom's) and Capcom's own plaques ("A Diary of Despair", "The Light of Life", "Angel Beset by Thorns") occupy the
 # rects below, in picture pixels (x0, y0, x1, y1, end exclusive; the first of each pair is the fan's, the second
 # Capcom's). The union, grown by `grow`, is redrawn from Capcom's registered texture; the next `feather` pixels blend
-# into the fan's picture so there is no seam. Nothing else of the picture changes.
+# into the fan's picture so there is no seam. Nothing else of the picture changes. `rects` also gives the colour fit
+# (rects[1], Capcom's plaque); an optional `redraw` lists the rects that are redrawn instead of `rects`.
 PLAQUES = (
     dict(rects=((59, 176, 111, 191), (73, 176, 108, 191)), grow=1, feather=2,                # A Diary of Despair
          draw=dict(box=(71, 175, 109, 192), lines=('A Diary', 'of Despair'))),
     dict(rects=((160, 176, 215, 191), (166, 176, 197, 191)), grow=1, feather=2,              # The Light of Life
          draw=dict(box=(164, 175, 199, 192), lines=('The Light', 'of Life'))),
     dict(rects=((52, 121, 84, 131), (45, 121, 94, 131)), grow=1, feather=2,                  # Angel Beset by Thorns
-         draw=dict(box=(45, 115, 94, 131), bevel=1, lines=('Angel Beset', 'by Thorns'))),
+         redraw=((52, 121, 84, 131), (48, 117, 92, 131)),
+         draw=dict(box=(48, 117, 92, 131), bevel=1, lines=('Angel Beset', 'by Thorns'))),
 )
 # The plaques are painted, not averaged: Capcom's lettering is a hairline about three and a half pixels tall, which an
 # area average turns into a smear. The plaque is redrawn as Capcom's plaque (a light bevel along the top, a smooth brown
@@ -436,11 +438,13 @@ PLAQUES = (
 # plaque with its lettering masked out and snapped to the picture's palette) and its words are set in tools/plaque_face.py
 # (one pixel strokes, light on the face), each line centred.
 # The frame plaque ("Angel Beset by Thorns") is set in two lines, 'Angel Beset' / 'by Thorns' (38 and 32 px, 12 rows with
-# the descenders), on a plaque as wide as Capcom's (49 px, x 45..93, the same centre). Two lines need 16 rows (bevel 1, a
-# row of margin, the 12 row block, a row of margin, the bottom edge), so the plaque is grown upward from Capcom's bottom
-# edge: it covers rows 115..130, the lower part of the frame's moulding rail (rows 115 to 120) and Capcom's old rows 121 to
-# 130, and the carving and the finial below row 131 stay. Its redraw rects are Capcom's and the fan's plaque only, so
-# everything outside the box and the feather band is the fan's picture.
+# the descenders, the face's own 3 px word space) on a 44 px plaque (x 48..91, centred on Capcom's 49 px plaque) that is 14
+# rows tall (bevel 1, the 12 row block, the bottom edge, no spare face row). It is grown upward from Capcom's bottom edge: it
+# covers rows 117..130, the lower part of the frame's moulding rail (rows 117 to 120) and Capcom's old rows 121 to 130, and
+# the carving and the finial below row 131 stay. The colours are fitted to Capcom's plaque (`rects`), but only the fan's
+# plaque and the new box are redrawn from Capcom's texture (`redraw`): Capcom's plaque is wider than the new one, and
+# redrawing it would leave a sliver of its one-line lettering at x 45..47 and 92..93. Everything outside the box and the
+# feather band is the fan's picture.
 PLAQUE_INK = (239.0, 231.0, 208.0)
 PLAQUE_PITCH = 6
 
@@ -450,7 +454,7 @@ def patch_bounds(patches, w=256, h=192):
     out = []
     for p in patches:
         g = p['grow'] + p['feather']
-        for r in p['rects'] + ((p['draw']['box'],) if p.get('draw') else ()):
+        for r in tuple(p.get('redraw', p['rects'])) + ((p['draw']['box'],) if p.get('draw') else ()):
             out.append((max(r[0] - g, 0), max(r[1] - g, 0), min(r[2] + g, w), min(r[3] + g, h)))
     return out
 
@@ -465,7 +469,7 @@ def swap_patches(grid, pal, en, patches, reg=CROP_REG):
     alpha = np.zeros((h, w))
     yy, xx = np.mgrid[0:h, 0:w]
     for p in patches:
-        for r in p['rects']:
+        for r in p.get('redraw', p['rects']):
             x0, y0, x1, y1 = r[0] - p['grow'], r[1] - p['grow'], r[2] + p['grow'], r[3] + p['grow']
             dx = np.maximum(np.maximum(x0 - xx, xx - (x1 - 1)), 0)
             dy = np.maximum(np.maximum(y0 - yy, yy - (y1 - 1)), 0)
