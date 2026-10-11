@@ -168,6 +168,90 @@ from paths import data as _data
 ARGS = {int(k, 16): v for k, v in json.load(open(_data('ctrl_args.json'))).items()}
 DEFAULT_ARGS = 0
 
+# Centring offsets the engine cannot draw. At runtime the engine replaces {E20D} in its laid-out
+# buffer with {E050 n}, n = (240 - w) // 2, w = the row's pixel width in the dialogue font. n = 10
+# is the unit 0x0A, a newline, so the row is drawn FLUSH LEFT (rig proof 2026-10-10,
+# playtest/title327: a row of 219 px gave {E050 10} and printed at the left edge, rows at
+# n = 9, 11, 12, 13, 14, 32 and 70 centred, and a static {E050 11} / {E050 9} / {E050 13} at the
+# start of a row centred correctly). Such a row gets a static {E050 11} in place of its {E20D}:
+# 11 is within 1 px of true centre for a 219 or 220 px row (n would be 10; 11 is 1 px to the right).
+BAD_CENTRE_OFFSETS = frozenset({10})
+CENTRE_OFFSET_CODE = 0xE050
+CENTRE_SAFE_OFFSET = 11
+CENTRE_LINE_PX = 240        # the n = (240 - w) // 2 of the engine, not the wrap budget
+ROW_END_CODES = (0xE102, 0xE104)
+
+
+def centre_rows(units):
+    """[(index of the {E20D}, pixel width of its row, engine offset n)] for a finished unit
+    list. A row is the units after the {E20D} up to the next 0x0A, {E102}, {E104} or the end;
+    codes are skipped with their ARGS arity and every other unit costs W(). A second {E20D}
+    inside an open row is just a code. Uses whatever width model is installed, so the caller
+    must be on the dialogue face with real advances (see fix_centre_offsets)."""
+    rows = []
+    start, px, k, n = None, 0, 0, len(units)
+
+    def close():
+        if start is not None:
+            rows.append((start, px, (CENTRE_LINE_PX - px) // 2))
+
+    while k < n:
+        v = units[k]
+        if v == 0x0A or v in ROW_END_CODES:
+            close()
+            start, px = None, 0
+            k += 1 + (ARGS.get(v, 0) if v != 0x0A else 0)
+            continue
+        if CTRL(v):
+            if v == LAYOUT_ROW and start is None:
+                start, px = k, 0
+            k += 1 + ARGS.get(v, DEFAULT_ARGS)
+            continue
+        if start is not None:
+            px += W(chr(v))
+        k += 1
+    close()
+    return rows
+
+
+def static_bad_offsets(units):
+    """Indexes of every static {E050 n} with n in BAD_CENTRE_OFFSETS."""
+    out, k, n = [], 0, len(units)
+    while k < n:
+        v = units[k]
+        if CTRL(v):
+            if v == CENTRE_OFFSET_CODE and k + 1 < n and units[k + 1] in BAD_CENTRE_OFFSETS:
+                out.append(k)
+            k += 1 + ARGS.get(v, DEFAULT_ARGS)
+        else:
+            k += 1
+    return out
+
+
+def fix_centre_offsets(units):
+    """Post-pass over a finished unit list: every {E20D} whose row the engine would offset by
+    a BAD_CENTRE_OFFSETS value becomes {E050 CENTRE_SAFE_OFFSET}. Returns (units, count).
+    It only runs on the dialogue face with the ROM's real advances (n depends on the real
+    width; a widget face or the estimate model cannot tell which rows hit 10), and leaves the
+    rows alone otherwise. Raises, in every mode, if the result would hold a static
+    {E050 10}, whether the source carried one or this pass made one."""
+    hit = set()
+    if WIDTH_FN is _w and _REAL:
+        hit = {i for i, _, nn in centre_rows(units) if nn in BAD_CENTRE_OFFSETS}
+    if hit:
+        fixed = []
+        for i, v in enumerate(units):
+            if i in hit:
+                fixed.extend((CENTRE_OFFSET_CODE, CENTRE_SAFE_OFFSET))
+            else:
+                fixed.append(v)
+        units = fixed
+    bad = static_bad_offsets(units)
+    if bad:
+        raise ValueError('static {E050 %s} at unit %d draws flush left (engine reads %d as a '
+                         'newline)' % (units[bad[0] + 1], bad[0], units[bad[0] + 1]))
+    return units, len(hit)
+
 # Which {E106}s the box really stays open across. Measured on the Japanese
 # retail script, counting the text lines on both sides of each {E106} together
 # inside one box-run: where one of these codes comes after the {E106} and
@@ -1981,4 +2065,12 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
             i = j
         else:
             i += 1
+    # The {E20D} -> {E050 11} rewrite is NOT done here: tools/sentence_breaks.py keys a string
+    # by a hash of this output, {E20D} included, so rewriting it here made that guard fall back.
+    # inject.py applies fix_centre_offsets after the hash-guarded passes. A static {E050 10}
+    # is refused here whatever the width model.
+    bad = static_bad_offsets(out)
+    if bad:
+        raise ValueError('static {E050 10} at unit %d draws flush left (engine reads 10 as a '
+                         'newline)' % bad[0])
     return out, unmapped

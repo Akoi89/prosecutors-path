@@ -571,6 +571,41 @@ def break_dangling_wait(rom):
     return bytes(out), 1
 
 
+def _centre_site(rom):
+    """(out, arg_offset) of the first {E050 11} in DS[327] str 0 - the title card row the
+    converter turned from {E20D} into a static {E050 11} (the n = 10 collision, see
+    audit_centring.py) - or (out, None). Needs a FIXED build."""
+    a, b = spt_span(rom)
+    cont = bytes(rom[a:b])
+    o, s = struct.unpack_from('<II', cont, 327 * 8)
+    off = (_find_code_offset_by_value(cont[o:o + s], a + o, 0, 0xE050, 0, 11)
+           if s else None)
+    return bytearray(rom), off
+
+
+def break_centring_row(rom):
+    """Put DS[327] str 0's title row back to an {E20D} row at engine offset 10: the
+    {E050 11} the converter wrote becomes {E20D}{E20D} (a second {E20D} inside an open row is
+    only a code, so the row keeps its 219 px and n stays (240 - 219) // 2 = 10). Two units,
+    same width. Needs a FIXED build; a pre-fix ROM already fails the audit clean."""
+    out, off = _centre_site(rom)
+    if off is None:
+        return bytes(rom), 0
+    out[off - 2:off] = enc(0xE20D)
+    out[off:off + 2] = enc(0xE20D)
+    return bytes(out), 1
+
+
+def break_centring_static(rom):
+    """Change DS[327] str 0's static {E050 11} to {E050 10}: a static offset the engine reads
+    as a newline, so the row prints flush left. One unit, same width."""
+    out, off = _centre_site(rom)
+    if off is None:
+        return bytes(rom), 0
+    out[off:off + 2] = enc(10)
+    return bytes(out), 1
+
+
 def break_staging(rom):
     """Set DS[99] str 5's SECOND {E15B}'s x argument back to 192 - the real
     Case 2 camera fault a tester reported: a scene
@@ -912,6 +947,8 @@ FIXTURES = [
     ('audit_indexargs.py', "decrement DS[92] str 1's first {E11F} argument position 1 by one (the rebuttal statement-index fault)", break_indexarg_e11f, 'rom'),
     ('audit_indexargs.py', "decrement DS[11] str 3's first {E200} argument position 1 by one (62 -> 61: the Mind Chess option would read a dev placeholder)", break_indexarg_e200, 'rom'),
     ('audit_dangling_wait.py', "point DS[185] str 1's first {E14B} at character 99, one the string never placed (the issue 3 Case 3 freeze shape)", break_dangling_wait, 'rom'),
+    ('audit_centring.py', "turn DS[327] str 0's {E050 11} title row back into an {E20D} row at engine offset 10 (219 px: drawn flush left, the title327 fault)", break_centring_row, 'rom'),
+    ('audit_centring.py', "change DS[327] str 0's static {E050 11} to {E050 10} (an offset the engine reads as a newline)", break_centring_static, 'rom'),
     ('audit_staging.py', "set DS[99] str 5's second {E15B} x argument back to 192 (the Case 2 camera fault)", break_staging, 'rom'),
     ('audit_staging.py', "move one staging command into the wrong box in a string whose box-end count still matches the fan", break_staging_placement, 'rom'),
     ('audit_staging.py', "move one staging command from after some text to before any text in its own box (same subsequence, same box)", break_staging_point, 'rom'),
@@ -973,7 +1010,7 @@ def main():
             shutil.copyfile(rowfold.manifest_path(clean_path), _mf)
         if script in ('audit_indexargs.py', 'audit_zeros.py', 'audit_staging.py',
                       'audit_widgets.py', 'measure_linewidth.py', 'audit_tails.py',
-                      'audit_hotspots.py', 'audit_dangling_wait.py'):
+                      'audit_hotspots.py', 'audit_dangling_wait.py', 'audit_centring.py'):
             # should-fix 2: an audit that already fails on the clean ROM would
             # make the ordinary text-diff test trivially pass. Require the
             # clean ROM to exit 0 (nothing wrong) and the broken copy to

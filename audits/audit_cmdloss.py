@@ -66,13 +66,23 @@ def ent(c, i):
     o, s = struct.unpack_from('<II', c, i * 8)
     return c[o:o+s] if s else b''
 
-def codes(u):
+def codes(u, ours=False):
+    # ours=True: the converter writes {E050 11} in place of an {E20D} whose row would sit at the
+    # engine offset 10 (dstext.fix_centre_offsets). That is still a centred row, so in OUR strings an
+    # {E050 11} before any text of its row counts as the {E20D} it replaced and not as an {E050}.
     c = collections.Counter()
     i = 0
+    fresh = True            # no visible text yet in this row
     while i < len(u):
         v = u[i]
         if CTRL(v):
-            c[v] += 1; i += 1 + ARGS.get(v, 0); continue
+            if ours and fresh and v == 0xE050 and i + 1 < len(u) and u[i + 1] == 11:
+                c[0xE20D] += 1; i += 2; continue
+            c[v] += 1
+            if v in (0xE102, 0xE104):
+                fresh = True
+            i += 1 + ARGS.get(v, 0); continue
+        fresh = (v == 0x0A)
         i += 1
     return c
 
@@ -96,7 +106,7 @@ for i in range(n):
         if si not in SF or u == SF[si]:
             continue
         swapped += 1
-        a, b = codes(SF[si]), codes(u)
+        a, b = codes(SF[si]), codes(u, True)
         for k, v in a.items():
             fan_total[k] += v
             if v > b.get(k, 0):

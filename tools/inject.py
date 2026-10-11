@@ -1410,6 +1410,36 @@ def recut_run(ds, en, js):
     return out
 
 
+def check_centring_container(blob):
+    """Build-time gate: raise if the final spt container holds a centred row the engine would
+    draw flush left (an {E20D} row whose offset n is in dstext.BAD_CENTRE_OFFSETS) or a static
+    {E050 10}. Scans every string of every entry, split-off continuation strings included, so
+    no later step can put one back. The row widths need the ROM's real advances; without them
+    only the static check can run, and the build says so."""
+    real = dstext.WIDTH_FN is dstext._w and bool(dstext._REAL)
+    nent = struct.unpack_from('<I', blob, 0)[0] // 8
+    bad, rows = [], 0
+    for i in range(nent):
+        o, sz = struct.unpack_from('<II', blob, i * 8)
+        e = blob[o:o + sz] if sz else b''
+        if e[:4] != b' TPS':
+            continue
+        for j, (_si, _a, _ln, u) in enumerate(all_strings(e, True)):
+            u = list(u)
+            for k in dstext.static_bad_offsets(u):
+                bad.append('entry %d string %d: static {E050 %d} at unit %d' % (i, j, u[k + 1], k))
+            if real:
+                for k, px, n in dstext.centre_rows(u):
+                    rows += 1
+                    if n in dstext.BAD_CENTRE_OFFSETS:
+                        bad.append('entry %d string %d: {E20D} row of %d px gives {E050 %d}, '
+                                   'drawn flush left' % (i, j, px, n))
+    if bad:
+        raise SystemExit('centring gate failed:' + ''.join(chr(10) + '  ' + b for b in bad[:20]))
+    print('centring gate: %s' % (('%d {E20D} rows measured, none at an unusable offset' % rows)
+                                 if real else 'static {E050 10} only (no real font advances)'))
+
+
 def file_id(rom, want):
     fnt = struct.unpack_from('<I', rom, 0x40)[0]
     def walk(dirid, prefix=''):
@@ -2160,6 +2190,32 @@ def main(base=None, out=None):
     e11c.check_totals(e11c_ins, e11c_rem)
     print('field-tap switches restored: %d inserted, %d removed' % (e11c_ins, e11c_rem))
 
+    # Centring offsets the engine cannot draw. At runtime the engine turns {E20D} into
+    # {E050 n}, n = (240 - w) // 2, and n = 10 is the newline unit, so that row prints flush
+    # left (dstext.BAD_CENTRE_OFFSETS has the proof). Each such row gets a static {E050 11}.
+    # Placed HERE on purpose: after every hash-guarded pass above (sentence_breaks keys a
+    # string by a hash that includes its {E20D}, so doing this inside dstext.convert() made
+    # that guard fall back and moved a box break), and BEFORE rowsplit so rowsplit measures
+    # the one unit this adds against the slot buffer. A split can only cut a centred row
+    # where the string is over-long; the gate after build_archive below measures the final
+    # container, split-off strings included, so a row changed by the split cannot get through.
+    cn_rows = 0
+    for _ent_i in sorted(entries):
+        d = entries[_ent_i]
+        if not d or d[:4] != b' TPS':
+            continue
+        h = parse(d, True)[0]
+        keep = tails(d, True)
+        new = []
+        n_ent = 0
+        for si, a, _ln, u in all_strings(d, True):
+            nu, c = dstext.fix_centre_offsets(list(u))
+            new.append((a, nu)); n_ent += c
+        if n_ent:
+            entries[_ent_i] = build_ds(new[0][1], new[1:], h['term'], h['scale'], h['last'], keep)
+            cn_rows += n_ent
+    print('centred rows moved off the newline offset: %d' % cn_rows)
+
     # The field engine loads a script entry into a fixed 0x2000-byte buffer
     # sized 0xC + ncnt*8 + 2*(longest row + 1) with no clamp; an entry that
     # needs more overruns the next block (entry 230's Lotta talk froze the
@@ -2178,6 +2234,7 @@ def main(base=None, out=None):
         _mf.write('\n')
 
     newspt = build_archive(entries)
+    check_centring_container(newspt)
     print('entries replaced with official English: %d' % swapped)
     print('kept fan text - string count mismatch:  %d' % mismatch)
     print('entries where a joined string was split back: %d' % unmerged)
