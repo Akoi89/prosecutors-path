@@ -1415,8 +1415,10 @@ def check_centring_container(blob):
     draw flush left (an {E20D} row whose offset n is in dstext.BAD_CENTRE_OFFSETS) or a static
     {E050 10}. Scans every string of every entry, split-off continuation strings included, so
     no later step can put one back. The row widths need the ROM's real advances; without them
-    only the static check can run, and the build says so."""
-    real = dstext.WIDTH_FN is dstext._w and bool(dstext._REAL)
+    the gate raises instead of passing on a partial check."""
+    if dstext.WIDTH_FN is not dstext._w or not dstext._REAL:
+        raise SystemExit('centring gate cannot run: the dialogue font\'s real advances are not '
+                         'loaded (dstext.use_real_widths), so row offsets cannot be measured')
     nent = struct.unpack_from('<I', blob, 0)[0] // 8
     bad, rows = [], 0
     for i in range(nent):
@@ -1428,16 +1430,14 @@ def check_centring_container(blob):
             u = list(u)
             for k in dstext.static_bad_offsets(u):
                 bad.append('entry %d string %d: static {E050 %d} at unit %d' % (i, j, u[k + 1], k))
-            if real:
-                for k, px, n in dstext.centre_rows(u):
-                    rows += 1
-                    if n in dstext.BAD_CENTRE_OFFSETS:
-                        bad.append('entry %d string %d: {E20D} row of %d px gives {E050 %d}, '
-                                   'drawn flush left' % (i, j, px, n))
+            for k, px, n in dstext.centre_rows(u):
+                rows += 1
+                if n in dstext.BAD_CENTRE_OFFSETS:
+                    bad.append('entry %d string %d: {E20D} row of %d px gives {E050 %d}, '
+                               'drawn flush left' % (i, j, px, n))
     if bad:
         raise SystemExit('centring gate failed:' + ''.join(chr(10) + '  ' + b for b in bad[:20]))
-    print('centring gate: %s' % (('%d {E20D} rows measured, none at an unusable offset' % rows)
-                                 if real else 'static {E050 10} only (no real font advances)'))
+    print('centring gate: %d {E20D} rows measured, none at an unusable offset' % rows)
 
 
 def file_id(rom, want):

@@ -170,9 +170,9 @@ DEFAULT_ARGS = 0
 
 # Centring offsets the engine cannot draw. At runtime the engine replaces {E20D} in its laid-out
 # buffer with {E050 n}, n = (240 - w) // 2, w = the row's pixel width in the dialogue font. n = 10
-# is the unit 0x0A, a newline, so the row is drawn FLUSH LEFT (rig proof 2026-10-10,
-# playtest/title327: a row of 219 px gave {E050 10} and printed at the left edge, rows at
-# n = 9, 11, 12, 13, 14, 32 and 70 centred, and a static {E050 11} / {E050 9} / {E050 13} at the
+# is the unit 0x0A, a newline, so the row is drawn FLUSH LEFT (shown on an emulator,
+# 2026-10-10: a title row of 219 px, which makes n = 10, drew at the left edge, rows at
+# n = 9, 11, 12, 13, 14, 32 and 70 centred, and a static {E050 9}, {E050 11} or {E050 13} at the
 # start of a row centred correctly). Such a row gets a static {E050 11} in place of its {E20D}:
 # 11 is within 1 px of true centre for a 219 or 220 px row (n would be 10; 11 is 1 px to the right).
 BAD_CENTRE_OFFSETS = frozenset({10})
@@ -231,13 +231,15 @@ def static_bad_offsets(units):
 def fix_centre_offsets(units):
     """Post-pass over a finished unit list: every {E20D} whose row the engine would offset by
     a BAD_CENTRE_OFFSETS value becomes {E050 CENTRE_SAFE_OFFSET}. Returns (units, count).
-    It only runs on the dialogue face with the ROM's real advances (n depends on the real
-    width; a widget face or the estimate model cannot tell which rows hit 10), and leaves the
-    rows alone otherwise. Raises, in every mode, if the result would hold a static
-    {E050 10}, whether the source carried one or this pass made one."""
-    hit = set()
-    if WIDTH_FN is _w and _REAL:
-        hit = {i for i, _, nn in centre_rows(units) if nn in BAD_CENTRE_OFFSETS}
+    n depends on the real width of the row, so this needs the dialogue face with the ROM's
+    real advances; on a widget face or the estimate model it RAISES rather than guess which
+    rows hit 10. Also raises if the result would hold a static {E050 10}, whether the source
+    carried one or this pass made one."""
+    if WIDTH_FN is not _w or not _REAL:
+        raise RuntimeError('centring pass needs the dialogue font\'s real advances '
+                           '(dstext.use_real_widths); they are not loaded, so rows at the '
+                           'unusable offset {E050 10} cannot be told from the rest')
+    hit = {i for i, _, nn in centre_rows(units) if nn in BAD_CENTRE_OFFSETS}
     if hit:
         fixed = []
         for i, v in enumerate(units):

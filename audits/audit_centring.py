@@ -96,9 +96,30 @@ def text_of(u, start):
             break
         if dstext.CTRL(v):
             continue
-        out.append(chr(v - 0xFEE0) if 0xFF01 <= v <= 0xFF5E
-                   else (' ' if v in (0xFF3F, 0x3000) else chr(v)))
+        out.append(' ' if v in (0xFF3F, 0x3000)
+                   else chr(v - 0xFEE0) if 0xFF01 <= v <= 0xFF5E else chr(v))
     return ''.join(out)
+
+
+def static_row_starts(u):
+    """Rows that open with a static {E050 n}: a row starts at the string start, after 0x0A and
+    after {E102}/{E104}; codes are skipped with their argument count, so an argument that
+    happens to equal 10 is never read as a newline; the first {E050} before any visible text
+    of the row is the one that opens it."""
+    count, k, fresh = 0, 0, True
+    while k < len(u):
+        v = u[k]
+        if dstext.CTRL(v):
+            if fresh and v == dstext.CENTRE_OFFSET_CODE:
+                count += 1
+                fresh = False
+            elif v in dstext.ROW_END_CODES:
+                fresh = True
+            k += 1 + dstext.ARGS.get(v, dstext.DEFAULT_ARGS)
+            continue
+        fresh = (v == 0x0A)
+        k += 1
+    return count
 
 
 rows_bad, static_bad = [], []
@@ -123,11 +144,7 @@ for i in range(n):
                 rows_bad.append((i, j, px, off, text_of(u, start)))
         for k in dstext.static_bad_offsets(u):
             static_bad.append((i, j, k))
-        # static {E050 n} that opens a row (replaced an {E20D}): information
-        for k, v in enumerate(u):
-            if v == dstext.CENTRE_OFFSET_CODE and (k == 0 or u[k - 1] == 0x0A
-                                                   or u[k - 1] in dstext.ROW_END_CODES):
-                n_static_start += 1
+        n_static_start += static_row_starts(u)
 
 print('spt entries scanned: %d, strings: %d, entries that failed to parse (skipped): %d'
       % (n_entries, n_strings, n_fail))
