@@ -37,12 +37,12 @@ the id its boxes use today. ffffffff (untracked) stays ffffffff.
 WHERE IT RUNS. Last, after every per-index pass in inject.py (region_align,
 _restore_index_args, recut, the positional {E081} rewrite, keep/tails,
 skipguard, sentence_breaks, e11c, and the centring pass that rewrites an {E20D} row at
-engine offset 10 to {E050 11}). Those passes walk min(len(fan), len(ours)) rows or
+engine offset 10 to {E050 11} and drops it at offset 0). Those passes walk min(len(fan), len(ours)) rows or
 need equal row counts, so appended rows must not exist until they are done.
 Audits that compare rows to the fan per index must ignore indices at or past the
 fan's row count, or read the manifest this module writes. After the split, inject.py's
 centring gate (check_centring_container) re-measures every {E20D} row of the final container,
-split-off rows included, and fails the build if one still sits at offset 10.
+split-off rows included, and fails the build if one still sits at offset 0 or 10, or is wider than the line.
 
 THE HEADER HINT. inject.py normally passes the fan's header "longest" as
 min_longest so the read size never drops below the fan's. For a split entry

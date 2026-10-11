@@ -1412,8 +1412,8 @@ def recut_run(ds, en, js):
 
 def check_centring_container(blob):
     """Build-time gate: raise if the final spt container holds a centred row the engine would
-    draw flush left (an {E20D} row whose offset n is in dstext.BAD_CENTRE_OFFSETS) or a static
-    {E050 10}. Scans every string of every entry, split-off continuation strings included, so
+    draw wrongly (an {E20D} row whose offset n is in dstext.BAD_CENTRE_OFFSETS, or negative
+    because the row is wider than the line) or a static {E050 0} / {E050 10}. Scans every string of every entry, split-off continuation strings included, so
     no later step can put one back. The row widths need the ROM's real advances; without them
     the gate raises instead of passing on a partial check."""
     if dstext.WIDTH_FN is not dstext._w or not dstext._REAL:
@@ -1432,9 +1432,9 @@ def check_centring_container(blob):
                 bad.append('entry %d string %d: static {E050 %d} at unit %d' % (i, j, u[k + 1], k))
             for k, px, n in dstext.centre_rows(u):
                 rows += 1
-                if n in dstext.BAD_CENTRE_OFFSETS:
+                if dstext.unusable_offset(n):
                     bad.append('entry %d string %d: {E20D} row of %d px gives {E050 %d}, '
-                               'drawn flush left' % (i, j, px, n))
+                               'which the engine cannot draw' % (i, j, px, n))
     if bad:
         raise SystemExit('centring gate failed:' + ''.join(chr(10) + '  ' + b for b in bad[:20]))
     print('centring gate: %d {E20D} rows measured, none at an unusable offset' % rows)
@@ -2191,8 +2191,9 @@ def main(base=None, out=None):
     print('field-tap switches restored: %d inserted, %d removed' % (e11c_ins, e11c_rem))
 
     # Centring offsets the engine cannot draw. At runtime the engine turns {E20D} into
-    # {E050 n}, n = (240 - w) // 2, and n = 10 is the newline unit, so that row prints flush
-    # left (dstext.BAD_CENTRE_OFFSETS has the proof). Each such row gets a static {E050 11}.
+    # {E050 n}, n = (240 - w) // 2. n = 10 is the newline unit (the row prints flush left) and
+    # n = 0 is the end-of-text unit (the box prints empty); see dstext.BAD_CENTRE_OFFSETS. A
+    # row at 10 gets a static {E050 11}, a row at 0 loses its {E20D}.
     # Placed HERE on purpose: after every hash-guarded pass above (sentence_breaks keys a
     # string by a hash that includes its {E20D}, so doing this inside dstext.convert() made
     # that guard fall back and moved a box break), and BEFORE rowsplit so rowsplit measures
@@ -2214,7 +2215,7 @@ def main(base=None, out=None):
         if n_ent:
             entries[_ent_i] = build_ds(new[0][1], new[1:], h['term'], h['scale'], h['last'], keep)
             cn_rows += n_ent
-    print('centred rows moved off the newline offset: %d' % cn_rows)
+    print('centred rows moved off an unusable offset: %d' % cn_rows)
 
     # The field engine loads a script entry into a fixed 0x2000-byte buffer
     # sized 0xC + ncnt*8 + 2*(longest row + 1) with no clamp; an entry that

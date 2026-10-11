@@ -3,20 +3,25 @@
 
 {E20D} centres the row it opens. At runtime the engine turns it into {E050 n} in
 its laid-out buffer, n = (240 - w) // 2, w = the row's width in pixels in the
-dialogue font. n = 10 is the same number as 0x0A, a newline, so that row is
-drawn FLUSH LEFT instead of centred. Proven on the emulator 2026-10-10 (title
-card of Episode 3, "of the So-Called "President" --", 219 px: the tester's save
-showed {E050 10} and the row at the left edge; rows at n = 9, 11, 12, 13, 14, 32
-and 70 centred, and a static {E050 11}, {E050 9} or {E050 13} centred too).
-The converter (tools/dstext.py fix_centre_offsets) now writes {E050 11} in place
-of {E20D} on any row that would land on 10; this audit is the standing guard.
+dialogue font. Two values of n break, because the engine reads them as control
+units. n = 10 is the same number as 0x0A, a newline, so that row is drawn FLUSH
+LEFT instead of centred (title card of Episode 3, "of the So-Called "President"
+--", 219 px: the row sat at the left edge; rows at n = 9, 11, 12, 13, 14, 32 and
+70 centred, and a static {E050 11}, {E050 9} or {E050 13} centred too). n = 0
+(a row 239 or 240 px wide) is the end-of-text unit: a statement box whose first
+row was a 239 px {E20D} row printed completely empty, while rows at n = 1 and 2
+printed fine. Both were shown on an emulator on 2026-10-10. The converter
+(tools/dstext.py fix_centre_offsets) writes {E050 11} in place of {E20D} on a row
+that would land on 10 and drops the {E20D} of a row that would land on 0; this
+audit is the standing guard.
 
 Method: for every string of every entry in the built ROM's jpn/spt.bin, take
 each {E20D} row (the units after the code up to the next 0x0A, {E102}, {E104} or
 the end; codes skipped with their argument count), add the real glyph advances
 of the fan font (read from the player's own AAI2 Final v2, as audit_widgets.py
-does), and compute n. BAD is any row with n == 10, and any STATIC {E050 10}
-(which draws flush left whatever the width). A row that starts with a static
+does), and compute n. BAD is any row with n == 0 or n == 10, any row wider than
+the 240 px line (n < 0), and any STATIC {E050 0} or {E050 10} (the engine reads
+those as a control unit whatever the width). A row that starts with a static
 {E050 n} instead of {E20D} is not measured: its offset is the number written
 there, so it is counted as information only.
 
@@ -26,7 +31,7 @@ SCOPE - what this does NOT look at:
   * Only the dialogue face. A widget that draws {E20D} rows in another face
     (description card, Logic cards, Mind Chess) would have another n; none of
     them carries {E20D} today, and this audit does not model them.
-  * Whether the row is centred well, only that it is not at the one offset that
+  * Whether the row is centred well, only that it is not at an offset that
     breaks. A row at n = 11 is 1 px right of true centre for 219 and 220 px.
   * The spt.bin is read as the engine reads it (split rows are NOT folded back).
   * Entries or strings that fail to parse (spt.all_strings raises): counted
@@ -91,13 +96,17 @@ SPT = rs(ROM, 'jpn/spt.bin')
 
 def text_of(u, start):
     out = []
-    for v in u[start + 1:]:
+    k = start + 1
+    while k < len(u):
+        v = u[k]
         if v == 0x0A or v in dstext.ROW_END_CODES:
             break
         if dstext.CTRL(v):
+            k += 1 + dstext.ARGS.get(v, dstext.DEFAULT_ARGS)     # skip the code and its arguments
             continue
         out.append(' ' if v in (0xFF3F, 0x3000)
                    else chr(v - 0xFEE0) if 0xFF01 <= v <= 0xFF5E else chr(v))
+        k += 1
     return ''.join(out)
 
 
@@ -140,7 +149,7 @@ for i in range(n):
         n_strings += 1
         for start, px, off in dstext.centre_rows(u):
             n_rows += 1
-            if off in dstext.BAD_CENTRE_OFFSETS:
+            if dstext.unusable_offset(off):
                 rows_bad.append((i, j, px, off, text_of(u, start)))
         for k in dstext.static_bad_offsets(u):
             static_bad.append((i, j, k))
@@ -150,11 +159,11 @@ print('spt entries scanned: %d, strings: %d, entries that failed to parse (skipp
       % (n_entries, n_strings, n_fail))
 print('{E20D} rows measured with the fan font advances: %d' % n_rows)
 print('rows opened by a static {E050 n} (information only): %d' % n_static_start)
-print('BAD - {E20D} rows whose engine offset n is in %s (drawn flush left): %d'
+print('BAD - {E20D} rows whose engine offset n is in %s or below 0 (flush left, empty box, or too wide): %d'
       % (sorted(dstext.BAD_CENTRE_OFFSETS), len(rows_bad)))
 for i, j, px, off, t in rows_bad[:40]:
     print('  entry %d str %d  %d px  n=%d  %s' % (i, j, px, off, t))
-print('BAD - static {E050 10}: %d' % len(static_bad))
+print('BAD - static {E050 0} / {E050 10}: %d' % len(static_bad))
 for i, j, k in static_bad[:40]:
     print('  entry %d str %d unit %d' % (i, j, k))
 if rows_bad or static_bad:

@@ -606,6 +606,36 @@ def break_centring_static(rom):
     return bytes(out), 1
 
 
+def break_centring_zero(rom):
+    """Plant a 239 px {E20D} row (engine offset 0, the end-of-text unit) in DS[206] str 8, the
+    cooking-show box whose third row "make something special together?" is exactly 239 px and
+    which the converter leaves plain for that reason. The row before it is "{E20D}to"; its "o"
+    becomes a newline and the newline before "make" becomes {E20D}, so the layout is
+    "{E20D}t" / "{E20D}make something special together?". Two units, same width. Needs a FIXED
+    build; a pre-fix ROM carries the {E20D} already."""
+    a, b = spt_span(rom)
+    cont = bytes(rom[a:b])
+    o, s = struct.unpack_from('<II', cont, 206 * 8)
+    if not s:
+        return bytes(rom), 0
+    e = cont[o:o + s]
+    h, recs = spt.parse(e, True)
+    starts = [h['dstart']] + [r[1] for r in recs]
+    lens = [h['lead']] + [r[2] for r in recs]
+    if 8 >= len(starts):
+        return bytes(rom), 0
+    u = spt.units(e[starts[8]:], lens[8])
+    make = [0xFF4D, 0xFF41, 0xFF4B, 0xFF45]      # fullwidth m a k e
+    for k in range(1, len(u) - 4):
+        if u[k] == 0x0A and u[k - 1] == 0xFF4F and u[k + 1:k + 5] == make:
+            out = bytearray(rom)
+            base = a + o + starts[8]
+            out[base + 2 * (k - 1):base + 2 * k] = enc(0x0A)
+            out[base + 2 * k:base + 2 * (k + 1)] = enc(0xE20D)
+            return bytes(out), 1
+    return bytes(rom), 0
+
+
 def break_staging(rom):
     """Set DS[99] str 5's SECOND {E15B}'s x argument back to 192 - the real
     Case 2 camera fault a tester reported: a scene
@@ -949,6 +979,7 @@ FIXTURES = [
     ('audit_dangling_wait.py', "point DS[185] str 1's first {E14B} at character 99, one the string never placed (the issue 3 Case 3 freeze shape)", break_dangling_wait, 'rom'),
     ('audit_centring.py', "turn DS[327] str 0's {E050 11} title row back into an {E20D} row at engine offset 10 (219 px: drawn flush left, the title327 fault)", break_centring_row, 'rom'),
     ('audit_centring.py', "change DS[327] str 0's static {E050 11} to {E050 10} (an offset the engine reads as a newline)", break_centring_static, 'rom'),
+    ('audit_centring.py', "plant an {E20D} on DS[206] str 8's third row, 239 px: engine offset 0, the end-of-text unit that printed the box empty", break_centring_zero, 'rom'),
     ('audit_staging.py', "set DS[99] str 5's second {E15B} x argument back to 192 (the Case 2 camera fault)", break_staging, 'rom'),
     ('audit_staging.py', "move one staging command into the wrong box in a string whose box-end count still matches the fan", break_staging_placement, 'rom'),
     ('audit_staging.py', "move one staging command from after some text to before any text in its own box (same subsequence, same box)", break_staging_point, 'rom'),

@@ -169,13 +169,22 @@ ARGS = {int(k, 16): v for k, v in json.load(open(_data('ctrl_args.json'))).items
 DEFAULT_ARGS = 0
 
 # Centring offsets the engine cannot draw. At runtime the engine replaces {E20D} in its laid-out
-# buffer with {E050 n}, n = (240 - w) // 2, w = the row's pixel width in the dialogue font. n = 10
-# is the unit 0x0A, a newline, so the row is drawn FLUSH LEFT (shown on an emulator,
-# 2026-10-10: a title row of 219 px, which makes n = 10, drew at the left edge, rows at
-# n = 9, 11, 12, 13, 14, 32 and 70 centred, and a static {E050 9}, {E050 11} or {E050 13} at the
-# start of a row centred correctly). Such a row gets a static {E050 11} in place of its {E20D}:
-# 11 is within 1 px of true centre for a 219 or 220 px row (n would be 10; 11 is 1 px to the right).
-BAD_CENTRE_OFFSETS = frozenset({10})
+# buffer with {E050 n}, n = (240 - w) // 2, w = the row's pixel width in the dialogue font.
+# Two values of n break, and both are values the engine reads as a control unit:
+#  * n = 10 is the unit 0x0A, a newline, so the row is drawn FLUSH LEFT (shown on an emulator,
+#    2026-10-10: a title row of 219 px, which makes n = 10, drew at the left edge, rows at
+#    n = 9, 11, 12, 13, 14, 32 and 70 centred, and a static {E050 9}, {E050 11} or {E050 13} at
+#    the start of a row centred correctly). Such a row gets a static {E050 11} in place of its
+#    {E20D}: 11 is within 1 px of true centre for a 219 or 220 px row.
+#  * n = 0 (a row 239 or 240 px wide) is the unit 0x0000, which ENDS the text. Shown on the same
+#    emulator the same day: a statement box whose first row was a 239 px {E20D} row printed
+#    completely empty, even a following {E050 1} row vanished, while rows at n = 1 and n = 2
+#    printed fine and centred. A row that fills the line has nothing to centre, so its {E20D} is
+#    simply removed: a plain row starts at the left margin, which is where n = 0 would have put
+#    it, and plain rows are what the whole game already draws.
+# A row wider than 240 px (n < 0) cannot be centred at all; it is a wrapping bug, so the pass
+# refuses it instead of guessing.
+BAD_CENTRE_OFFSETS = frozenset({0, 10})
 CENTRE_OFFSET_CODE = 0xE050
 CENTRE_SAFE_OFFSET = 11
 CENTRE_LINE_PX = 240        # the n = (240 - w) // 2 of the engine, not the wrap budget
@@ -214,6 +223,12 @@ def centre_rows(units):
     return rows
 
 
+def unusable_offset(n):
+    """True for an engine offset that cannot be drawn: one of BAD_CENTRE_OFFSETS, or negative
+    (the row is wider than the line)."""
+    return n < 0 or n in BAD_CENTRE_OFFSETS
+
+
 def static_bad_offsets(units):
     """Indexes of every static {E050 n} with n in BAD_CENTRE_OFFSETS."""
     out, k, n = [], 0, len(units)
@@ -229,30 +244,43 @@ def static_bad_offsets(units):
 
 
 def fix_centre_offsets(units):
-    """Post-pass over a finished unit list: every {E20D} whose row the engine would offset by
-    a BAD_CENTRE_OFFSETS value becomes {E050 CENTRE_SAFE_OFFSET}. Returns (units, count).
+    """Post-pass over a finished unit list. A row opened by {E20D} whose engine offset is 10
+    gets a static {E050 CENTRE_SAFE_OFFSET} in place of the {E20D}; one whose offset is 0
+    loses the {E20D} (see BAD_CENTRE_OFFSETS). Returns (units, count of rows changed).
     n depends on the real width of the row, so this needs the dialogue face with the ROM's
     real advances; on a widget face or the estimate model it RAISES rather than guess which
-    rows hit 10. Also raises if the result would hold a static {E050 10}, whether the source
-    carried one or this pass made one."""
+    rows are affected. Also raises on a row wider than the line (n < 0), and if the result
+    would hold a static {E050 0} or {E050 10}, whether the source carried one or this pass
+    made one."""
     if WIDTH_FN is not _w or not _REAL:
         raise RuntimeError('centring pass needs the dialogue font\'s real advances '
-                           '(dstext.use_real_widths); they are not loaded, so rows at the '
-                           'unusable offset {E050 10} cannot be told from the rest')
-    hit = {i for i, _, nn in centre_rows(units) if nn in BAD_CENTRE_OFFSETS}
-    if hit:
+                           '(dstext.use_real_widths); they are not loaded, so rows at an '
+                           'unusable offset ({E050 0} or {E050 10}) cannot be told from the rest')
+    change = {}
+    for i, px, nn in centre_rows(units):
+        if nn < 0:
+            raise ValueError('{E20D} row of %d px at unit %d is wider than the %d px line'
+                             % (px, i, CENTRE_LINE_PX))
+        if nn == 10:
+            change[i] = (CENTRE_OFFSET_CODE, CENTRE_SAFE_OFFSET)
+        elif nn == 0:
+            change[i] = ()
+        elif nn in BAD_CENTRE_OFFSETS:
+            raise ValueError('no rewrite is defined for engine offset %d (unit %d)' % (nn, i))
+    if change:
         fixed = []
         for i, v in enumerate(units):
-            if i in hit:
-                fixed.extend((CENTRE_OFFSET_CODE, CENTRE_SAFE_OFFSET))
+            if i in change:
+                fixed.extend(change[i])
             else:
                 fixed.append(v)
         units = fixed
     bad = static_bad_offsets(units)
     if bad:
-        raise ValueError('static {E050 %s} at unit %d draws flush left (engine reads %d as a '
-                         'newline)' % (units[bad[0] + 1], bad[0], units[bad[0] + 1]))
-    return units, len(hit)
+        raise ValueError('static {E050 %d} at unit %d is read by the engine as a control unit'
+                         % (units[bad[0] + 1], bad[0]))
+    return units, len(change)
+
 
 # Which {E106}s the box really stays open across. Measured on the Japanese
 # retail script, counting the text lines on both sides of each {E106} together
