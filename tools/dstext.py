@@ -2097,10 +2097,13 @@ def convert(units, wrap=True, page=True, hard_nl='e20d'):
             i += 1
     # The {E20D} -> {E050 11} rewrite is NOT done here: tools/sentence_breaks.py keys a string
     # by a hash of this output, {E20D} included, so rewriting it here made that guard fall back.
-    # inject.py applies fix_centre_offsets after the hash-guarded passes. A static {E050 10}
-    # is refused here whatever the width model.
+    # inject.py applies fix_centre_offsets after the hash-guarded passes. A static {E050 n}
+    # with n in BAD_CENTRE_OFFSETS (0 ends the text, 10 reads as a newline) is refused here
+    # whatever the width model.
     bad = static_bad_offsets(out)
     if bad:
-        raise ValueError('static {E050 10} at unit %d draws flush left (engine reads 10 as a '
-                         'newline)' % bad[0])
+        n = out[bad[0] + 1]
+        raise ValueError('static {E050 %d} at unit %d: the engine reads %d as %s' % (
+            n, bad[0], n, 'a newline (row draws flush left)' if n == 10 else
+            'the end of the text (box prints empty)' if n == 0 else 'a control unit'))
     return out, unmapped
