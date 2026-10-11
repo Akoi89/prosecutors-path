@@ -29,12 +29,13 @@ Episode 3 opening card are all redrawn or swapped in at build time.
 
 > ### Playtesters wanted
 >
-> The tester JPScaravino has finished Episodes 1, 3 and 4 and the second half of Episode 2,
-> across several builds, most recently Episode 4 on the 1.11 test builds ("works perfectly
-> from start to finish"). **Episode 5 hasn't been reported finished yet**, and a lot of
-> optional dialogue (wrong answers, side conversations) hasn't been played anywhere, so
-> reports from either help most. [TESTING.md](TESTING.md) says which build each episode was
-> played on and what the automated rig has covered.
+> The tester JPScaravino has finished Episodes 1, 3, 4 and 5 and the second half of
+> Episode 2, across several builds, most recently Episode 5 start to finish on 1.11.1 and
+> Episode 4 on the 1.11 test builds ("works perfectly from start to finish"). **A lot of
+> optional dialogue** (wrong answers, side conversations) hasn't been played anywhere, and
+> the first half of Episode 2 hasn't been reported finished, so reports from either help
+> most. [TESTING.md](TESTING.md) says which build each episode was played on and what the
+> automated rig has covered.
 >
 > **[Report anything wrong in issue #1](../../issues/1)**, not just things that stop.
 > Wrong or odd wording, text that runs past its box, a name that changes between screens,
@@ -62,10 +63,10 @@ list it falls on, send it anyway.
   Capcom never localised this game officially on the DS, so where their Collection text
   has no counterpart here the AAI2 fan translation stays. Those lines are not wrong, they
   are just not Capcom's, and they can read slightly differently in tone.
-- **Episode 5 hasn't been played through yet.** Episodes 1, 3 and 4 and the second half of
-  Episode 2 have been finished by a tester (the Playtesters box above has the detail), but
-  Episode 5 hasn't been reported finished, and a lot of optional dialogue hasn't been
-  played anywhere. If something looks off there, please report it.
+- **Not every episode has been played through.** Episodes 1, 3, 4 and 5 and the second half
+  of Episode 2 have been finished by a tester (the Playtesters box above has the detail),
+  but the first half of Episode 2 hasn't been reported finished, and a lot of optional
+  dialogue hasn't been played anywhere. If something looks off there, please report it.
 - **"Gavelle" has no accent in a couple of places.** Organizer descriptions and Mind Chess
   spell it without the grave, because the lettering there has no accented letters. In
   dialogue and on the Case 4 visitor log it is Gavèlle.
@@ -76,7 +77,7 @@ list it falls on, send it anyway.
   anti-piracy check.** Current versions of TWiLight Menu++ and the DSpico's Pico Loader
   handle it for this patch, and I tested both. If you see it, update your loader or switch
   to one of those. I also booted test builds of 1.11.0 into the first case on a DSi (through
-  TWiLight Menu++) and on a DSPico, and the 1.11.0 release build boots on both. The 1.11.1 and 1.11.2 release builds boot on both as well, and 1.11.2 played the Episode 1 opening movie on both. Nothing deeper has been tried on hardware, and no
+  TWiLight Menu++) and on a DSPico, and the 1.11.0 release build boots on both. The 1.11.1 and 1.11.2 release builds boot on both as well, and 1.11.2 played the Episode 1 opening movie on both. The 1.11.3 release build went further on both: past the opening movie and into play in Episode 1. Nothing deeper has been tried on hardware, and no
   original DS has been tried at all.
 
 ## What you need
@@ -95,7 +96,7 @@ Two ways in, ending at the same ROM, and `--verify` confirms it either way.
 **Apply the patch** if you have the fan ROM and want it done in seconds:
 
 ```bash
-xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds" "Prosecutors-Path-1.11.2-fan-base.xdelta" "GK2 (Official English, DS port).nds"
+xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds" "Prosecutors-Path-1.11.3-fan-base.xdelta" "GK2 (Official English, DS port).nds"
 ```
 
 On Windows, DeltaPatcher asks for the same two files and writes the same output. The source
@@ -106,10 +107,10 @@ else either fails to decode or boots to a black screen. Check the result:
 gk2port-windows-x64.exe --verify "GK2 (Official English, DS port).nds"
 ```
 
-A correct output ROM is 50,548,648 bytes, sha256
-e8d391bbe2c5fddbb5b4d871c99680b4fcd0fda43e023e45d3e2d2d423351170. The patch itself is
-5,547,665 bytes, sha256 3f57757623376a085f12f1a9439308ef68d7a9402b4953503fd971541fa72200. The bundled `GK2-v1.11.2.zip` is
-5,705,404 bytes, sha256 c09bf98d418955ab1b50b6b782d60982d5b5ef225d9b338752beaca7f52f8b16.
+A correct output ROM is 50,548,652 bytes, sha256
+f75be832ad759472f909f4e9f9881cb02ef441cf653556178140cca471e16ede. The patch itself is
+5,547,552 bytes, sha256 d55a457aa2c91e9b2b391d3070db9abb9e8c5a441e69cf6c7dc2d1f76452917e. The bundled `GK2-v1.11.3.zip` is
+5,705,291 bytes, sha256 0f2bb32b5513d2ae0123969c204c68b4193d57d15e3b9827cda99ecd8d69e012.
 
 **Or build it yourself** from your own copy of the Collection, if you'd rather the
 localization came out of your files than out of one someone uploaded. Full steps are in
@@ -119,7 +120,7 @@ titles are redrawn, what doesn't port and why, and the tool inventory.
 ## Credits
 
 **JPScaravino** has done the most playtesting of any tester so far, finishing Episodes 1,
-3 and 4 and the second half of Episode 2, across several builds. His save state found the
+3, 4 and 5 and the second half of Episode 2, across several builds. His save state found the
 Case 4 crash that 1.11.0 fixes.
 
 Built on the **AAI2 fan translation team**'s
@@ -156,14 +157,14 @@ in [TESTING.md](TESTING.md), the ~41,700 total and the ~5,100 run by script. Tho
 the work and no shipped tool reproduces them, which is why they carry a tilde. Read the
 coverage figure as measured and the box figures as estimates.
 
-The 17 audits in [`audits/`](audits) guard the structural failure classes, and every one
+The 18 audits in [`audits/`](audits) guard the structural failure classes, and every one
 but the typography shape check is tested against a deliberately corrupted input. An audit that has never failed hasn't
 been tested, it's only been run.
 
 The tooling was written with **LLM assistance**: Claude, driven through Claude Code, over a
 series of sessions. That's stated plainly rather than buried. What ships is Capcom's own
 script, art and recordings plus the fan team's assets; nothing in the ROM is generated
-text. The code is about 33,800 lines across 94 modules, plus 18 audit scripts (the 17 audits and the harness that tests them), MIT licensed, and it ships as source
+text. The code is about 34,000 lines across 94 modules, plus 19 audit scripts (the 18 audits and the harness that tests them), MIT licensed, and it ships as source
 precisely so you don't have to take any of that on faith.
 
 Every hang but one was found by **playing the game**, not by an offline check (the Case 4

@@ -531,11 +531,12 @@ python audits/audit_fixtures.py         # prove the audits can actually fail
 | `audits/audit_indexargs.py` | Any string-index argument, other than {E187}/{E081}, that no longer points at the fan's string (the Case 2 and Case 4 rebuttal freezes) |
 | `audits/audit_staging.py` | A string's camera, character-position or pose command sequence that no longer matches the fan's, in the same message box (the Case 2 camera fault) |
 | `audits/audit_dangling_wait.py` | A wait on a character ({E14B}) that the string never places and the fan's own string does not wait on either (the Case 3 freeze) |
+| `audits/audit_centring.py` | A centred row ({E20D}) whose engine offset, (240 minus its width) halved, is 0 or 10, a row wider than the line, or a static {E050 0} or {E050 10}: 0x0A is a newline and draws the row flush left, 0x0000 ends the text (the 1.11.3 title and cooking-show defects) |
 | `audits/audit_hotspots.py` | Whether the tap rectangle for Case 4's "point at the burn mark" prompt still covers those words and nothing else; for the nine picture prompts with a local image, whether image and rectangle still equal the fan's, except that an image the port re-letters on purpose (the fixed `RELETTERED` table of boxes in the audit) may differ only inside its boxes, and its palette entry and rectangle not at all |
 | `audits/audit_zeros.py` | A 0x0000 unit in text position that the fan ROM didn't already ship there, which ends the DS engine's string read early |
 | `audits/audit_plates.py` | Reads the 59 dialogue nameplates back out of a ROM: ink on the bar's border, a margin below the fan's smallest or lopsided beyond the fan's, letters that touch or split, a word gap below 3 without a listed exception (`plates.THIN_EXCEPTIONS`), and any pixel a redraw may not change; `--selftest` feeds it broken plates and requires each to be caught |
 | `audits/audit_item_pics.py` | For each picture `item_pics.py` re-letters (43 on the 1.11.2 branch): a changed pixel outside the box it declares, the fan's old lettering still present (normalised correlation of the box), or a palette that is not the fan's; the same check on the fan ROM must flag every picture, so a detector that stops detecting is noticed |
-| `audits/audit_fixtures.py` | Breaks a copy of your build twenty ways across fifteen scripts (the fourteen audits that have a fixture, and the line-width measurement; audit_choicearg gets two, one per fault class; audit_indexargs two; audit_staging three; audit_widgets two), and checks each one notices |
+| `audits/audit_fixtures.py` | Breaks a copy of your build twenty-three ways across sixteen scripts (the fifteen audits that have a fixture, and the line-width measurement; audit_centring gets three; audit_choicearg two, one per fault class; audit_indexargs two; audit_staging three; audit_widgets two), and checks each one notices |
 | `audits/audit_typography.py` | Not a width check, a SHAPE check: a spurious space, a line opening with a comma, empty brackets, a stray blank line. None of those make a line too wide, which is how the v1.9.0 development build put a space after 144 re-opened brackets and survived a full review. Comparative against an older ROM, since several of these quirks predate this port; `--selftest` proves it can fail against eight broken fixtures |
 | `audits/measure_linewidth.py` | Not an audit, a measurement: how many dialogue lines are wider than the 240px box, using the font's real advances. Its scope is pinned in its docstring because four differently scoped walkers gave four different line totals while agreeing exactly on the over-budget count, so any figure taken from it is quoted with its command |
 | `spt.py` | SPT container parser, both variants, with offset-scale detection |
@@ -608,7 +609,7 @@ grounded in measurements over the real files rather than in anyone's recollectio
 be trusted without trusting whoever built it, and the published binary has been confirmed
 to reproduce that hash byte-for-byte.
 
-The 17 audits in [`audits/`](audits) guard the structural failure classes, and **each one
+The 18 audits in [`audits/`](audits) guard the structural failure classes, and **each one
 but `audit_typography.py`, which checks a shape rather than a fault, is tested against a deliberately corrupted input**. `audits/audit_fixtures.py`
 breaks a copy of your build (or, for the title audit, of the fan artwork it reads) in exactly
 the way each one claims to detect and checks it notices, reporting the line that changed.
@@ -656,13 +657,13 @@ only works if someone reads the wall.
 
 So treat the guards as a record of what has actually gone wrong rather than proof that
 nothing else will, and treat the code as reviewable rather than authoritative. It is about
-33,800 lines across 94 modules, plus 18 audit scripts (the 17 audits and the harness that tests them), MIT licensed, and it ships as source precisely so you do
+34,000 lines across 94 modules, plus 19 audit scripts (the 18 audits and the harness that tests them), MIT licensed, and it ships as source precisely so you do
 not have to take any of the above on faith. Read it before you trust it with a ROM you
 care about, and recompute anything here that matters to you.
 
 That is also why [issue #1](../../issues/1) asks for players rather than for approval.
-Episodes 1, 3 and 4 and the second half of Episode 2 have been finished by a tester,
-across several builds. Episode 5 hasn't been reported finished, and the automated rig has
+Episodes 1, 3, 4 and 5 and the second half of Episode 2 have been finished by a tester,
+across several builds. The first half of Episode 2 hasn't been reported finished, and the automated rig has
 not finished an episode.
 
 ---

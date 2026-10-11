@@ -13,6 +13,63 @@ lines went back to the fan text in 1.5.2 and twelve description rows in 1.6.0, s
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
 
+## v1.11.3: centred lines at two widths (a title row that printed flush left, and a cooking-show row that ended its box)
+
+This release is the `next` branch of `port`: four fix commits on top of 24b60a5 (the 1.11.2 docs commit), in tree order 1a0b70c (engine offset 10), 60293cb (review fixes, build output unchanged), 1a3a0b7 (engine offset 0) and 0b37856 (the refusal message names the real offset, build output unchanged), plus the version and reference-hash commit 2e92cef. Text only. Exactly five strings of `jpn/spt.bin` change, none in wording, no picture changes, and the coverage figure is the one of 1.11.2 (99.4%, 1,822,768 of 1,832,983 character units, `tools/coverage.py`). The executable changed because the converter did, so every patch made from an older release has to be redone.
+
+### What it looked like
+
+**Episode 5 testimony title** (DS entry 327, strings 0 and 1; the title appears twice). Reported by JPScaravino on Discord on 2026-10-10, on 1.11.1, with a screenshot: in "-- The Murder" / "of the So-Called "President" --" line 1 was centred and line 2 sat against the left edge. Measured on the rig from his own save: line 1 spans x80 to x175 (margins 78 and 78), line 2 spans x9 to x224 (216 px of ink, margins 7 and 29, about 11 px left of centre).
+
+**Episode 3 last-chapter testimony title** "-- Why You Can't Arrest Me --" (DS entry 199, strings 1 and 3; Collection `sce2_c8_0b`). A single row 220 px wide, the same fault: it sat at the left edge instead of centred, about 10 px left of centre by the offset arithmetic below (measured on test rows of 219 and 220 px: flush rows start at x9, centred ones at x18 to x20). Nobody reported it. It was found by scanning every centred row of the game after the first report.
+
+**Episode 3 opening, the TV cooking show** (DS entry 206, string 8; the show that follows the "Turnabout Legacy" episode card, Collection `sce2_opening`). The host's box reads "Iiit's cooking time! Are you ready" / "to" / "make something special together?". On 1.11.2 the first two rows print and the third never does: the box stays at two rows for about 2.5 s and the scene moves on. This is a second, worse form of the same fault, found while checking the first (the rig showed that a box whose first row was affected printed completely empty).
+
+### Cause
+
+Centred text is written with the code `{E20D}`. At runtime the engine replaces it with `{E050 n}` in its laid-out text buffer, with n = (240 - width) // 2 and width the row's width in pixels in the dialogue font (the fan font's real glyph advances, `fontwidths.widths`). Two values of n collide with control units the engine reads in the same stream: n = 10 is 0x000A, the newline unit, and the row is drawn flush left; n = 0 is 0x0000, the end-of-text unit, and the row and everything after it in that string never print. n = 10 is a row 219 or 220 px wide; n = 0 is a row 239 or 240 px wide. Entry 327 line 1 is 99 px (n = 70, fine), line 2 is 219 px (n = 10); entry 199 is 220 px (n = 10); the cooking-show third row is 239 px (n = 0). The fan ROM has no row at n = 10.
+
+The save file hid it for a while. Resuming a game with a box open ("From save point") restores that box from the save's laid-out text buffer (save offsets 0x290C and 0x978C, fullwidth UTF-16, two copies), so no ROM edit changes the box that is open when the save was made. The tester's save had the Episode 5 title open, and the first three rig rounds (variant ROMs V0, V1, V2, then the in-place variant V1i) all showed the old layout, pixel for pixel. Reading the buffer in the save is what showed `{E050 70}` for line 1 and `{E050 10}` for line 2. The following rounds put the test rows in the boxes after the restored one.
+
+### Rig evidence (melonDS, title stamp checked on every run)
+
+- Round 4 (rows at known widths in the statement boxes after the title): A219 n10 and A220 n10 flush at x9; B217 n11 (x20 to x234) and B221 n9 (x18 to x236) centred; static `{E050 11}` (219 px) and `{E050 9}` (220 px) centred, x20 to x236 and x18 to x235.
+- Round 5: n12, n13, n14 and a static `{E050 13}` all centred (x21 to x23 starts, centre 127.0 to 127.5).
+- Round 6: n = 0 rows (239 and 240 px) printed an EMPTY box, and a static `{E050 1}` row after one in the same string vanished too; rows at n = 1 and n = 2 printed and centred (x10 to x245 and x11 to x244). No hang or crash.
+- Round 9 (cooking show): the box's text was transplanted into the first box of entry 258 from an Episode 4 chapter-start save (chapter start), because swapping a whole cutscene entry does not work (the scene's own sequence drives the boxes). 1.11.2: rows 1 and 2 print, row 3 never appears, the box stays at two rows from about 5.7 s to 8.2 s after load and the next box follows. Fix: all three rows print, row 3 first appears at about 5.7 s and spans x9 to x245 (margins 7 and 8). Rows 1 and 2 are identical on both ROMs.
+- Round 10 (a test ROM with two real rows and three synthetic ones): "-- President Wang's Testimony --" (n = 1) and "What shall we make today, kids?" (n = 1) print and centre; synthetic rows at n19 and n30 centre; n25 starts at the right x (34) but was still printing when the borrowed cutscene's timer replaced the box, a test artefact and not a defect.
+- Proven fine on the rig: n = 1, 2, 9, 11, 12, 13, 14, 19, 25, 30 and 70 (70 is the first line of the Episode 5 title). Proven broken: 0 and 10. Not rig-tested but used by the fan's own shipped rows on the same engine: 4, 5, 8, 20, 21, 22, 24, 28 and 32 (a row of the High Prosecutors' Offices card).
+
+### The fix (commits 1a0b70c, 60293cb, 1a3a0b7, 0b37856)
+
+`tools/dstext.py`: `BAD_CENTRE_OFFSETS = {0, 10}`; `centre_rows`, `static_bad_offsets` and `fix_centre_offsets`. A row at n = 10 gets a static `{E050 11}` in place of its `{E20D}` (the engine draws a static `{E050 11}` centred: round 4). A row at n = 0 loses its `{E20D}` and starts at the margin, which is where n = 0 would have put it (the row is plain text at the left margin, 239 px of a 240 px line). A row wider than the line (n below 0) raises. `convert()` refuses a static `{E050 0}` or `{E050 10}` and names the actual offset in the message (0b37856).
+
+`tools/inject.py`: the pass runs after the hash-guarded passes (`sentence_breaks`, `e11c`, which key on the `{E20D}` row) and before `rowsplit`, which sizes rows against a fixed slot buffer and so has to see the one extra unit. `check_centring_container` is the build gate: called right after the container is built, it re-measures every `{E20D}` row of the final container, continuation strings included, and fails the build on any row at n = 0 or 10 or below, and on any static `{E050 0}` or `{E050 10}`. Both the pass and the gate raise if the dialogue font's real advances are not loaded, instead of skipping (60293cb). Build log: "centred rows moved off an unusable offset: 5" and "centring gate: 409 {E20D} rows measured, none at an unusable offset". `tools/rowsplit.py` has a docstring note on where the pass runs.
+
+`audits/audit_centring.py` (new, 18th audit) measures the same thing on a finished ROM: on 1.11.2 it reports 414 centred rows and 5 BAD (the four n = 10 rows and the 239 px n = 0 row), on the new build 409 rows, none BAD, none static BAD, 17 row-start static `{E050 n}` rows (13 on 1.11.2). `audits/audit_fixtures.py` gains three fixtures (the title row turned back into `{E20D}` at n = 10, the static 11 changed to 10, a planted 239 px `{E20D}` row in entry 206 string 8): 23 of 23 detected, each with a clean exit 0 and a dirty exit 1. `audits/audit_cmdloss.py` counts a row-start `{E050 11}` in the strings the port writes as the `{E20D}` it replaced, so its `{E20D}` line stays at 387 with 5 lost, as on 1.11.2; the removed `{E20D}` of entry 206 string 8 does not show because the fan's string already had no more `{E20D}` than the port keeps.
+
+### The five strings
+
+Against the 1.11.2 release, a string-level diff over 10,738 strings (the refuter's, round 2) gives exactly these, each one unit changed:
+
+- DS 199 string 1 and string 3: `e101 ffff 003f [e20d] e107 0001 e041` becomes `... [e050 000b] ...`.
+- DS 327 string 0 and string 1: `ff45 ff52 000a [e20d] ff4f ff46 ff3f` becomes `... [e050 000b] ...`.
+- DS 206 string 8: `ff54 ff4f 000a [e20d] ff4d ff41 ff4b` becomes `ff54 ff4f 000a ff4d ff41 ff4b` (93 to 92 units; the third row, "make something special together?", is 239 px).
+
+The ROM differs from the release only in `jpn/spt.bin` (5,640,986 to 5,640,992 bytes), plus the header's ROM size (0x80) and header CRC (0x15E and 0x15F); arm9 and arm7 are identical. The build with these commits is `b48410a640b955195495aa263412a57e1f9fa65850eb3320ad5e067db0df31ca` before the version bump (built twice by the builder and twice by the refuter, identical each time). The ROM in the release carries the 1.11.3 version string and its own reference hash: f75be832ad759472f909f4e9f9881cb02ef441cf653556178140cca471e16ede, 50,548,652 bytes (built twice, identical; the frozen exe from the CI PyInstaller command reproduces it by full extraction from the Collection).
+
+### Scan of every file
+
+A scan searched every file of the 1.11.2 filesystem plus `dump/external/arm9_dec.bin` for the unit `0xE20D` and for a static `{E050 n}`, as little-endian UTF-16, raw and XOR 0x55AA, at both byte alignments. Centred text exists only in `jpn/spt.bin`: 414 rows. The rows at n = 10 are exactly the four above and the fan ROM has none; a row at n = 13 (0x0D) exists in 1.11.2 (entry 74, strings 0 and 1, "-- Finding the Corpse, Pt. 2 --", 214 px) and was checked on the rig (round 5, n = 13 centres). The static `{E050 n}` arguments in both ROMs are 3, 5, 6, 7, 9, 22, 28, 36 and 42 (none at 10 or 13). The single 1.11.2 row at n = 0 is the cooking-show one; it was found after that scan, from round 6 and `audit_centring`. Re-measured on the final build: no row at 219, 220, 239 or 240 px.
+
+### Checks run
+
+Builds twice, byte-identical, split manifests identical. `--selftest` passed. Coverage unchanged. The other 17 audits give logs identical to 1.11.2's apart from the ROM name; `tools/test_dstext_scream.py`, `test_lz11.py`, `bufcheck`, `plan_art` and `props` pass; `test_bigg_ground`, `test_marker_letters` and `test_city_labels` pass with the fan ROM. Two reviews by the Opus refuter: both ACCEPT, no must-fix; round 1's should-fixes are 60293cb, round 2's is 0b37856. All commits are by Akoi89 with the noreply address and no trailer.
+
+### Not seen on screen
+
+The fixed Episode 5 title and the fixed Episode 3 title in their own scenes. The tester's save restores the old Episode 5 box from the save file (above), and reaching entry 327 from a chapter start is about 1,200 boxes of play. What was seen: the same fixed-position form (`{E050 11}`, `{E050 9}`, `{E050 13}`) on test rows at several widths, the real "-- President Wang's Testimony --" row (n = 1), and the cooking-show box on 1.11.2 and on the fix. Hardware: I booted the release ROM on a DSi (TWiLight Menu++) and a DSPico, past the opening movie and into play in Episode 1 on both.
+
 ## Unreleased: nameplate spacing, faces and margins (tools/plates.py, check k, audits/audit_plates.py)
 
 A tester saw the Man in Black plate read "ManinBlack" in a narrow face. Cause: `Plates.compose()` took the first of four layouts that fit 43 px, and the condensed layout also cut the word space to 1 px (a 2 px word gap beside 1 px between letters, with the 1 px "i" in the middle). The text was also centred on columns 52-94 while the visible bar is the fill at columns 51-92 (columns 50 and 93 are its darker border), so all 28 redrawn plates sat about 1.5 px right of the fan's centring, Stand Owner (43 px) ended on the border and Excelsius touched it. The 1.11.1 condensed capitals (B C L O S T) were also six rows tall against the fan's seven, so they floated one row above the baseline.
