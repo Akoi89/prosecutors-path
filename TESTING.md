@@ -2,7 +2,7 @@
 
 A plain account of what has been played and what has not. The tester JPScaravino has
 finished Episodes 1, 3, 4 and 5 and the second half of Episode 2. Reports from optional
-dialogue and from the first half of Episode 2 help most.
+dialogue help most.
 
 ## Testing status
 
@@ -19,12 +19,24 @@ v1.8.5, Episode 3 on v1.9.0 or v1.9.1, the second half of Episode 2 (from Gavèl
 rebuttal to the end) on the 1.10.0 candidate, and Episode 4 on the 1.11 test builds
 (started on the first, finished on the third, "works perfectly from start to finish").
 He played Episode 5 start to finish on 1.11.1, the first full Episode 5 report on any build.
-The first half of Episode 2 has not been reported finished on any build, and a lot of
+The first half of Episode 2 was not reported finished on any build until JuanCraft_yt played
+all of Episode 2 on 1.11.4 (below), and a lot of
 optional dialogue (wrong answers, side conversations) hasn't been played. Every hang a player actually hit was found by playing, not by audits. The one
 hang found another way is the Case 4 freeze fixed in 1.10.0, found by searching every
 scene for the cause of one a tester hit in Case 2, not by anyone hitting it. The Case 4
 crash fixed in 1.11.0, after talking to Lotta, was hit by the tester; his emulator save
 state reproduced it, and the rig then replayed it and confirmed the fix.
+
+For 1.11.4, the change is the lettering of 17 topic buttons in the conversation and decision
+menus, and the build is otherwise the same as 1.11.3, apart from the version text on the title
+screen. Finished: I looked at every button as a rendered picture, and measured that all 297 fit
+their box, the 17 changed ones included. JuanCraft_yt, who reported the bold look with a
+screenshot, looked at renders of the 17 new buttons ("significantly better"), then played all of
+Episode 2 on 1.11.4 and reported that everything works and looks good. He also said he
+finished Episode 3 and it worked, without saying which build.
+
+Not seen: I haven't checked each button in a running game, and nobody has booted 1.11.4 on a
+DSi or a DSPico. If a topic button looks bold, cut off or crowded in play, a photo would settle it.
 
 For 1.11.3, the changes are three lines of text, and the build is otherwise the same as
 1.11.2: exactly five strings differ, none of them in wording. Finished: every centred line in
@@ -109,8 +121,9 @@ produced, and by rendering each changed picture beside the fan's.
 
 On hardware, 1.4.4 booted and reached gameplay from a DSPico flashcart on a 3DS, and test
 builds of 1.11.0 booted into the first case on a DSi through TWiLight Menu++ and on a
-DSPico, and the 1.11.0 release build boots on both. For 1.11.1: The 1.11.1 release build boots on both as well. The 1.11.2 release build played the Episode 1 opening movie on both, and the 1.11.3 release build got past it and into play in Episode 1 on both. Nothing deeper
-has been tried on real hardware, and no original DS has been tried at all.
+DSPico, and the 1.11.0 release build boots on both. For 1.11.1: The 1.11.1 release build boots on both as well. The 1.11.2 release build played the Episode 1 opening movie on both, and the 1.11.3 release build got past it and into play in Episode 1 on both. The 1.11.4 build
+hasn't been booted on hardware yet. Nothing deeper than the 1.11.3 result has been tried on real
+hardware, and no original DS has been tried at all.
 
 If the game ever hangs mid-scene, your save isn't damaged, since text is read-only data.
 Restart the chapter and open an issue saying where it happened. Issue #1 is the thread

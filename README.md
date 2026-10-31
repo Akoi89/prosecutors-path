@@ -32,9 +32,9 @@ Episode 3 opening card are all redrawn or swapped in at build time.
 > The tester JPScaravino has finished Episodes 1, 3, 4 and 5 and the second half of
 > Episode 2, across several builds, most recently Episode 5 start to finish on 1.11.1 and
 > Episode 4 on the 1.11 test builds ("works perfectly from start to finish"). **A lot of
-> optional dialogue** (wrong answers, side conversations) hasn't been played anywhere, and
-> the first half of Episode 2 hasn't been reported finished, so reports from either help
-> most. [TESTING.md](TESTING.md) says which build each episode was played on and what the
+> optional dialogue** (wrong answers, side conversations) hasn't been played anywhere, so
+> reports on that help most. JuanCraft_yt has also played all of Episode 2 on 1.11.4 with
+> no problems. [TESTING.md](TESTING.md) says which build each episode was played on and what the
 > automated rig has covered.
 >
 > **[Report anything wrong in issue #1](../../issues/1)**, not just things that stop.
@@ -65,7 +65,7 @@ list it falls on, send it anyway.
   are just not Capcom's, and they can read slightly differently in tone.
 - **Not every episode has been played through.** Episodes 1, 3, 4 and 5 and the second half
   of Episode 2 have been finished by a tester (the Playtesters box above has the detail),
-  but the first half of Episode 2 hasn't been reported finished, and a lot of optional
+  and JuanCraft_yt has played all of Episode 2 on 1.11.4, but a lot of optional
   dialogue hasn't been played anywhere. If something looks off there, please report it.
 - **"Gavelle" has no accent in a couple of places.** Organizer descriptions and Mind Chess
   spell it without the grave, because the lettering there has no accented letters. In
@@ -78,7 +78,8 @@ list it falls on, send it anyway.
   handle it for this patch, and I tested both. If you see it, update your loader or switch
   to one of those. I also booted test builds of 1.11.0 into the first case on a DSi (through
   TWiLight Menu++) and on a DSPico, and the 1.11.0 release build boots on both. The 1.11.1 and 1.11.2 release builds boot on both as well, and 1.11.2 played the Episode 1 opening movie on both. The 1.11.3 release build went further on both: past the opening movie and into play in Episode 1. Nothing deeper has been tried on hardware, and no
-  original DS has been tried at all.
+  original DS has been tried at all. I haven't booted the 1.11.4 build on hardware yet; it differs from 1.11.3
+  only in some button lettering and the version text on the title screen.
 
 ## What you need
 
@@ -96,7 +97,7 @@ Two ways in, ending at the same ROM, and `--verify` confirms it either way.
 **Apply the patch** if you have the fan ROM and want it done in seconds:
 
 ```bash
-xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds" "Prosecutors-Path-1.11.3-fan-base.xdelta" "GK2 (Official English, DS port).nds"
+xdelta3 -d -s "Gyakuten Kenji 2 (AAI2 Final v2).nds" "Prosecutors-Path-1.11.4-fan-base.xdelta" "GK2 (Official English, DS port).nds"
 ```
 
 On Windows, DeltaPatcher asks for the same two files and writes the same output. The source
@@ -108,9 +109,9 @@ gk2port-windows-x64.exe --verify "GK2 (Official English, DS port).nds"
 ```
 
 A correct output ROM is 50,548,652 bytes, sha256
-f75be832ad759472f909f4e9f9881cb02ef441cf653556178140cca471e16ede. The patch itself is
-5,547,552 bytes, sha256 d55a457aa2c91e9b2b391d3070db9abb9e8c5a441e69cf6c7dc2d1f76452917e. The bundled `GK2-v1.11.3.zip` is
-5,705,291 bytes, sha256 0f2bb32b5513d2ae0123969c204c68b4193d57d15e3b9827cda99ecd8d69e012.
+9976557066054cb3267699f2d0a6adf882814bb4686be229d82bd1af204854d4. The patch itself is
+5,547,393 bytes, sha256 6f7a7bbb6e9222fee205587e5faa7ae78eabbaf50d7c370ba6fdc9080219e209. The bundled `GK2-v1.11.4.zip` is
+5,705,133 bytes, sha256 e6b3fb43e313694790e1f763fb7f7f445a135940e0d10788a7354d729da43113.
 
 **Or build it yourself** from your own copy of the Collection, if you'd rather the
 localization came out of your files than out of one someone uploaded. Full steps are in

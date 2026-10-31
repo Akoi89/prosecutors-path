@@ -13,6 +13,16 @@ lines went back to the fan text in 1.5.2 and twelve description rows in 1.6.0, s
 98.4%; see the 1.5.0 entry for why the counting changed. The remainder stays in the AAI2
 fan translation; the README says exactly why, and which parts.
 
+## v1.11.4: choice strips no longer double drawn
+
+Reported by JuanCraft_yt with a screenshot: long topic buttons in the conversation and decision menus read bold beside the lighter Present / Court Record / Back buttons. Cause: `tools/choice_strips.py` fits a strip by trying 14, 13, 12, 11 and 10 px and condensing the rendered text down to `CONDENSE` of its width before stepping down a size, and it drew every glyph twice, a pixel apart, below `BOLD_BELOW` px. With `CONDENSE` 0.88 and `BOLD_BELOW` 14, 17 strips were too long for 14 px and came out double drawn.
+
+The fix is two constants: `CONDENSE` 0.88 to 0.80, and `BOLD_BELOW` 14 to 0 (never double draw). 17 of 297 strips change, ids 443 445 495 496 540 543 557 577 578 585 598 599 645 647 652 657 659 in `jpn/idlocal.bin`. 13 of the 17 now fit at 14 px, condensed and single drawn. 495, 557, 578 and 647 still step down, to sizes 13, 13, 13 and 11, and are single drawn too. The other 280 strips are unchanged from 1.11.3.
+
+The ROM differs from 1.11.3 only in `jpn/idlocal.bin` and `jpn/title_local.bin` (the version text, v1.11.4), both the same size as before. Output ROM 50,548,652 bytes, sha256 9976557066054cb3267699f2d0a6adf882814bb4686be229d82bd1af204854d4. Patch `Prosecutors-Path-1.11.4-fan-base.xdelta` 5,547,393 bytes, sha256 6f7a7bbb6e9222fee205587e5faa7ae78eabbaf50d7c370ba6fdc9080219e209; bundle `GK2-v1.11.4.zip` 5,705,133 bytes, sha256 e6b3fb43e313694790e1f763fb7f7f445a135940e0d10788a7354d729da43113. The fan base ROM hash is unchanged (08e1f7af...). The build tool changed only in its version number and reference hash.
+
+Checked: every button as a rendered picture, and all 297 measured to fit their box. JuanCraft_yt looked at renders of the 17 new strips ("significantly better") and played all of Episode 2 on 1.11.4 with no problem. Not checked: each button in a running game, and no boot of 1.11.4 on a DSi or a DSPico. The Episode 2 crash report (GitHub issue 4) is not addressed by this release.
+
 ## v1.11.3: centred lines at two widths (a title row that printed flush left, and a cooking-show row that ended its box)
 
 This release is the `next` branch of `port`: four fix commits on top of 24b60a5 (the 1.11.2 docs commit), in tree order 1a0b70c (engine offset 10), 60293cb (review fixes, build output unchanged), 1a3a0b7 (engine offset 0) and 0b37856 (the refusal message names the real offset, build output unchanged), plus the version and reference-hash commit 2e92cef. Text only. Exactly five strings of `jpn/spt.bin` change, none in wording, no picture changes, and the coverage figure is the one of 1.11.2 (99.4%, 1,822,768 of 1,832,983 character units, `tools/coverage.py`). The executable changed because the converter did, so every patch made from an older release has to be redone.
