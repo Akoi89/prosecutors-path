@@ -47,6 +47,13 @@ the target rows from the spread of the string being set, and one strip whose
 text was mostly short letters but ended in a period skewed the split so far
 that the ascender t was squashed by two rows. Hence the references come from
 the FONT.
+
+WEIGHT, AGAIN (2026-10-31). The double draw under 14px was still on, so the 17
+strips too long for 14px at the 0.88 condense floor stepped down and came out
+plainly bold next to their neighbours ("What really happened" beside "During
+the contest"; a Discord tester pointed at it). The user chose: floor 0.80 and
+no double draw anywhere (BOLD_BELOW = 0). 13 of the 17 now fit at 14px single
+drawn, 4 (495 557 578 647) still step down and are single drawn too.
 """
 import sys, os, io, json, struct
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -63,10 +70,10 @@ FILL, CORE = 4, 7
 ROWS = range(2, 24)                 # plate interior
 MARGIN = 4                          # px kept clear at each end of the interior
 SIZES = (14, 13, 12, 11, 10)
-CONDENSE = 0.88                     # narrowest allowed before stepping down
+CONDENSE = 0.80                     # narrowest allowed before stepping down
 PALETTE_ENTRY = {'long': 363, 'short': 533}
 PEN = 6                             # left pad every glyph is drawn at
-BOLD_BELOW = 14                     # double-draw only under this size
+BOLD_BELOW = 0                      # double-draw only under this size (0 = never)
 DESCENDERS = set('gjpqy')
 SNAP_TOL = 1                        # how far from a reference a glyph may snap
 _REFS = {}                          # (fontfile, px, bold) -> (tops, base, desc)
