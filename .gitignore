@@ -50,3 +50,6 @@ dist/
 *.sav
 *.zip
 *.7z
+
+# Baked pixel patches derived from Capcom's newspaper art (entries 2 and 20): local only, never committed.
+tools/newspaper_patch_*.py

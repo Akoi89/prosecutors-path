@@ -1,11 +1,14 @@
-Version 1.11.4 fixes how the long topic buttons in the conversation and decision menus look: 17 of them, such as "What really happened" and "Your father and the president", read as bold next to the lighter Present, Court Record and Back buttons, and now match them. Nothing else in the game changed apart from the version text on the title screen, and the script's wording is as in 1.11.3.
+Version 1.11.5 changes the game's title in the DS menu to "Prosecutor's Gambit" and puts Capcom's newspaper name on the Newspaper Clipping and two other Episode 1 newspaper pages. Nothing else in the game changed apart from the version text on the title screen, and the script's wording is as in 1.11.4.
 
 ## What this build fixes
 
-- **Bold-looking topic buttons.** Seventeen long topic buttons in the conversation and decision menus looked heavy and bold beside the lighter Present, Court Record and Back buttons. Their lettering was being drawn twice, a hair apart. Now the text may squeeze a little narrower and, if it's still too long, steps down one size, and it's never drawn twice. The other buttons are unchanged. JuanCraft_yt reported it with a screenshot.
+- **Menu title.** The title line the DS menu shows for the game read "Prosecutor's Path", which could be mistaken for the fan ROM there. It now reads "Prosecutor's Gambit".
+- **Newspaper Clipping.** In the Court Record the clipping carried the fan translation's paper name, "Daily Express", with its own headline. It now shows Capcom's: "Mercurial News", "Evening Edition" and "President of Zheng Fa to Visit". The small icon of the clipping matches.
+- **Two more newspapers.** Two other newspaper front pages in Episode 1 also said "Daily Express" and now say "Mercurial News" across the top.
 
 ## Version history
 
+- **v1.11.5** - the DS menu title reads "Prosecutor's Gambit", and the Newspaper Clipping, its icon and two more Episode 1 newspapers carry Capcom's paper name.
 - **v1.11.4** - 17 long topic buttons no longer look bold.
 - **v1.11.3** - two testimony titles (Episode 5 and the last chapter of Episode 3) centred, and the Episode 3 cooking-show line that never appeared.
 - **v1.11.2** - the Case 3 freeze fixed, Bigg Building, Capcom's wording on maps, plans, signs, item pictures and nameplates.
@@ -50,7 +53,8 @@ Version 1.11.4 fixes how the long topic buttons in the conversation and decision
 - I checked the Case 3 fix in the emulator from a save just before the memory scene: on 1.11.1 the screen goes white and stays that way, and with the fix the scene plays on. I haven't replayed the rebuttal leading into it, and the reporter hasn't confirmed yet.
 - I checked the centring fix in the emulator on test lines of several widths, and on the cooking-show box, where the third line now prints. A title that was already centred, "-- President Wang's Testimony --", still is. I haven't seen the two fixed testimony titles in their own scenes, because the tester's save brings back the old box from the save file.
 - The new pictures were checked by decoding the built ROM. In the emulator I saw the new floor-plan marker and every evidence icon in an Episode 5 save draw correctly; the city maps and the rest haven't been seen on a running game yet.
-- The 1.11.0, 1.11.1 and 1.11.2 release builds boot on a DSi through TWiLight Menu++ and on a DSPico, and 1.11.2 played the Episode 1 opening movie on both. The 1.11.3 release build went further on both: past the opening movie and into play in Episode 1. Nothing deeper has been tried on real hardware, and no original DS at all. I haven't booted the 1.11.4 build on a DSi or a DSPico yet.
+- The 1.11.0, 1.11.1 and 1.11.2 release builds boot on a DSi through TWiLight Menu++ and on a DSPico, and 1.11.2 played the Episode 1 opening movie on both. The 1.11.3 release build went further on both: past the opening movie and into play in Episode 1. Nothing deeper has been tried on real hardware, and no original DS at all. I haven't booted the 1.11.5 build on a DSi or a DSPico yet.
+- I checked the four newspaper pictures and the new menu title by decoding the built ROM. In the emulator I saw the Newspaper Clipping in the Court Record of an Episode 1 save with Capcom's wording and played about five minutes on without a problem. I haven't seen the other three pictures in a running game, or the new title in a DS menu, yet.
 - A few pictures were too faint for me to read with confidence, so a picture or two may still carry the fan's wording. If you spot one, send it.
 - "Gavelle" has no accent in Organizer descriptions and in Mind Chess, where the lettering has no accented letters.
 - The fan translation remains only where Capcom's Collection has no matching text (mostly DS-only save and menu messages) or its wording doesn't fit a Mind Chess row's bar. My own lines in Capcom's style are counted separately.
@@ -59,9 +63,9 @@ Version 1.11.4 fixes how the long topic buttons in the conversation and decision
 
 ## Files
 
-- `gk2port-windows-x64.exe` and `gk2port-linux-x64`: the build tool, with `SHA256SUMS` alongside them. `gk2port --verify` checks a finished ROM against this version's published reference, sha256 9976557066054cb3267699f2d0a6adf882814bb4686be229d82bd1af204854d4 (50,548,652 bytes).
-- `Prosecutors-Path-1.11.4-fan-base.xdelta` (5,547,393 bytes, sha256 6f7a7bbb6e9222fee205587e5faa7ae78eabbaf50d7c370ba6fdc9080219e209): the patch, uploaded separately and left out of `SHA256SUMS` because it carries Capcom's script.
-- `GK2-v1.11.4.zip` (5,705,133 bytes, sha256 e6b3fb43e313694790e1f763fb7f7f445a135940e0d10788a7354d729da43113): the same patch bundled with `xdelta3.exe` and a short README.
+- `gk2port-windows-x64.exe` and `gk2port-linux-x64`: the build tool, with `SHA256SUMS` alongside them. `gk2port --verify` checks a finished ROM against this version's published reference, sha256 e0eb68c5f84673e517212b790706f2523ed244bd35e4372f388fcd8d6139f83b (50,547,084 bytes).
+- `Prosecutors-Path-1.11.5-fan-base.xdelta` (5,636,960 bytes, sha256 dba091055ffbc5f8fa07c01ef13a2a81c8998465485f8c54cb12bb6f5dea27a9): the patch, uploaded separately and left out of `SHA256SUMS` because it carries Capcom's script.
+- `GK2-v1.11.5.zip` (5,794,726 bytes, sha256 f72717d361f74ffbdcdbac506d2c884eb21f073a5c85e9adc8351803562efefb): the same patch bundled with `xdelta3.exe` and a short README.
 - Apply steps, sizes, hashes and troubleshooting are in [README.md](README.md).
 
 ## Credits

@@ -197,7 +197,7 @@ SIGN_REBUILT = ('jpn/upcut_local.bin',)
 CUTOBJ_CHANGED = tuple(sorted(set((ROOM_CUTOBJ, BIGG_CUTOBJ, PATCH_CUTOBJ) + MARKER_CUTOBJ + PLAN_CUTOBJ)))
 OPENING_GFX, OPENING_PAL = 13, 14
 OPENING_FREE = (0,)            # the splash title tiles, rewritten by title_text.py
-ICON_ENTRIES = {281: 280, 327: 326, 485: 484, 403: 402, 405: 404, 451: 450, 453: 452, 479: 478, 481: 480, 487: 486, 489: 488, 539: 538, 541: 540, 547: 546, 549: 548, 555: 554, 557: 556, 573: 572, 575: 574, 735: 734, 737: 736,
+ICON_ENTRIES = {281: 280, 327: 326, 137: 136, 485: 484, 403: 402, 405: 404, 451: 450, 453: 452, 479: 478, 481: 480, 487: 486, 489: 488, 539: 538, 541: 540, 547: 546, 549: 548, 555: 554, 557: 556, 573: 572, 575: 574, 735: 734, 737: 736,
                 483: 482, 519: 518, 563: 562}      # icon entry -> its palette entry
 # com/idcom.bin icons that may be stored larger than the fan's (the container is then laid out again, tools/idcom_icons.py
 # relayout): column +8 icons of the arm9 record table, read into a block sized from idcom entry 129 (a static trace of the loaders), so
@@ -205,7 +205,7 @@ ICON_ENTRIES = {281: 280, 327: 326, 485: 484, 403: 402, 405: 404, 451: 450, 453:
 IDCOM_GROW = {483: 2320, 519: 2320, 563: 2320}
 LOGIC_ICON_ENTRIES = {82: 83, 92: 93, 192: 193}      # com/logic_keyword.bin icon entry -> its palette entry (tools/item_pics.py)
 MENU_TILES, MENU_OTHERS = 357, (356, 358)      # jpn/idlocal.bin: the partner card's tiles, and its cells and palette
-ITEM_UPCUT = (54, 58, 66, 84, 86, 96, 104, 106, 134, 136, 200, 216, 224, 226, 274, 276)      # jpn/upcut_local.bin pictures tools/item_pics.py re-letters; the palette is entry + 1
+ITEM_UPCUT = (2, 6, 20, 54, 58, 66, 84, 86, 96, 104, 106, 134, 136, 200, 216, 224, 226, 274, 276)      # jpn/upcut_local.bin pictures tools/item_pics.py re-letters; the palette is entry + 1
 # upcut_local pictures drawn by cg_names.py (the keycard log tables): stored literal-only, larger than the fan's stream, which
 # the loader allows as long as the decoded size is the fan's; checked by check m like the others, minus the stored-size rule
 ITEM_UPCUT_BIG = (210, 242)

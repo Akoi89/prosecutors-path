@@ -134,9 +134,11 @@ def check(rom, fan_rom, classes=None):
     problems += check_swaps(up_b, up_f, classes)
     problems += check_bubbles(up_b, up_f, classes)
     problems += check_banners(up_b, up_f, classes)
+    problems += check_newspapers(up_b, up_f, classes)
     problems += check_keycard_log(up_b, up_f, classes)
     problems += check_button(rom, fan_rom)
     problems += check_icons(rom, fan_rom, classes)
+    problems += check_newsicons(rom, fan_rom, classes)
     return problems
 
 
@@ -301,6 +303,53 @@ def check_banners(up_b, up_f, classes=None):
     return problems
 
 
+def check_newspapers(up_b, up_f, classes=None):
+    """Newspaper pages (item_pics.NEWSPAPERS, tools/newspaper.py): the palette is the fan's, nothing outside the declared boxes
+    (each piece's box and each baked patch's box) differs from the fan's, inside every box the luminance pattern is no longer
+    the fan's (the old lettering is gone), and the picture is exactly what newspaper.paint_news draws on the fan's picture
+    from Capcom's texture."""
+    import item_pics as P
+    import newspaper as N
+    from nitro import nclr
+    problems = []
+    dump = _os.path.join(_REPO, 'dump')
+    for e, spec in sorted(P.NEWSPAPERS.items()):
+        if classes and spec['cls'] not in classes:
+            continue
+        what = 'upcut_local entry %d (newspaper)' % e
+        _see(what)
+        if hashlib.sha256(P._content(up_f, e)).hexdigest() != spec['sha']:
+            problems.append("%s: the fan ROM is not the fan's" % what)
+            continue
+        gb, gf = P.pic_grid(up_b.blob(e)), P.pic_grid(up_f.blob(e))
+        pb, pf = nclr(up_b.blob(e + 1)), nclr(up_f.blob(e + 1))
+        if pb != pf:
+            problems.append("%s: palette is not the fan's" % what)
+        boxes = N.boxes_of(spec)
+        ys, xs = np.where(gb != gf)
+        out = [(int(x), int(y)) for x, y in zip(xs, ys) if not any(a <= x < c and b <= y < d for a, b, c, d in boxes)]
+        if out:
+            problems.append('%s: %d changed pixels outside the declared boxes %r, first %r' % (what, len(out), boxes, out[0]))
+        pal = np.array(pf, np.float64)
+        for (x0, y0, x1, y1) in boxes:
+            n = _ncc(_lum(pal[gb[y0:y1, x0:x1]]), _lum(pal[gf[y0:y1, x0:x1]]))
+            if n >= NCC_MAX:
+                problems.append("%s: the box %r still reads as the fan's lettering (NCC %.2f >= %.2f)" % (what, (x0, y0, x1, y1), n, NCC_MAX))
+        try:
+            tex = P.load_texture(dump, spec['texture']) if spec['texture'] else None
+        except P.ItemError as ex:
+            problems.append('%s: %s' % (what, ex))
+            continue
+        try:
+            want = N.paint_news(gf, pal, tex, spec)
+        except P.ItemError as ex:
+            problems.append('%s: %s' % (what, ex))
+            continue
+        if not np.array_equal(gb, want):
+            problems.append('%s: the picture differs from what newspaper.py draws at %d pixels' % (what, int((gb != want).sum())))
+    return problems
+
+
 # the fan's keycard log pictures (jpn/upcut_local.bin 210 and 242, redrawn by tools/cg_names.py): sha256 of the graphics and the
 # palette entry
 KEYCARD_LOG_FAN = {
@@ -444,6 +493,52 @@ def check_icons(rom, fan_rom, classes=None):
         a, b = _ncc(newl, want), _ncc(oldl, want)
         if not a > b + 0.03:
             problems.append("%s: the box is not closer to Capcom's lettering (NCC %.2f) than to the fan's (%.2f)" % (what, a, b))
+    return problems
+
+
+def check_newsicons(rom, fan_rom, classes=None):
+    """Newspaper icons (item_pics ICON_PICS entries of class 'newsicon', tools/newspaper.py paint_icon): the palette is the fan's,
+    only the declared boxes differ from the fan's, and inside each box the picture is exactly what paint_icon draws from
+    Capcom's texture on the fan's icon (the old lettering is gone and the new is Capcom's)."""
+    import choice_strips as cs
+    import idcom_icons as I
+    import item_pics as P
+    import newspaper as N
+    from nitro import nclr
+    problems = []
+    dump = _os.path.join(_REPO, 'dump')
+    for (cont, e), spec in sorted(P.ICON_PICS.items()):
+        if spec['cls'] != 'newsicon' or (classes and 'newsicon' not in classes):
+            continue
+        what = '%s entry %d (newspaper icon)' % (cont, e)
+        _see(what)
+        cb, cf = cs.rom_file(rom, cont), cs.rom_file(fan_rom, cont)
+        eb, _n = I.entry_decoded(cb, e)
+        ef, _n = I.entry_decoded(cf, e)
+        pb, _n = I.entry_decoded(cb, spec['pal'])
+        pf, _n = I.entry_decoded(cf, spec['pal'])
+        if hashlib.sha256(ef).hexdigest() != spec['sha']:
+            problems.append("%s: the fan ROM is not the fan's" % what)
+            continue
+        if nclr(pb) != nclr(pf):
+            problems.append("%s: palette is not the fan's" % what)
+        gb, gf = np.array(cs.grid(eb), np.uint8), np.array(cs.grid(ef), np.uint8)
+        boxes = [pc['box'] for pc in spec['pieces']]
+        out = [(int(x), int(y)) for y, x in zip(*np.where(gb != gf)) if not any(a <= x < c and b <= y < d for a, b, c, d in boxes)]
+        if out:
+            problems.append('%s: %d changed pixels outside the declared boxes %r, first %r' % (what, len(out), boxes, out[0]))
+        pal = np.array(nclr(pf), np.float64)
+        for (x0, y0, x1, y1) in boxes:
+            n = _ncc(_lum(pal[gb[y0:y1, x0:x1]]), _lum(pal[gf[y0:y1, x0:x1]]))
+            if n >= NCC_MAX:
+                problems.append("%s: the box %r still reads as the fan's lettering (NCC %.2f >= %.2f)" % (what, (x0, y0, x1, y1), n, NCC_MAX))
+        try:
+            want = N.paint_icon(gf, pal, I.load_texture(dump, spec['texture']), spec)
+        except (P.ItemError, I.IconError) as ex:
+            problems.append('%s: %s' % (what, ex))
+            continue
+        if not np.array_equal(gb, want):
+            problems.append('%s: the icon differs from what newspaper.py draws at %d pixels' % (what, int((gb != want).sum())))
     return problems
 
 

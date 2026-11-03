@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import locate
 from paths import work, data, FROZEN
 
-VERSION = '1.11.4'
+VERSION = '1.11.5'
 ISSUES = 'https://github.com/Akoi89/prosecutors-path/issues'
 # sha256 of the ROM this version's tools produce from the AAI2 Final v2 base.
 # --verify checks a built ROM against it. Update ONLY when the injector changes
@@ -35,7 +35,7 @@ ISSUES = 'https://github.com/Akoi89/prosecutors-path/issues'
 # only jpn/idlocal.bin changes).
 # NOTE this hash is VERSION-SPECIFIC: title_assets paints 'v' + VERSION onto the
 # title screen, so bumping VERSION alone changes the ROM. Move both together.
-REFERENCE_ROM_SHA256 = '9976557066054cb3267699f2d0a6adf882814bb4686be229d82bd1af204854d4'
+REFERENCE_ROM_SHA256 = 'e0eb68c5f84673e517212b790706f2523ed244bd35e4372f388fcd8d6139f83b'
 
 # Bundle name prefixes -> where their TextAssets go. Addressables appends a content
 # hash to every bundle, so these must be matched by prefix, never by full name.
@@ -227,7 +227,7 @@ def selftest():
                 'compact', 'mindchess', 'mc_wait', 'room_names', 'plan_labels', 'gallery_art', 'board_temps', 'mindchess_recn', 'rnan25', 'linefix', 'last_rows', 'rewrite', 'relaid_rows',
                 'condense_rows', 'skipguard', 'sentence_breaks', 'e11c', 'rowsplit', 'cutdata_hotfix', 'props_core', 'props', 'props_bust',
                 'marker_letters', 'bigg_building', 'bigg_ground', 'city_labels', 'city_patches', 'gfx_views',
-                'input_hashes', 'bufcheck'):
+                'input_hashes', 'bufcheck', 'banner', 'newspaper'):
         try:
             __import__(mod)
             print('  import %-29s ok' % mod)
@@ -464,7 +464,7 @@ def main(argv=None):
 
     dumpdir = work('dump')
     os.makedirs(dumpdir, exist_ok=True)
-    total = 5
+    total = 6
 
     if not a.skip_extract:
         bdir = find_bundle_dir(a.collection)
@@ -519,6 +519,10 @@ def main(argv=None):
     voices.apply(dumpdir, out_path, loudness=not a.no_loudness)
     import compact
     compact.compact_file(out_path)
+    # last: compact copies the banner verbatim and keeps the ROM length, so nothing after this can move it
+    step(6, total, 'DS banner title')
+    import banner
+    banner.apply_file(out_path, any_rom=a.any_rom)
     return 0
 
 

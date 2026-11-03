@@ -633,7 +633,10 @@ def main(rom_path, dumpdir='dump'):
                 struct.pack_into('<I', out, j * 8, tt[j][0] - n)
         return bytes(out)
 
-    e0 = bufcheck.ITEM_UPCUT[0]
+    # the palette-changed test below rebuilds the palette entry as LZ11, so e0 is the first picture whose palette entry is stored that way
+    # (entry 2, the newspaper page, has an uncompressed palette)
+    _tb = bufcheck._table(built_up)
+    e0 = next(e for e in bufcheck.ITEM_UPCUT if _tb[e + 1][1] & 0x80000000)
     e1 = bufcheck.ITEM_UPCUT[-1]
     d0 = content(e0)
     must_raise('upcut picture stored uncompressed form (over the fan\'s bytes)', lambda: bufcheck.check_item_pics(

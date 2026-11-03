@@ -27,6 +27,10 @@ scene for the cause of one a tester hit in Case 2, not by anyone hitting it. The
 crash fixed in 1.11.0, after talking to Lotta, was hit by the tester; his emulator save
 state reproduced it, and the rig then replayed it and confirmed the fix.
 
+For 1.11.5, the changes are the DS menu title (now "Prosecutor's Gambit") and the paper name on four newspaper pictures, and the build is otherwise the same as 1.11.4, apart from the version text on the title screen. Finished: I decoded the built ROM and checked that only those pictures and the menu title bytes differ from 1.11.4, that every picture stays within its original size, and I looked at all four pictures beside the fan's. In the emulator the Newspaper Clipping shows Capcom's wording in the Court Record of an Episode 1 save, and about five minutes of play from there went fine.
+
+Not seen: the other three pictures in a running game and the new title in a DS menu, and nobody has booted 1.11.5 on a DSi or a DSPico. If the menu still shows the old title, or a newspaper looks wrong, a photo would settle it.
+
 For 1.11.4, the change is the lettering of 17 topic buttons in the conversation and decision
 menus, and the build is otherwise the same as 1.11.3, apart from the version text on the title
 screen. Finished: I looked at every button as a rendered picture, and measured that all 297 fit

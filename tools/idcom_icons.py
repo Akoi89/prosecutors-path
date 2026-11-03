@@ -75,6 +75,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REG_JSON = os.path.join(HERE, 'idcom_icons_reg.json')
 CONTAINER = 'com/idcom.bin'
 BUNDLE_PREFIX = 'gk2_idcom_assets_all'          # not the _trial_ bundle
+TRIAL_PREFIX = 'gk2_idcom_trial_assets_all'    # Episode 1 icons (itm00_...) live only in the trial bundle
 CACHE = ('title', 'idcom')                      # under the dump folder
 TEX_SIZE = 300
 TEX_BG = 128                                    # the textures' flat background grey
@@ -175,6 +176,8 @@ ICONS = {
 # English textures other modules draw from (tools/item_pics.py: Capcom's "30 lb" lettering)
 EXTRA_TEXTURES = ('itm01_029_00_l_eng',)
 TEXTURES = sorted({v[k] for v in ICONS.values() for k in ('eng', 'jp')} | set(EXTRA_TEXTURES))
+# English textures read from the trial bundle (tools/item_pics.py: the newspaper icon 137 takes Capcom's lettering from one)
+TRIAL_TEXTURES = ('itm00_002_00_l_eng',)
 
 
 class IconError(ValueError):
@@ -190,32 +193,40 @@ def cache_dir(dumpdir):
 def required(dumpdir):
     """The harvested English textures apply_to_rom() needs (the Japanese twins are
     extracted too, for the offline registration, but the build does not read them)."""
-    names = {v['eng'] for v in ICONS.values()} | set(EXTRA_TEXTURES)
+    names = {v['eng'] for v in ICONS.values()} | set(EXTRA_TEXTURES) | set(TRIAL_TEXTURES)
     names |= {v['jp'] for v in ICONS.values() if v.get('local') and not v['local'].get('rect')}
     return [os.path.join(cache_dir(dumpdir), n + '.png') for n in sorted(names)]
 
 
+def _bundle(bdir, prefix):
+    hits = [p for p in glob.glob(os.path.join(bdir, '*.bundle'))
+            if os.path.basename(p).lower().startswith(prefix)]
+    if not hits:
+        raise SystemExit('idcom icons: no bundle starting with %r in %s' % (prefix, bdir))
+    return hits[0]
+
+
 def extract(bdir, dumpdir):
-    """Pull the four item textures out of the Collection's idcom bundle into
+    """Pull the item textures out of the Collection's idcom bundle (the Episode 1 ones out of the idcom trial bundle) into
     dump/title/idcom/ as RGB PNGs, un-flipped (Unity stores them upside down),
     composited over the flat background grey if a texture has any transparency.
     Raises SystemExit if the bundle or a texture is missing, as the other extractors do."""
-    hits = [p for p in glob.glob(os.path.join(bdir, '*.bundle'))
-            if os.path.basename(p).lower().startswith(BUNDLE_PREFIX)]
-    if not hits:
-        raise SystemExit('idcom icons: no bundle starting with %r in %s' % (BUNDLE_PREFIX, bdir))
     import UnityPy
-    env = UnityPy.load(hits[0])
     found = {}
-    for obj in env.objects:
-        if obj.type.name != 'Texture2D':
-            continue
-        d = obj.read()
-        if d.m_Name in TEXTURES:
-            found[d.m_Name] = d.image.copy()
-    missing = [n for n in TEXTURES if n not in found]
-    if missing:
-        raise SystemExit('idcom icons: texture(s) %s not found in %s' % (', '.join(missing), os.path.basename(hits[0])))
+    for prefix, wanted in ((BUNDLE_PREFIX, TEXTURES), (TRIAL_PREFIX, TRIAL_TEXTURES)):
+        path = _bundle(bdir, prefix)
+        env = UnityPy.load(path)
+        got = {}
+        for obj in env.objects:
+            if obj.type.name != 'Texture2D':
+                continue
+            d = obj.read()
+            if d.m_Name in wanted:
+                got[d.m_Name] = d.image.copy()
+        missing = [n for n in wanted if n not in got]
+        if missing:
+            raise SystemExit('idcom icons: texture(s) %s not found in %s' % (', '.join(missing), os.path.basename(path)))
+        found.update(got)
     out = cache_dir(dumpdir)
     os.makedirs(out, exist_ok=True)
     for name, im in found.items():
@@ -231,6 +242,7 @@ def extract(bdir, dumpdir):
 # sha256 of the RGB pixel bytes of every Collection texture the icons read, as the extraction saves them: a Collection build
 # whose art differs would change the icons silently, so a texture that does not hash to this raises (like the fan's entries do)
 TEXTURE_SHA = {
+    'itm00_002_00_l_eng': '6054d3cff5248abe9b0517fc599a3de5d28da58cd75903005d40fe8d70a1e73a',
     'itm01_017_00_l': '866ca1d475163aa7dc77ce361609e0c9230642251b964bdd763b138c13db2dee',
     'itm01_017_00_l_eng': '3d1df56247b7dff456edb1683904e579c2e51ea92759cd9fca83fc428a1d8ceb',
     'itm01_029_00_l_eng': '201d07115e38a370985d4fa7d2b82402a8e92c756c21f48ae90f1840f998abf3',

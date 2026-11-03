@@ -29,6 +29,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REG_JSON = os.path.join(HERE, 'item_pics_reg.json')
 GROUND = 128                                   # the textures' flat grey ground
 BUNDLE_PREFIX = 'gk2_upcutlocal_assets_all'    # not the classic or trial bundle
+TRIAL_PREFIX = 'gk2_upcutlocal_trial_assets_all'    # Episode 1 ("00") close-ups live only here
+# a spec's optional `bundle` key says where its textures are: 'main' (the default) or 'trial'
+BUNDLES = {'main': BUNDLE_PREFIX, 'trial': TRIAL_PREFIX}
 CACHE = ('title', 'items')                     # under the dump folder
 UPCUT = 'jpn/upcut_local.bin'
 IDCOM = 'com/idcom.bin'
@@ -51,40 +54,73 @@ def cache_dir(dumpdir):
     return os.path.join(dumpdir, *CACHE)
 
 
+def _all_specs():
+    return list(UPCUT_SWAPS.values()) + list(UPCUT_LOCALS.values()) + list(BANNERS.values()) + list(NEWSPAPERS.values())
+
+
 def swap_textures():
     """Every upcut_local texture the swaps read: the English one (drawn from) and the Japanese twin (only the
     offline registration needs it, but it is extracted with the rest)."""
-    return sorted({v[k] for v in list(UPCUT_SWAPS.values()) + list(UPCUT_LOCALS.values()) + list(BANNERS.values()) for k in ('texture', 'jp')})
+    return sorted(texture_bundles())
+
+
+def texture_bundles():
+    """{texture name: 'main' or 'trial'} for every texture above (the spec's `bundle`, default 'main')."""
+    out = {}
+    for v in _all_specs():
+        for k in ('texture', 'jp'):
+            if not v.get(k):
+                continue
+            if out.setdefault(v[k], v.get('bundle', 'main')) != v.get('bundle', 'main'):
+                raise ItemError('texture %s is named in both the main and the trial bundle' % v[k])
+    return out
 
 
 def required(dumpdir):
-    """Files apply_to_rom() needs beyond the weight icon texture; build.py checks these under --skip-extract."""
-    return [os.path.join(cache_dir(dumpdir), v['texture'] + '.png') for v in list(UPCUT_SWAPS.values()) + list(UPCUT_LOCALS.values()) + list(BANNERS.values())]
+    """Files apply_to_rom() needs beyond the weight icon texture; build.py checks these under --skip-extract.
+    The English texture of every picture, and the Japanese twin where a table reads it (the lettering swaps and the newspapers)."""
+    names = [v['texture'] for v in _all_specs() if v.get('texture')]
+    names += [v['jp'] for v in list(UPCUT_LOCALS.values()) + list(NEWSPAPERS.values()) if v.get('jp')]
+    return [os.path.join(cache_dir(dumpdir), n + '.png') for n in dict.fromkeys(names)]
+
+
+def _find_bundle(bdir, kind):
+    """The one bundle of `kind` ('main' or 'trial') in bdir; the prefixes are not prefixes of each other, and the
+    classic bundle is never the main one."""
+    pre = BUNDLES[kind]
+    hits = [p for p in glob.glob(os.path.join(bdir, '*.bundle'))
+            if os.path.basename(p).lower().startswith(pre)
+            and (kind == 'trial' or ('_classic' not in os.path.basename(p).lower() and '_trial' not in os.path.basename(p).lower()))]
+    if not hits:
+        raise SystemExit('item pictures: no bundle starting with %r in %s' % (pre, bdir))
+    return hits[0]
 
 
 def extract(bdir, dumpdir):
     """Save the close-up textures as RGB PNGs (transparency composited over the ground grey) under dump/title/items/.
     Raises SystemExit if the bundle or a texture is missing, as the other extractors do."""
-    names = swap_textures()
-    if not names:
+    wanted = texture_bundles()
+    if not wanted:
         return None
-    hits = [p for p in glob.glob(os.path.join(bdir, '*.bundle'))
-            if os.path.basename(p).lower().startswith(BUNDLE_PREFIX)
-            and '_classic' not in os.path.basename(p).lower() and '_trial' not in os.path.basename(p).lower()]
-    if not hits:
-        raise SystemExit('item pictures: no bundle starting with %r in %s' % (BUNDLE_PREFIX, bdir))
     import UnityPy
-    env = UnityPy.load(hits[0])
     found = {}
-    for obj in env.objects:
-        if obj.type.name != 'Texture2D':
+    for kind in ('main', 'trial'):
+        names = [n for n, k in wanted.items() if k == kind]
+        if not names:
             continue
-        d = obj.read()
-        if d.m_Name in names:
-            found[d.m_Name] = d.image.copy()
-    missing = [n for n in names if n not in found]
-    if missing:
-        raise SystemExit('item pictures: texture(s) %s not found in %s' % (', '.join(missing), os.path.basename(hits[0])))
+        path = _find_bundle(bdir, kind)
+        env = UnityPy.load(path)
+        got = {}
+        for obj in env.objects:
+            if obj.type.name != 'Texture2D':
+                continue
+            d = obj.read()
+            if d.m_Name in names:
+                got[d.m_Name] = d.image.copy()
+        missing = [n for n in names if n not in got]
+        if missing:
+            raise SystemExit('item pictures: texture(s) %s not found in %s' % (', '.join(missing), os.path.basename(path)))
+        found.update(got)
     out = cache_dir(dumpdir)
     os.makedirs(out, exist_ok=True)
     for name, im in found.items():
@@ -100,6 +136,10 @@ def extract(bdir, dumpdir):
 # sha256 of the RGB pixel bytes of every Collection close-up texture read here, as the extraction saves them; one that does not
 # hash to this is a different Collection build and raises, like the fan's own entries do
 TEXTURE_SHA = {
+    'cut00_003': 'df0ddb80e35e662f616ab30a1e4fecd7760555a1d8a19f97c59d8a1f6796ad75',
+    'cut00_003_eng': 'b9c2c78602ae2c09b40abd4db4c6ad439a55b1991ba1bffa36ed4f217640a6f3',
+    'cut00_005': '4a414ed89feef649d0d57e42a4babe9e7f48b79592aa9fc343c58d7d9c07e79a',
+    'cut00_005_eng': '990d8cfe91ed88c4364518f944ea5f24e0acf93fafead27d41b5ce917cb7c999',
     'cut01_027': '233ca5e958e91a4be8af7990862585e2eadc2b325ba720884b2f8cdcf7508d67',
     'cut01_027_eng': 'c124612ba4936ce7218d1cc5ddfc571e027c4cbeed5a4156cd78c8a0c026f5c4',
     'cut02_001': '57efb3f0864030890d068ce77b0e95cde76ee5b9a8f45da98939576227ca6cd9',
@@ -733,6 +773,56 @@ def paint_banner(grid, pal, tex, spec):
     return new, ink
 
 
+# upcut_local newspaper pages whose lettering is replaced (tools/newspaper.py): entry -> spec. `bundle` says where the textures are
+# ('trial': Episode 1 close-ups live only in the trial bundle). Each of `pieces` is one piece of lettering: `box` the box every
+# changed pixel of the piece lies in; `mask` how the old ink is found in the fan's pixels (`box` searched, `thr` how much darker
+# than the paper, `k` the window of the paper estimate, `grow` pixels of margin, optional `chroma` for red ink); `paper` how the
+# paper under it is rebuilt (`lerp`: per column between rows ya and yb; `row`: row src copied down, `edge` a row interpolated along
+# itself); `alpha` where Capcom's lettering is in the HD texture (`hd` window, `kind` 'dark' ink on paper with a closing window
+# `ker`, or 'green'); `place` how it maps to the picture (s texel per picture pixel, left x or centre x, baseline row, and the
+# texture's reference column and baseline row); `ink`, `gamma`. `patches` are baked pixel blocks applied last (tools/newspaper_patch_N.py).
+# The entry's other pixels are the fan's. The palette entry is not touched.
+NEWSPAPERS = {
+    2: dict(texture='cut00_003_eng', jp='cut00_003', bundle='trial', cls='newspaper',
+            pieces=(
+                dict(name='masthead', box=(6, 14, 176, 37), mask=dict(box=(6, 14, 176, 37), thr=30, k=9, grow=2),
+                     paper=dict(kind='lerp', ya=15, yb=36, rows=(14, 37)),
+                     alpha=dict(kind='dark', hd=(330, 70, 1140, 176), ker=61),
+                     place=dict(s=4.875, left=11.0, base=34.0, ref_x=351, ref_base=168), ink=(38, 38, 38), gamma=0.85),
+                dict(name='tag', box=(181, 32, 253, 44), mask=dict(box=(181, 33, 253, 44), thr=40, k=7, grow=1, chroma=14),
+                     paper=dict(kind='row', src=32, rows=(32, 43), edge=43),
+                     alpha=dict(kind='green', hd=(1264, 152, 1612, 211)),
+                     place=dict(s=4.95, left=182.0, base=41.0, ref_x=1268, ref_base=201), ink=(156, 70, 70), gamma=0.65),
+                dict(name='headline', box=(6, 49, 253, 75), mask=dict(box=(6, 50, 253, 75), thr=30, k=9, grow=2),
+                     paper=dict(kind='lerp', ya=49, yb=74, rows=(49, 75)),
+                     alpha=dict(kind='dark', hd=(260, 235, 1650, 398), ker=61),
+                     place=dict(s=109.0 / 17.0, centre=128.5, base=68.0, ref_x=280, ref_base=359), ink=(38, 38, 38), gamma=0.85),
+            ),
+            patches=('newspaper_patch_2',),               # the greeked column lines where the sub-line was, box (6, 75, 99, 103)
+            sha='06816d2ed4a73637b2fa1694ac0ce8ab2de5c7d3921dfe9bc88c17272eaf72dc',
+            pal_sha='f799c20957056c693a2b900eda75d83b263c706e34681809d3be25c0bbfb0b71'),
+    # "Yatagarasu Sends Card to Embassy!": the masthead only (the tag "Evening Edition" is the same wording, left as it is). The paper
+    # under the old letters is the `median` kind: the clean rows 10..13 per column plus a vertical gradient. The lettering is at
+    # Capcom's own scale (5.33 texel per picture pixel), left edge x 6.5, baseline row boundary 30.5.
+    6: dict(texture='cut00_005_eng', jp='cut00_005', bundle='trial', cls='newspaper',
+            pieces=(
+                dict(name='masthead', box=(6, 12, 176, 33), mask=dict(box=(6, 12, 176, 33), thr=30, k=9, grow=2),
+                     paper=dict(kind='median', refrows=(10, 11, 12, 13), lum=150, rows=(12, 33)),
+                     alpha=dict(kind='dark', hd=(90, 128, 1010, 236), ker=61),
+                     place=dict(s=5.33, left=6.5, base=30.5, ref_x=114, ref_base=225), ink=(8.842105263157896,) * 3, gamma=0.85),
+            ),
+            sha='e3c4cb8e7c00afebd42348226b11f008379ff57515f06e2548210cfe897911c9',
+            pal_sha='2ddb07656b883f114ee4b0307251a274fedd33fc0385c57c1bee31c2657e8f1b'),
+    # "The Yatagarasu Reappears!": the front paper's masthead only. Capcom's thirteen letters are warped through a homography onto the
+    # page curl and the paper under the old ones was inpainted, neither of which the public build can do (no OpenCV, no inpainting
+    # model), so the whole masthead box is a baked block of picture indices (tools/newspaper_patch_20.py): no texture is read.
+    20: dict(texture=None, jp=None, cls='newspaper', pieces=(),
+             patches=('newspaper_patch_20',),             # box (34, 6, 184, 60)
+             sha='f2b03bccb1031b192483974ad0b89e3fd5f50183af9cb76c4173a0bd7e7a2562',
+             pal_sha='4b1e4117a8523a58ef5883e435529b11c3a64f9e469137398581257d78b44980'),
+}
+
+
 UPCUT_LOCALS = {
     224: dict(texture='cut03_017_eng', jp='cut03_017', box=(79, 136, 194, 180), rect=True, cls='notebook',
               sha='b5fc75e610ae4c240cc8bd9a32347ee6589de5d274a520e1997947c5b845beaa', pal_sha='a847ac39898a5a871016d36b3605981fbdf1cf80f490a72dcd64b8302bbab046'),
@@ -761,6 +851,19 @@ ICON_PICS = {
                        ink=2, half=3, cls='weights',
                        sha='b130252958eef02a90ca192490d286903ac364b8a2ea2a6a241cd33bcf2df4eb',
                        pal_sha='7354edb45f537c817acbd465af15fa116c1e7661b4dbfe7f8aa953ba7ac4b812'),
+    # the newspaper icon (Daily Express -> Mercurial News, headline "President of Zheng Fa to Visit"): Capcom's lettering from the
+    # 300 x 300 trial-bundle texture, area-averaged into the icon and snapped to the icon's own 16 colours (tools/newspaper.py
+    # paint_icon). Two boxes change (x0, y0, x1, y1): the masthead and the headline; `old` is the box around both.
+    (IDCOM, 137): dict(pal=136, cls='newsicon', texture='itm00_002_00_l_eng', old=(3, 11, 63, 26),
+                       floor=0.15, gamma=0.6, ink=(50, 50, 50),
+                       pieces=(
+                           dict(name='masthead', box=(3, 11, 51, 17), paper=('index', 15), hd=(14, 48, 196, 78), ker=21, noise=0.06,
+                                s=1 / 0.27, left=3.5, base=16.0, ref_base=71),
+                           dict(name='headline', box=(3, 20, 63, 26), paper=('row', 20), hd=(3, 84, 297, 121), ker=21, noise=0.06,
+                                s=1 / 0.1826, left=6.5, base=24.8, ref_base=112),
+                       ),
+                       sha='d7a17b13c94d1587bcb2d1d1eb2e2ff8e384cda587d24d32f0c8510acef7ac14',
+                       pal_sha='5736455f2874d06147fb740ca91c15ae9433fe2a439d4198d71823e151776285'),
     (LOGICKW, 82): dict(pal=83, face=(17, 19, 35, 32), face_idx=6, old=(18, 20, 34, 32), box=(18, 24, 16, 6),
                         ink=2, half=3, cls='weights',
                         sha='324c44e1ebb1ecb16512b12b2cd48fbb1a9b3398d44a400c535d972af741723e',
@@ -837,7 +940,7 @@ def patch_upcut(upcut_bytes, fan_upcut_bytes, cov, classes, dumpdir):
     idl = cs.Idlocal(upcut_bytes)
     repl, changed_px = {}, {}
     reg = None
-    for e, spec in sorted(list(UPCUT_PICS.items()) + list(UPCUT_SWAPS.items()) + list(UPCUT_LOCALS.items()) + list(BUBBLES.items()) + list(BANNERS.items())):
+    for e, spec in sorted(list(UPCUT_PICS.items()) + list(UPCUT_SWAPS.items()) + list(UPCUT_LOCALS.items()) + list(BUBBLES.items()) + list(BANNERS.items()) + list(NEWSPAPERS.items())):
         if spec['cls'] not in classes:
             continue
         gfx, palb = _content(idl, e), _content(idl, e + 1)
@@ -845,6 +948,7 @@ def patch_upcut(upcut_bytes, fan_upcut_bytes, cov, classes, dumpdir):
             if hashlib.sha256(blob).hexdigest() != want:
                 raise ItemError('upcut_local entry %d (%s) is not the fan\'s picture' % (e + (what == 'palette'), what))
         pal = nclr(palb)
+        npal = len(pal)
         pal = np.array(pal + [(255, 0, 255)] * (256 - len(pal)), np.float64)
         grid = pic_grid(gfx)
         if e in UPCUT_LOCALS:
@@ -853,6 +957,10 @@ def patch_upcut(upcut_bytes, fan_upcut_bytes, cov, classes, dumpdir):
                 new = swap_patches(new, pal, load_texture(dumpdir, spec['texture']), spec['patches'])
                 new = draw_plaques(new, pal, load_texture(dumpdir, spec['texture']), spec['patches'])
             changed = set(zip(*[a.tolist() for a in np.nonzero((new != grid).T)]))
+        elif e in NEWSPAPERS:
+            import newspaper
+            new = newspaper.paint_news(grid, pal[:npal], load_texture(dumpdir, spec['texture']) if spec['texture'] else None, spec)
+            changed = {(int(x), int(y)) for y, x in zip(*np.nonzero(new != grid))}
         elif e in BANNERS:
             new, _ink = paint_banner(grid, pal, load_texture(dumpdir, spec['texture']), spec)
             changed = {(int(x), int(y)) for y, x in zip(*np.nonzero(new != grid))}
@@ -893,7 +1001,7 @@ def patch_upcut(upcut_bytes, fan_upcut_bytes, cov, classes, dumpdir):
     return out, res
 
 
-def patch_icons(container, name, cov, classes, rom=None):
+def patch_icons(container, name, cov, classes, rom=None, dumpdir=None):
     """In place, as idcom_icons does: -> (new container bytes, {entry: (decoded, stored, fan stored, changed px)})."""
     import choice_strips as cs
     import idcom_icons as I
@@ -928,6 +1036,17 @@ def patch_icons(container, name, cov, classes, rom=None):
                     d[0] = 1e18
                     new[yy, xx] = int(d.argmin())
             changed = {(xx, yy) for yy in range(y0, y1) for xx in range(x0, x1) if new[yy, xx] != grid[yy, xx]}
+        elif spec['cls'] == 'newsicon':
+            import newspaper
+            if not dumpdir:
+                raise ItemError('%s entry %d needs the texture %s and no dump folder was given' % (name, e, spec['texture']))
+            try:
+                tex = I.load_texture(dumpdir, spec['texture'])
+            except I.IconError as ex:
+                # apply_to_rom (and --any-rom) only know ItemError, as in _load_cov
+                raise ItemError(str(ex))
+            new = newspaper.paint_icon(grid, np.array(nclr(pal_e), np.float64), tex, spec)
+            changed = {(int(x), int(y)) for y, x in zip(*np.nonzero(new != grid))}
         else:
             new, changed = reletter_icon(grid, np.array(nclr(pal_e), np.uint8), spec, cov)
         if (new == 0).any():
@@ -957,8 +1076,8 @@ def apply_to_rom(rom, dumpdir, log=None, any_rom=False, classes=None):
         cov = _load_cov(dumpdir)
         fan_up = open(os.path.join(dumpdir, 'ds_fan', 'jpn', 'upcut_local.bin'), 'rb').read()
         new_up, up_res = patch_upcut(rom_file(rom, UPCUT), fan_up, cov, classes, dumpdir)
-        new_ic, ic_res = patch_icons(rom_file(rom, IDCOM), IDCOM, cov, classes, rom)
-        new_lk, lk_res = patch_icons(rom_file(rom, LOGICKW), LOGICKW, cov, classes, rom)
+        new_ic, ic_res = patch_icons(rom_file(rom, IDCOM), IDCOM, cov, classes, rom, dumpdir)
+        new_lk, lk_res = patch_icons(rom_file(rom, LOGICKW), LOGICKW, cov, classes, rom, dumpdir)
     except ItemError as e:
         if not any_rom:
             raise ItemError('%s (pass --any-rom to build without the item pictures)' % e)
@@ -973,4 +1092,4 @@ def apply_to_rom(rom, dumpdir, log=None, any_rom=False, classes=None):
     return rom, True
 
 
-CLASSES = ('weights', 'bigg', 'keycard', 'notebook', 'tvsign', 'cookbook', 'berry', 'chess', 'news')
+CLASSES = ('weights', 'bigg', 'keycard', 'notebook', 'tvsign', 'cookbook', 'berry', 'chess', 'news', 'newspaper', 'newsicon')
